@@ -8,14 +8,15 @@ public class InventoryRepository : IInventoryRepository
     private static readonly List<InventoryItem> _inventory = new();
     private static int _nextId = 1;
 
-    public Task<List<InventoryItem>> GetAllAsync()
+    public Task<List<InventoryItem>> GetAllAsync(int companyId)
     {
-        return Task.FromResult(_inventory.ToList());
+        var results = _inventory.Where(i => i.CompanyId == companyId).ToList();
+        return Task.FromResult(results);
     }
 
-    public Task<InventoryItem?> GetByIdAsync(int id)
+    public Task<InventoryItem?> GetByIdAsync(int id, int companyId)
     {
-        var item = _inventory.FirstOrDefault(i => i.Id == id);
+        var item = _inventory.FirstOrDefault(i => i.Id == id && i.CompanyId == companyId);
         return Task.FromResult(item);
     }
 
@@ -28,9 +29,9 @@ public class InventoryRepository : IInventoryRepository
         return Task.FromResult(item);
     }
 
-    public Task<InventoryItem?> UpdateAsync(int id, InventoryItem item)
+    public Task<InventoryItem?> UpdateAsync(int id, InventoryItem item, int companyId)
     {
-        var existing = _inventory.FirstOrDefault(i => i.Id == id);
+        var existing = _inventory.FirstOrDefault(i => i.Id == id && i.CompanyId == companyId);
         if (existing == null)
         {
             return Task.FromResult<InventoryItem?>(null);
@@ -50,9 +51,9 @@ public class InventoryRepository : IInventoryRepository
         return Task.FromResult<InventoryItem?>(existing);
     }
 
-    public Task<bool> DeleteAsync(int id)
+    public Task<bool> DeleteAsync(int id, int companyId)
     {
-        var item = _inventory.FirstOrDefault(i => i.Id == id);
+        var item = _inventory.FirstOrDefault(i => i.Id == id && i.CompanyId == companyId);
         if (item == null)
         {
             return Task.FromResult(false);
@@ -62,22 +63,23 @@ public class InventoryRepository : IInventoryRepository
         return Task.FromResult(true);
     }
 
-    public Task<List<InventoryItem>> SearchAsync(string searchTerm)
+    public Task<List<InventoryItem>> SearchAsync(string searchTerm, int companyId)
     {
         var term = searchTerm.ToLowerInvariant();
         var results = _inventory.Where(i =>
-            i.Name.ToLowerInvariant().Contains(term) ||
+            i.CompanyId == companyId &&
+            (i.Name.ToLowerInvariant().Contains(term) ||
             i.Category.ToLowerInvariant().Contains(term) ||
             (i.Game != null && i.Game.Title.ToLowerInvariant().Contains(term)) ||
-            (i.Game != null && i.Game.Console.ToLowerInvariant().Contains(term))
+            (i.Game != null && i.Game.Console.ToLowerInvariant().Contains(term)))
         ).ToList();
 
         return Task.FromResult(results);
     }
 
-    public Task<bool> UpdateQuantityAsync(int id, int quantityChange)
+    public Task<bool> UpdateQuantityAsync(int id, int quantityChange, int companyId)
     {
-        var item = _inventory.FirstOrDefault(i => i.Id == id);
+        var item = _inventory.FirstOrDefault(i => i.Id == id && i.CompanyId == companyId);
         if (item == null)
         {
             return Task.FromResult(false);

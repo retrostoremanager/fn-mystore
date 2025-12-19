@@ -22,12 +22,12 @@ public class SalesService : ISalesService
         _inventoryRepository = inventoryRepository;
     }
 
-    public async Task<ApiResponse<List<Sale>>> GetAllSalesAsync()
+    public async Task<ApiResponse<List<Sale>>> GetAllSalesAsync(int companyId)
     {
         try
         {
-            var sales = await _salesRepository.GetAllAsync();
-            await LoadRelatedDataAsync(sales);
+            var sales = await _salesRepository.GetAllAsync(companyId);
+            await LoadRelatedDataAsync(sales, companyId);
             return ApiResponse<List<Sale>>.SuccessResponse(sales);
         }
         catch (Exception ex)
@@ -39,17 +39,17 @@ public class SalesService : ISalesService
         }
     }
 
-    public async Task<ApiResponse<Sale>> GetSaleByIdAsync(int id)
+    public async Task<ApiResponse<Sale>> GetSaleByIdAsync(int id, int companyId)
     {
         try
         {
-            var sale = await _salesRepository.GetByIdAsync(id);
+            var sale = await _salesRepository.GetByIdAsync(id, companyId);
             if (sale == null)
             {
                 return ApiResponse<Sale>.ErrorResponse($"Sale with ID {id} not found");
             }
 
-            await LoadRelatedDataAsync(new List<Sale> { sale });
+            await LoadRelatedDataAsync(new List<Sale> { sale }, companyId);
             return ApiResponse<Sale>.SuccessResponse(sale);
         }
         catch (Exception ex)
@@ -61,12 +61,12 @@ public class SalesService : ISalesService
         }
     }
 
-    public async Task<ApiResponse<List<Sale>>> GetSalesByCustomerIdAsync(int customerId)
+    public async Task<ApiResponse<List<Sale>>> GetSalesByCustomerIdAsync(int customerId, int companyId)
     {
         try
         {
-            var sales = await _salesRepository.GetByCustomerIdAsync(customerId);
-            await LoadRelatedDataAsync(sales);
+            var sales = await _salesRepository.GetByCustomerIdAsync(customerId, companyId);
+            await LoadRelatedDataAsync(sales, companyId);
             return ApiResponse<List<Sale>>.SuccessResponse(sales);
         }
         catch (Exception ex)
@@ -78,12 +78,12 @@ public class SalesService : ISalesService
         }
     }
 
-    public async Task<ApiResponse<List<Sale>>> GetSalesByDateRangeAsync(DateTime startDate, DateTime endDate)
+    public async Task<ApiResponse<List<Sale>>> GetSalesByDateRangeAsync(DateTime startDate, DateTime endDate, int companyId)
     {
         try
         {
-            var sales = await _salesRepository.GetByDateRangeAsync(startDate, endDate);
-            await LoadRelatedDataAsync(sales);
+            var sales = await _salesRepository.GetByDateRangeAsync(startDate, endDate, companyId);
+            await LoadRelatedDataAsync(sales, companyId);
             return ApiResponse<List<Sale>>.SuccessResponse(sales);
         }
         catch (Exception ex)
@@ -95,7 +95,7 @@ public class SalesService : ISalesService
         }
     }
 
-    public async Task<ApiResponse<Sale>> CreateSaleAsync(CreateSaleRequest request)
+    public async Task<ApiResponse<Sale>> CreateSaleAsync(CreateSaleRequest request, int companyId)
     {
         try
         {
@@ -105,17 +105,17 @@ public class SalesService : ISalesService
                 return ApiResponse<Sale>.ErrorResponse("Sale must have at least one item");
             }
 
-            // Verify customer exists
-            var customer = await _customerRepository.GetByIdAsync(request.CustomerId);
+            // Verify customer exists and belongs to company
+            var customer = await _customerRepository.GetByIdAsync(request.CustomerId, companyId);
             if (customer == null)
             {
                 return ApiResponse<Sale>.ErrorResponse($"Customer with ID {request.CustomerId} not found");
             }
 
-            // Verify employee exists if provided
+            // Verify employee exists if provided and belongs to company
             if (request.EmployeeId.HasValue)
             {
-                var employee = await _employeeRepository.GetByIdAsync(request.EmployeeId.Value);
+                var employee = await _employeeRepository.GetByIdAsync(request.EmployeeId.Value, companyId);
                 if (employee == null)
                 {
                     return ApiResponse<Sale>.ErrorResponse($"Employee with ID {request.EmployeeId.Value} not found");
@@ -124,6 +124,7 @@ public class SalesService : ISalesService
 
             var sale = new Sale
             {
+                CompanyId = companyId,
                 CustomerId = request.CustomerId,
                 EmployeeId = request.EmployeeId,
                 PaymentMethod = request.PaymentMethod,
@@ -136,8 +137,8 @@ public class SalesService : ISalesService
             // Process each sale item
             foreach (var itemRequest in request.Items)
             {
-                // Verify inventory item exists and has sufficient quantity
-                var inventoryItem = await _inventoryRepository.GetByIdAsync(itemRequest.InventoryItemId);
+                // Verify inventory item exists, belongs to company, and has sufficient quantity
+                var inventoryItem = await _inventoryRepository.GetByIdAsync(itemRequest.InventoryItemId, companyId);
                 if (inventoryItem == null)
                 {
                     return ApiResponse<Sale>.ErrorResponse($"Inventory item with ID {itemRequest.InventoryItemId} not found");
@@ -162,14 +163,14 @@ public class SalesService : ISalesService
                 subtotal += saleItem.TotalPrice;
 
                 // Update inventory quantity
-                await _inventoryRepository.UpdateQuantityAsync(itemRequest.InventoryItemId, -itemRequest.Quantity);
+                await _inventoryRepository.UpdateQuantityAsync(itemRequest.InventoryItemId, -itemRequest.Quantity, companyId);
             }
 
             sale.Subtotal = subtotal;
             sale.Total = subtotal + request.Tax;
 
             var created = await _salesRepository.CreateAsync(sale);
-            await LoadRelatedDataAsync(new List<Sale> { created });
+            await LoadRelatedDataAsync(new List<Sale> { created }, companyId);
 
             return ApiResponse<Sale>.SuccessResponse(created, "Sale created successfully");
         }
@@ -182,11 +183,11 @@ public class SalesService : ISalesService
         }
     }
 
-    public async Task<ApiResponse<bool>> DeleteSaleAsync(int id)
+    public async Task<ApiResponse<bool>> DeleteSaleAsync(int id, int companyId)
     {
         try
         {
-            var result = await _salesRepository.DeleteAsync(id);
+            var result = await _salesRepository.DeleteAsync(id, companyId);
             if (!result)
             {
                 return ApiResponse<bool>.ErrorResponse($"Sale with ID {id} not found");
@@ -203,28 +204,28 @@ public class SalesService : ISalesService
         }
     }
 
-    private async Task LoadRelatedDataAsync(List<Sale> sales)
+    private async Task LoadRelatedDataAsync(List<Sale> sales, int companyId)
     {
         foreach (var sale in sales)
         {
-            // Load customer
+            // Load customer (must belong to same company)
             if (sale.CustomerId > 0)
             {
-                sale.Customer = await _customerRepository.GetByIdAsync(sale.CustomerId);
+                sale.Customer = await _customerRepository.GetByIdAsync(sale.CustomerId, companyId);
             }
 
-            // Load employee
+            // Load employee (must belong to same company)
             if (sale.EmployeeId.HasValue && sale.EmployeeId.Value > 0)
             {
-                sale.Employee = await _employeeRepository.GetByIdAsync(sale.EmployeeId.Value);
+                sale.Employee = await _employeeRepository.GetByIdAsync(sale.EmployeeId.Value, companyId);
             }
 
-            // Load inventory items for sale items
+            // Load inventory items for sale items (must belong to same company)
             foreach (var saleItem in sale.Items)
             {
                 if (saleItem.InventoryItemId > 0)
                 {
-                    saleItem.InventoryItem = await _inventoryRepository.GetByIdAsync(saleItem.InventoryItemId);
+                    saleItem.InventoryItem = await _inventoryRepository.GetByIdAsync(saleItem.InventoryItemId, companyId);
                 }
             }
         }

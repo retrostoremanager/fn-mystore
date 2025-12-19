@@ -7,20 +7,21 @@ public class EmployeeRepository : IEmployeeRepository
     private static readonly List<Employee> _employees = new();
     private static int _nextId = 1;
 
-    public Task<List<Employee>> GetAllAsync()
+    public Task<List<Employee>> GetAllAsync(int companyId)
     {
-        return Task.FromResult(_employees.ToList());
+        var results = _employees.Where(e => e.CompanyId == companyId).ToList();
+        return Task.FromResult(results);
     }
 
-    public Task<Employee?> GetByIdAsync(int id)
+    public Task<Employee?> GetByIdAsync(int id, int companyId)
     {
-        var employee = _employees.FirstOrDefault(e => e.Id == id);
+        var employee = _employees.FirstOrDefault(e => e.Id == id && e.CompanyId == companyId);
         return Task.FromResult(employee);
     }
 
-    public Task<Employee?> GetByEmailAsync(string email)
+    public Task<Employee?> GetByEmailAsync(string email, int companyId)
     {
-        var employee = _employees.FirstOrDefault(e => e.Email.Equals(email, StringComparison.OrdinalIgnoreCase));
+        var employee = _employees.FirstOrDefault(e => e.Email.Equals(email, StringComparison.OrdinalIgnoreCase) && e.CompanyId == companyId);
         return Task.FromResult(employee);
     }
 
@@ -33,9 +34,9 @@ public class EmployeeRepository : IEmployeeRepository
         return Task.FromResult(employee);
     }
 
-    public Task<Employee?> UpdateAsync(int id, Employee employee)
+    public Task<Employee?> UpdateAsync(int id, Employee employee, int companyId)
     {
-        var existing = _employees.FirstOrDefault(e => e.Id == id);
+        var existing = _employees.FirstOrDefault(e => e.Id == id && e.CompanyId == companyId);
         if (existing == null)
         {
             return Task.FromResult<Employee?>(null);
@@ -52,9 +53,9 @@ public class EmployeeRepository : IEmployeeRepository
         return Task.FromResult<Employee?>(existing);
     }
 
-    public Task<bool> DeleteAsync(int id)
+    public Task<bool> DeleteAsync(int id, int companyId)
     {
-        var employee = _employees.FirstOrDefault(e => e.Id == id);
+        var employee = _employees.FirstOrDefault(e => e.Id == id && e.CompanyId == companyId);
         if (employee == null)
         {
             return Task.FromResult(false);
@@ -64,14 +65,15 @@ public class EmployeeRepository : IEmployeeRepository
         return Task.FromResult(true);
     }
 
-    public Task<List<Employee>> SearchAsync(string searchTerm)
+    public Task<List<Employee>> SearchAsync(string searchTerm, int companyId)
     {
         var term = searchTerm.ToLowerInvariant();
         var results = _employees.Where(e =>
-            e.FirstName.ToLowerInvariant().Contains(term) ||
+            e.CompanyId == companyId &&
+            (e.FirstName.ToLowerInvariant().Contains(term) ||
             e.LastName.ToLowerInvariant().Contains(term) ||
             e.Email.ToLowerInvariant().Contains(term) ||
-            e.Role.ToLowerInvariant().Contains(term)
+            e.Role.ToLowerInvariant().Contains(term))
         ).ToList();
 
         return Task.FromResult(results);

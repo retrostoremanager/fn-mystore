@@ -12,11 +12,11 @@ public class CustomerService : ICustomerService
         _repository = repository;
     }
 
-    public async Task<ApiResponse<List<Customer>>> GetAllCustomersAsync()
+    public async Task<ApiResponse<List<Customer>>> GetAllCustomersAsync(int companyId)
     {
         try
         {
-            var customers = await _repository.GetAllAsync();
+            var customers = await _repository.GetAllAsync(companyId);
             return ApiResponse<List<Customer>>.SuccessResponse(customers);
         }
         catch (Exception ex)
@@ -28,11 +28,11 @@ public class CustomerService : ICustomerService
         }
     }
 
-    public async Task<ApiResponse<Customer>> GetCustomerByIdAsync(int id)
+    public async Task<ApiResponse<Customer>> GetCustomerByIdAsync(int id, int companyId)
     {
         try
         {
-            var customer = await _repository.GetByIdAsync(id);
+            var customer = await _repository.GetByIdAsync(id, companyId);
             if (customer == null)
             {
                 return ApiResponse<Customer>.ErrorResponse($"Customer with ID {id} not found");
@@ -49,7 +49,7 @@ public class CustomerService : ICustomerService
         }
     }
 
-    public async Task<ApiResponse<Customer>> CreateCustomerAsync(CreateCustomerRequest request)
+    public async Task<ApiResponse<Customer>> CreateCustomerAsync(CreateCustomerRequest request, int companyId)
     {
         try
         {
@@ -69,8 +69,8 @@ public class CustomerService : ICustomerService
                 return ApiResponse<Customer>.ErrorResponse("Email is required");
             }
 
-            // Check if email already exists
-            var existing = await _repository.GetByEmailAsync(request.Email);
+            // Check if email already exists for this company
+            var existing = await _repository.GetByEmailAsync(request.Email, companyId);
             if (existing != null)
             {
                 return ApiResponse<Customer>.ErrorResponse("A customer with this email already exists");
@@ -78,6 +78,7 @@ public class CustomerService : ICustomerService
 
             var customer = new Customer
             {
+                CompanyId = companyId,
                 FirstName = request.FirstName,
                 LastName = request.LastName,
                 Email = request.Email,
@@ -100,11 +101,11 @@ public class CustomerService : ICustomerService
         }
     }
 
-    public async Task<ApiResponse<Customer>> UpdateCustomerAsync(int id, UpdateCustomerRequest request)
+    public async Task<ApiResponse<Customer>> UpdateCustomerAsync(int id, UpdateCustomerRequest request, int companyId)
     {
         try
         {
-            var existing = await _repository.GetByIdAsync(id);
+            var existing = await _repository.GetByIdAsync(id, companyId);
             if (existing == null)
             {
                 return ApiResponse<Customer>.ErrorResponse($"Customer with ID {id} not found");
@@ -126,7 +127,7 @@ public class CustomerService : ICustomerService
                 // Check if email is being changed and if new email already exists
                 if (existing.Email != request.Email)
                 {
-                    var emailExists = await _repository.GetByEmailAsync(request.Email);
+                    var emailExists = await _repository.GetByEmailAsync(request.Email, companyId);
                     if (emailExists != null && emailExists.Id != id)
                     {
                         return ApiResponse<Customer>.ErrorResponse("A customer with this email already exists");
@@ -160,7 +161,7 @@ public class CustomerService : ICustomerService
                 existing.ZipCode = request.ZipCode;
             }
 
-            var updated = await _repository.UpdateAsync(id, existing);
+            var updated = await _repository.UpdateAsync(id, existing, companyId);
             if (updated == null)
             {
                 return ApiResponse<Customer>.ErrorResponse($"Failed to update customer with ID {id}");
@@ -177,11 +178,11 @@ public class CustomerService : ICustomerService
         }
     }
 
-    public async Task<ApiResponse<bool>> DeleteCustomerAsync(int id)
+    public async Task<ApiResponse<bool>> DeleteCustomerAsync(int id, int companyId)
     {
         try
         {
-            var result = await _repository.DeleteAsync(id);
+            var result = await _repository.DeleteAsync(id, companyId);
             if (!result)
             {
                 return ApiResponse<bool>.ErrorResponse($"Customer with ID {id} not found");
@@ -198,16 +199,16 @@ public class CustomerService : ICustomerService
         }
     }
 
-    public async Task<ApiResponse<List<Customer>>> SearchCustomersAsync(string searchTerm)
+    public async Task<ApiResponse<List<Customer>>> SearchCustomersAsync(string searchTerm, int companyId)
     {
         try
         {
             if (string.IsNullOrWhiteSpace(searchTerm))
             {
-                return await GetAllCustomersAsync();
+                return await GetAllCustomersAsync(companyId);
             }
 
-            var results = await _repository.SearchAsync(searchTerm);
+            var results = await _repository.SearchAsync(searchTerm, companyId);
             return ApiResponse<List<Customer>>.SuccessResponse(results);
         }
         catch (Exception ex)

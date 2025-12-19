@@ -7,20 +7,21 @@ public class CustomerRepository : ICustomerRepository
     private static readonly List<Customer> _customers = new();
     private static int _nextId = 1;
 
-    public Task<List<Customer>> GetAllAsync()
+    public Task<List<Customer>> GetAllAsync(int companyId)
     {
-        return Task.FromResult(_customers.ToList());
+        var results = _customers.Where(c => c.CompanyId == companyId).ToList();
+        return Task.FromResult(results);
     }
 
-    public Task<Customer?> GetByIdAsync(int id)
+    public Task<Customer?> GetByIdAsync(int id, int companyId)
     {
-        var customer = _customers.FirstOrDefault(c => c.Id == id);
+        var customer = _customers.FirstOrDefault(c => c.Id == id && c.CompanyId == companyId);
         return Task.FromResult(customer);
     }
 
-    public Task<Customer?> GetByEmailAsync(string email)
+    public Task<Customer?> GetByEmailAsync(string email, int companyId)
     {
-        var customer = _customers.FirstOrDefault(c => c.Email.Equals(email, StringComparison.OrdinalIgnoreCase));
+        var customer = _customers.FirstOrDefault(c => c.Email.Equals(email, StringComparison.OrdinalIgnoreCase) && c.CompanyId == companyId);
         return Task.FromResult(customer);
     }
 
@@ -33,9 +34,9 @@ public class CustomerRepository : ICustomerRepository
         return Task.FromResult(customer);
     }
 
-    public Task<Customer?> UpdateAsync(int id, Customer customer)
+    public Task<Customer?> UpdateAsync(int id, Customer customer, int companyId)
     {
-        var existing = _customers.FirstOrDefault(c => c.Id == id);
+        var existing = _customers.FirstOrDefault(c => c.Id == id && c.CompanyId == companyId);
         if (existing == null)
         {
             return Task.FromResult<Customer?>(null);
@@ -54,9 +55,9 @@ public class CustomerRepository : ICustomerRepository
         return Task.FromResult<Customer?>(existing);
     }
 
-    public Task<bool> DeleteAsync(int id)
+    public Task<bool> DeleteAsync(int id, int companyId)
     {
-        var customer = _customers.FirstOrDefault(c => c.Id == id);
+        var customer = _customers.FirstOrDefault(c => c.Id == id && c.CompanyId == companyId);
         if (customer == null)
         {
             return Task.FromResult(false);
@@ -66,14 +67,15 @@ public class CustomerRepository : ICustomerRepository
         return Task.FromResult(true);
     }
 
-    public Task<List<Customer>> SearchAsync(string searchTerm)
+    public Task<List<Customer>> SearchAsync(string searchTerm, int companyId)
     {
         var term = searchTerm.ToLowerInvariant();
         var results = _customers.Where(c =>
-            c.FirstName.ToLowerInvariant().Contains(term) ||
+            c.CompanyId == companyId &&
+            (c.FirstName.ToLowerInvariant().Contains(term) ||
             c.LastName.ToLowerInvariant().Contains(term) ||
             c.Email.ToLowerInvariant().Contains(term) ||
-            (c.Phone != null && c.Phone.Contains(term))
+            (c.Phone != null && c.Phone.Contains(term)))
         ).ToList();
 
         return Task.FromResult(results);

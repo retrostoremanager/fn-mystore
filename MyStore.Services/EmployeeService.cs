@@ -12,11 +12,11 @@ public class EmployeeService : IEmployeeService
         _repository = repository;
     }
 
-    public async Task<ApiResponse<List<Employee>>> GetAllEmployeesAsync()
+    public async Task<ApiResponse<List<Employee>>> GetAllEmployeesAsync(int companyId)
     {
         try
         {
-            var employees = await _repository.GetAllAsync();
+            var employees = await _repository.GetAllAsync(companyId);
             return ApiResponse<List<Employee>>.SuccessResponse(employees);
         }
         catch (Exception ex)
@@ -28,11 +28,11 @@ public class EmployeeService : IEmployeeService
         }
     }
 
-    public async Task<ApiResponse<Employee>> GetEmployeeByIdAsync(int id)
+    public async Task<ApiResponse<Employee>> GetEmployeeByIdAsync(int id, int companyId)
     {
         try
         {
-            var employee = await _repository.GetByIdAsync(id);
+            var employee = await _repository.GetByIdAsync(id, companyId);
             if (employee == null)
             {
                 return ApiResponse<Employee>.ErrorResponse($"Employee with ID {id} not found");
@@ -49,7 +49,7 @@ public class EmployeeService : IEmployeeService
         }
     }
 
-    public async Task<ApiResponse<Employee>> CreateEmployeeAsync(CreateEmployeeRequest request)
+    public async Task<ApiResponse<Employee>> CreateEmployeeAsync(CreateEmployeeRequest request, int companyId)
     {
         try
         {
@@ -74,8 +74,8 @@ public class EmployeeService : IEmployeeService
                 return ApiResponse<Employee>.ErrorResponse("Role is required");
             }
 
-            // Check if email already exists
-            var existing = await _repository.GetByEmailAsync(request.Email);
+            // Check if email already exists for this company
+            var existing = await _repository.GetByEmailAsync(request.Email, companyId);
             if (existing != null)
             {
                 return ApiResponse<Employee>.ErrorResponse("An employee with this email already exists");
@@ -83,6 +83,7 @@ public class EmployeeService : IEmployeeService
 
             var employee = new Employee
             {
+                CompanyId = companyId,
                 FirstName = request.FirstName,
                 LastName = request.LastName,
                 Email = request.Email,
@@ -104,11 +105,11 @@ public class EmployeeService : IEmployeeService
         }
     }
 
-    public async Task<ApiResponse<Employee>> UpdateEmployeeAsync(int id, UpdateEmployeeRequest request)
+    public async Task<ApiResponse<Employee>> UpdateEmployeeAsync(int id, UpdateEmployeeRequest request, int companyId)
     {
         try
         {
-            var existing = await _repository.GetByIdAsync(id);
+            var existing = await _repository.GetByIdAsync(id, companyId);
             if (existing == null)
             {
                 return ApiResponse<Employee>.ErrorResponse($"Employee with ID {id} not found");
@@ -130,7 +131,7 @@ public class EmployeeService : IEmployeeService
                 // Check if email is being changed and if new email already exists
                 if (existing.Email != request.Email)
                 {
-                    var emailExists = await _repository.GetByEmailAsync(request.Email);
+                    var emailExists = await _repository.GetByEmailAsync(request.Email, companyId);
                     if (emailExists != null && emailExists.Id != id)
                     {
                         return ApiResponse<Employee>.ErrorResponse("An employee with this email already exists");
@@ -154,7 +155,7 @@ public class EmployeeService : IEmployeeService
                 existing.IsActive = request.IsActive.Value;
             }
 
-            var updated = await _repository.UpdateAsync(id, existing);
+            var updated = await _repository.UpdateAsync(id, existing, companyId);
             if (updated == null)
             {
                 return ApiResponse<Employee>.ErrorResponse($"Failed to update employee with ID {id}");
@@ -171,11 +172,11 @@ public class EmployeeService : IEmployeeService
         }
     }
 
-    public async Task<ApiResponse<bool>> DeleteEmployeeAsync(int id)
+    public async Task<ApiResponse<bool>> DeleteEmployeeAsync(int id, int companyId)
     {
         try
         {
-            var result = await _repository.DeleteAsync(id);
+            var result = await _repository.DeleteAsync(id, companyId);
             if (!result)
             {
                 return ApiResponse<bool>.ErrorResponse($"Employee with ID {id} not found");
@@ -192,16 +193,16 @@ public class EmployeeService : IEmployeeService
         }
     }
 
-    public async Task<ApiResponse<List<Employee>>> SearchEmployeesAsync(string searchTerm)
+    public async Task<ApiResponse<List<Employee>>> SearchEmployeesAsync(string searchTerm, int companyId)
     {
         try
         {
             if (string.IsNullOrWhiteSpace(searchTerm))
             {
-                return await GetAllEmployeesAsync();
+                return await GetAllEmployeesAsync(companyId);
             }
 
-            var results = await _repository.SearchAsync(searchTerm);
+            var results = await _repository.SearchAsync(searchTerm, companyId);
             return ApiResponse<List<Employee>>.SuccessResponse(results);
         }
         catch (Exception ex)
