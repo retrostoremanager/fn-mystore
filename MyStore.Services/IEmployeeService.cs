@@ -4,11 +4,11 @@ namespace MyStore.Services;
 
 public interface IEmployeeService
 {
-    Task<ApiResponse<List<Employee>>> GetAllEmployeesAsync();
-    Task<ApiResponse<Employee>> GetEmployeeByIdAsync(int id);
-    Task<ApiResponse<Employee>> CreateEmployeeAsync(CreateEmployeeRequest request);
-    Task<ApiResponse<Employee>> UpdateEmployeeAsync(int id, UpdateEmployeeRequest request);
-    Task<ApiResponse<bool>> DeleteEmployeeAsync(int id);
-    Task<ApiResponse<List<Employee>>> SearchEmployeesAsync(string searchTerm);
+    Task<ApiResponse<List<Employee>>> GetAllEmployeesAsync(int companyId);
+    Task<ApiResponse<Employee>> GetEmployeeByIdAsync(int id, int companyId);
+    Task<ApiResponse<Employee>> CreateEmployeeAsync(CreateEmployeeRequest request, int companyId);
+    Task<ApiResponse<Employee>> UpdateEmployeeAsync(int id, UpdateEmployeeRequest request, int companyId);
+    Task<ApiResponse<bool>> DeleteEmployeeAsync(int id, int companyId);
+    Task<ApiResponse<List<Employee>>> SearchEmployeesAsync(string searchTerm, int companyId);
 }
 

@@ -12,11 +12,11 @@ public class InventoryService : IInventoryService
         _repository = repository;
     }
 
-    public async Task<ApiResponse<List<InventoryItem>>> GetAllInventoryAsync()
+    public async Task<ApiResponse<List<InventoryItem>>> GetAllInventoryAsync(int companyId)
     {
         try
         {
-            var items = await _repository.GetAllAsync();
+            var items = await _repository.GetAllAsync(companyId);
             return ApiResponse<List<InventoryItem>>.SuccessResponse(items);
         }
         catch (Exception ex)
@@ -28,11 +28,11 @@ public class InventoryService : IInventoryService
         }
     }
 
-    public async Task<ApiResponse<InventoryItem>> GetInventoryByIdAsync(int id)
+    public async Task<ApiResponse<InventoryItem>> GetInventoryByIdAsync(int id, int companyId)
     {
         try
         {
-            var item = await _repository.GetByIdAsync(id);
+            var item = await _repository.GetByIdAsync(id, companyId);
             if (item == null)
             {
                 return ApiResponse<InventoryItem>.ErrorResponse($"Inventory item with ID {id} not found");
@@ -49,7 +49,7 @@ public class InventoryService : IInventoryService
         }
     }
 
-    public async Task<ApiResponse<InventoryItem>> CreateInventoryItemAsync(CreateInventoryItemRequest request)
+    public async Task<ApiResponse<InventoryItem>> CreateInventoryItemAsync(CreateInventoryItemRequest request, int companyId)
     {
         try
         {
@@ -71,6 +71,7 @@ public class InventoryService : IInventoryService
 
             var item = new InventoryItem
             {
+                CompanyId = companyId,
                 Name = request.Name,
                 Category = request.Category,
                 Quantity = request.Quantity,
@@ -96,11 +97,11 @@ public class InventoryService : IInventoryService
         }
     }
 
-    public async Task<ApiResponse<InventoryItem>> UpdateInventoryItemAsync(int id, UpdateInventoryItemRequest request)
+    public async Task<ApiResponse<InventoryItem>> UpdateInventoryItemAsync(int id, UpdateInventoryItemRequest request, int companyId)
     {
         try
         {
-            var existing = await _repository.GetByIdAsync(id);
+            var existing = await _repository.GetByIdAsync(id, companyId);
             if (existing == null)
             {
                 return ApiResponse<InventoryItem>.ErrorResponse($"Inventory item with ID {id} not found");
@@ -155,7 +156,7 @@ public class InventoryService : IInventoryService
                 existing.Notes = request.Notes;
             }
 
-            var updated = await _repository.UpdateAsync(id, existing);
+            var updated = await _repository.UpdateAsync(id, existing, companyId);
             if (updated == null)
             {
                 return ApiResponse<InventoryItem>.ErrorResponse($"Failed to update inventory item with ID {id}");
@@ -172,11 +173,11 @@ public class InventoryService : IInventoryService
         }
     }
 
-    public async Task<ApiResponse<bool>> DeleteInventoryItemAsync(int id)
+    public async Task<ApiResponse<bool>> DeleteInventoryItemAsync(int id, int companyId)
     {
         try
         {
-            var result = await _repository.DeleteAsync(id);
+            var result = await _repository.DeleteAsync(id, companyId);
             if (!result)
             {
                 return ApiResponse<bool>.ErrorResponse($"Inventory item with ID {id} not found");
@@ -193,16 +194,16 @@ public class InventoryService : IInventoryService
         }
     }
 
-    public async Task<ApiResponse<List<InventoryItem>>> SearchInventoryAsync(string searchTerm)
+    public async Task<ApiResponse<List<InventoryItem>>> SearchInventoryAsync(string searchTerm, int companyId)
     {
         try
         {
             if (string.IsNullOrWhiteSpace(searchTerm))
             {
-                return await GetAllInventoryAsync();
+                return await GetAllInventoryAsync(companyId);
             }
 
-            var results = await _repository.SearchAsync(searchTerm);
+            var results = await _repository.SearchAsync(searchTerm, companyId);
             return ApiResponse<List<InventoryItem>>.SuccessResponse(results);
         }
         catch (Exception ex)
@@ -214,11 +215,11 @@ public class InventoryService : IInventoryService
         }
     }
 
-    public async Task<ApiResponse<bool>> UpdateInventoryQuantityAsync(int id, int quantityChange)
+    public async Task<ApiResponse<bool>> UpdateInventoryQuantityAsync(int id, int quantityChange, int companyId)
     {
         try
         {
-            var result = await _repository.UpdateQuantityAsync(id, quantityChange);
+            var result = await _repository.UpdateQuantityAsync(id, quantityChange, companyId);
             if (!result)
             {
                 return ApiResponse<bool>.ErrorResponse($"Inventory item with ID {id} not found");

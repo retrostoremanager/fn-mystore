@@ -4,12 +4,12 @@ namespace MyStore.Repositories;
 
 public interface ICustomerRepository
 {
-    Task<List<Customer>> GetAllAsync();
-    Task<Customer?> GetByIdAsync(int id);
-    Task<Customer?> GetByEmailAsync(string email);
+    Task<List<Customer>> GetAllAsync(int companyId);
+    Task<Customer?> GetByIdAsync(int id, int companyId);
+    Task<Customer?> GetByEmailAsync(string email, int companyId);
     Task<Customer> CreateAsync(Customer customer);
-    Task<Customer?> UpdateAsync(int id, Customer customer);
-    Task<bool> DeleteAsync(int id);
-    Task<List<Customer>> SearchAsync(string searchTerm);
+    Task<Customer?> UpdateAsync(int id, Customer customer, int companyId);
+    Task<bool> DeleteAsync(int id, int companyId);
+    Task<List<Customer>> SearchAsync(string searchTerm, int companyId);
 }
 

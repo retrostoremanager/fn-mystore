@@ -7,32 +7,33 @@ public class SalesRepository : ISalesRepository
     private static readonly List<Sale> _sales = new();
     private static int _nextId = 1;
 
-    public Task<List<Sale>> GetAllAsync()
+    public Task<List<Sale>> GetAllAsync(int companyId)
     {
-        return Task.FromResult(_sales.ToList());
+        var results = _sales.Where(s => s.CompanyId == companyId).ToList();
+        return Task.FromResult(results);
     }
 
-    public Task<Sale?> GetByIdAsync(int id)
+    public Task<Sale?> GetByIdAsync(int id, int companyId)
     {
-        var sale = _sales.FirstOrDefault(s => s.Id == id);
+        var sale = _sales.FirstOrDefault(s => s.Id == id && s.CompanyId == companyId);
         return Task.FromResult(sale);
     }
 
-    public Task<List<Sale>> GetByCustomerIdAsync(int customerId)
+    public Task<List<Sale>> GetByCustomerIdAsync(int customerId, int companyId)
     {
-        var results = _sales.Where(s => s.CustomerId == customerId).ToList();
+        var results = _sales.Where(s => s.CustomerId == customerId && s.CompanyId == companyId).ToList();
         return Task.FromResult(results);
     }
 
-    public Task<List<Sale>> GetByEmployeeIdAsync(int employeeId)
+    public Task<List<Sale>> GetByEmployeeIdAsync(int employeeId, int companyId)
     {
-        var results = _sales.Where(s => s.EmployeeId == employeeId).ToList();
+        var results = _sales.Where(s => s.EmployeeId == employeeId && s.CompanyId == companyId).ToList();
         return Task.FromResult(results);
     }
 
-    public Task<List<Sale>> GetByDateRangeAsync(DateTime startDate, DateTime endDate)
+    public Task<List<Sale>> GetByDateRangeAsync(DateTime startDate, DateTime endDate, int companyId)
     {
-        var results = _sales.Where(s => s.SaleDate >= startDate && s.SaleDate <= endDate).ToList();
+        var results = _sales.Where(s => s.SaleDate >= startDate && s.SaleDate <= endDate && s.CompanyId == companyId).ToList();
         return Task.FromResult(results);
     }
 
@@ -52,9 +53,9 @@ public class SalesRepository : ISalesRepository
         return Task.FromResult(sale);
     }
 
-    public Task<bool> DeleteAsync(int id)
+    public Task<bool> DeleteAsync(int id, int companyId)
     {
-        var sale = _sales.FirstOrDefault(s => s.Id == id);
+        var sale = _sales.FirstOrDefault(s => s.Id == id && s.CompanyId == companyId);
         if (sale == null)
         {
             return Task.FromResult(false);
