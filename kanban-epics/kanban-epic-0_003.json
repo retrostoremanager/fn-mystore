@@ -1,0 +1,104 @@
+﻿{
+    "metadata":  {
+                     "description":  "Kanban board for Password Reset and Recovery Flow. Contains original epic task (as reference) and broken-down subtasks (1-2 day units). See ../KANBAN-BREAKDOWN-GUIDE.md for breakdown details.",
+                     "originalEffort":  5,
+                     "createdDate":  "2026-01-13",
+                     "version":  "2.0",
+                     "phase":  0,
+                     "epicTitle":  "Password Reset and Recovery Flow",
+                     "epic":  "Account Setup \u0026 Administration",
+                     "epicId":  "EPIC-0-003",
+                     "brokenDownTasks":  2,
+                     "totalEffort":  2,
+                     "note":  "This file contains the original epic task and 2 broken-down subtasks (1-2 day units)."
+                 },
+    "tasks":  [
+                  {
+                      "id":  "EPIC-0-003",
+                      "title":  "Password Reset and Recovery Flow",
+                      "description":  "Implement password reset functionality using Azure AD B2C password reset user flow with email-based recovery.",
+                      "userStory":  "As a user, I want to reset my password when I forget it so that I can regain access to my account without contacting support.",
+                      "acceptanceCriteria":  [
+                                                 "Given a user clicks \u0027Forgot Password\u0027, when they enter their registered email, then they receive a password reset email",
+                                                 "Given a user receives a password reset email, when they click the reset link, then they are directed to a secure password reset page",
+                                                 "Given a user is on the password reset page, when they enter a new password that meets requirements, then their password is updated and they can log in",
+                                                 "Given a user attempts to use an expired password reset link, when they try to reset, then they receive an error message and must request a new reset link",
+                                                 "Given a user requests password reset, when the email is not registered, then they receive a generic success message (for security, don\u0027t reveal if email exists)"
+                                             ],
+                      "status":  "backlog",
+                      "priority":  "must_have",
+                      "epic":  "Account Setup \u0026 Administration",
+                      "phase":  0,
+                      "dependencies":  [
+                                           "EPIC-0-002"
+                                       ],
+                      "effort":  5,
+                      "labels":  [
+                                     "authentication",
+                                     "security",
+                                     "azure",
+                                     "backend"
+                                 ],
+                      "businessValue":  "Reduces support burden and improves user experience by allowing self-service password recovery.",
+                      "technicalNotes":  "Uses Azure AD B2C password reset user flow. Reset links must expire after 1 hour. Tokens must be single-use.",
+                      "successMetrics":  [
+                                             "Password reset success rate: 85%+ of reset requests result in successful password change",
+                                             "Support tickets for password issues: \u003c5% of total support tickets"
+                                         ],
+                      "businessRules":  [
+                                            "Password reset links expire after 1 hour",
+                                            "Reset links can only be used once",
+                                            "New password must meet same requirements as initial password",
+                                            "Users cannot reuse their last 3 passwords"
+                                        ],
+                      "isParentEpic":  true,
+                      "note":  "This is the original epic task. The subtasks below break this down into 1-2 day units."
+                  },
+                  {
+                      "id":  "EPIC-0-003-001",
+                      "title":  "Password Reset Request Endpoint",
+                      "description":  "Create endpoint that accepts email and triggers password reset flow via Azure AD B2C.",
+                      "userStory":  "As a developer, I want a password reset endpoint so that users can request password resets.",
+                      "acceptanceCriteria":  [
+                                                 "Given password reset request, when email is provided, then reset flow is initiated via B2C",
+                                                 "Given reset request, when processed, then user receives password reset email from B2C",
+                                                 "Given reset request, when email doesn't exist, then generic success message is returned (security)",
+                                                 "Given rate limiting, when too many requests, then rate limit error is returned"
+                                             ],
+                      "status":  "backlog",
+                      "priority":  "must_have",
+                      "epic":  "Account Setup & Administration",
+                      "phase":  0,
+                      "dependencies":  ["EPIC-0-002-001"],
+                      "effort":  1,
+                      "labels":  ["password-reset", "backend"],
+                      "businessValue":  "Enables self-service password recovery.",
+                      "technicalNotes":  "Use Azure AD B2C password reset user flow. Implement rate limiting. Return generic response.",
+                      "successMetrics":  ["Reset requests processed in <2 seconds", "Rate limiting prevents abuse"],
+                      "businessRules":  ["Max 5 reset requests per hour per email", "Generic response for security (don't reveal if email exists)"]
+                  },
+                  {
+                      "id":  "EPIC-0-003-002",
+                      "title":  "Password Reset Completion Flow",
+                      "description":  "Handle password reset completion when user clicks reset link and sets new password.",
+                      "userStory":  "As a developer, I want to handle password reset completion so that users can set new passwords.",
+                      "acceptanceCriteria":  [
+                                                 "Given reset link, when clicked, then user is directed to B2C password reset page",
+                                                 "Given new password, when set, then password is validated against requirements",
+                                                 "Given password reset, when completed, then user can log in with new password",
+                                                 "Given reset link, when expired, then user is informed and can request new reset"
+                                             ],
+                      "status":  "backlog",
+                      "priority":  "must_have",
+                      "epic":  "Account Setup & Administration",
+                      "phase":  0,
+                      "dependencies":  ["EPIC-0-003-001"],
+                      "effort":  1,
+                      "labels":  ["password-reset", "b2c"],
+                      "businessValue":  "Completes password reset workflow.",
+                      "technicalNotes":  "Use B2C password reset user flow. Handle redirects. Validate password requirements.",
+                      "successMetrics":  ["100% of valid reset links allow password change", "Expired links handled gracefully"],
+                      "businessRules":  ["Reset links expire in 1 hour", "New password must meet same requirements as initial password"]
+                  }
+              ]
+}

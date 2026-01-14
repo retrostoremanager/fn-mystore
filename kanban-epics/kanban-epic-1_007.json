@@ -1,0 +1,62 @@
+﻿{
+    "metadata":  {
+                     "description":  "Kanban board for Bulk Inventory Import via CSV/Excel. Contains original epic task (as reference) and broken-down subtasks (1-2 day units). See ../KANBAN-BREAKDOWN-GUIDE.md for breakdown details.",
+                     "originalEffort":  13,
+                     "createdDate":  "2026-01-13",
+                     "version":  "2.0",
+                     "phase":  1,
+                     "epicTitle":  "Bulk Inventory Import via CSV/Excel",
+                     "epic":  "Intelligent Inventory Tracking",
+                     "epicId":  "EPIC-1-007",
+                     "note":  "This file contains the original epic task. Broken-down subtasks should be added based on KANBAN-BREAKDOWN-GUIDE.md"
+                 },
+    "tasks":  [
+                  {
+                      "id":  "EPIC-1-007",
+                      "title":  "Bulk Inventory Import via CSV/Excel",
+                      "description":  "Implement bulk import functionality allowing stores to upload CSV/Excel files to import large quantities of inventory items efficiently.",
+                      "userStory":  "As a store owner, I want to bulk import inventory from CSV/Excel so that I can efficiently set up my initial inventory without manual entry.",
+                      "acceptanceCriteria":  [
+                                                 "Given a user wants to import inventory, when they upload a CSV/Excel file, then the system validates the file format and structure",
+                                                 "Given a valid import file, when processed, then the system parses rows and creates inventory items",
+                                                 "Given import validation, when required fields are missing or invalid, then errors are reported with row numbers and specific issues",
+                                                 "Given import processing, when duplicate items are detected, then user is prompted to choose: skip, update, or create duplicate",
+                                                 "Given import completes, when finished, then user receives summary report showing: total rows, successful imports, errors, and skipped items",
+                                                 "Given import is in progress, when processing large files (1000+ rows), then progress indicator shows status and estimated completion time",
+                                                 "Given import errors, when errors occur, then user can download error report with details for correction and re-import"
+                                             ],
+                      "status":  "backlog",
+                      "priority":  "must_have",
+                      "epic":  "Intelligent Inventory Tracking",
+                      "phase":  1,
+                      "dependencies":  [
+                                           "EPIC-1-006"
+                                       ],
+                      "effort":  13,
+                      "labels":  [
+                                     "import",
+                                     "bulk",
+                                     "csv",
+                                     "excel",
+                                     "backend",
+                                     "frontend"
+                                 ],
+                      "businessValue":  "Dramatically reduces time to set up initial inventory. Essential for stores with large existing inventories.",
+                      "technicalNotes":  "Use library for CSV/Excel parsing (e.g., PapaParse, ExcelJS). Implement async processing for large files. Validate data before import. Provide template download. Store import history for audit.",
+                      "successMetrics":  [
+                                             "Import success rate: 95%+ of rows import successfully",
+                                             "Time saved: 80%+ reduction in inventory setup time vs. manual entry",
+                                             "Import usage: 70%+ of stores use bulk import for initial setup"
+                                         ],
+                      "businessRules":  [
+                                            "Required fields: Name, Condition, Quantity, Location, Cost (or Price)",
+                                            "File size limited to 10MB",
+                                            "Maximum 10,000 rows per import",
+                                            "Import must include CompanyId and LocationId for data isolation",
+                                            "Duplicate detection based on Name + Condition + Location"
+                                        ],
+                      "isParentEpic":  true,
+                      "note":  "This is the original epic task. The subtasks should be broken down into 1-2 day units based on KANBAN-BREAKDOWN-GUIDE.md"
+                  }
+              ]
+}

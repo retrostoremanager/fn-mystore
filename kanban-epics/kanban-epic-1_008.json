@@ -1,0 +1,61 @@
+﻿{
+    "metadata":  {
+                     "description":  "Kanban board for Optimized Inventory Search and Filtering. Contains original epic task (as reference) and broken-down subtasks (1-2 day units). See ../KANBAN-BREAKDOWN-GUIDE.md for breakdown details.",
+                     "originalEffort":  13,
+                     "createdDate":  "2026-01-13",
+                     "version":  "2.0",
+                     "phase":  1,
+                     "epicTitle":  "Optimized Inventory Search and Filtering",
+                     "epic":  "Intelligent Inventory Tracking",
+                     "epicId":  "EPIC-1-008",
+                     "note":  "This file contains the original epic task. Broken-down subtasks should be added based on KANBAN-BREAKDOWN-GUIDE.md"
+                 },
+    "tasks":  [
+                  {
+                      "id":  "EPIC-1-008",
+                      "title":  "Optimized Inventory Search and Filtering",
+                      "description":  "Implement high-performance inventory search with filtering by type, condition, price range, location, and other attributes. Must handle 10,000+ items efficiently.",
+                      "userStory":  "As a store employee, I want to quickly search and filter large inventories so that I can find items efficiently even with 10,000+ items.",
+                      "acceptanceCriteria":  [
+                                                 "Given inventory search, when user enters search terms, then results are returned in \u003c2 seconds even with 10,000+ items",
+                                                 "Given search functionality, when filtering by item type (game, card, console, etc.), then only matching items are shown",
+                                                 "Given search functionality, when filtering by condition, then only items with selected conditions are shown",
+                                                 "Given search functionality, when filtering by price range, then only items within price range are shown",
+                                                 "Given search results, when displayed, then pagination is used (50 items per page) for performance",
+                                                 "Given search, when multiple filters are applied, then all filters work together (AND logic)",
+                                                 "Given search performance, when 10,000+ items exist, then search completes without timeout or performance degradation"
+                                             ],
+                      "status":  "backlog",
+                      "priority":  "must_have",
+                      "epic":  "Intelligent Inventory Tracking",
+                      "phase":  1,
+                      "dependencies":  [
+                                           "EPIC-1-001",
+                                           "EPIC-1-006"
+                                       ],
+                      "effort":  13,
+                      "labels":  [
+                                     "search",
+                                     "performance",
+                                     "filtering",
+                                     "backend",
+                                     "frontend"
+                                 ],
+                      "businessValue":  "Enables efficient inventory management for large stores. Critical for user experience with large inventories.",
+                      "technicalNotes":  "Implement database indexes on searchable fields. Use full-text search where appropriate. Implement query optimization. Use pagination and lazy loading. Consider caching for frequent searches.",
+                      "successMetrics":  [
+                                             "Search performance: 95%+ of searches complete in \u003c2 seconds",
+                                             "Search accuracy: 98%+ of relevant items found in search results"
+                                         ],
+                      "businessRules":  [
+                                            "Search must support partial matches",
+                                            "Filters can be combined (AND logic)",
+                                            "Results must be paginated (50 items per page default)",
+                                            "Search must include CompanyId filter for data isolation",
+                                            "Search supports: name, SKU, barcode, description"
+                                        ],
+                      "isParentEpic":  true,
+                      "note":  "This is the original epic task. The subtasks should be broken down into 1-2 day units based on KANBAN-BREAKDOWN-GUIDE.md"
+                  }
+              ]
+}

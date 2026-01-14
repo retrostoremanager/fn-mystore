@@ -1,0 +1,59 @@
+﻿{
+    "metadata":  {
+                     "description":  "Kanban board for Channel-Specific Inventory Allocation. Contains original epic task (as reference) and broken-down subtasks (1-2 day units). See ../KANBAN-BREAKDOWN-GUIDE.md for breakdown details.",
+                     "originalEffort":  13,
+                     "createdDate":  "2026-01-13",
+                     "version":  "2.0",
+                     "phase":  4,
+                     "epicTitle":  "Channel-Specific Inventory Allocation",
+                     "epic":  "Multi-Channel Sales Support",
+                     "epicId":  "EPIC-4-003",
+                     "note":  "This file contains the original epic task. Broken-down subtasks should be added based on KANBAN-BREAKDOWN-GUIDE.md"
+                 },
+    "tasks":  [
+                  {
+                      "id":  "EPIC-4-003",
+                      "title":  "Channel-Specific Inventory Allocation",
+                      "description":  "Implement inventory allocation system allowing stores to reserve inventory for specific sales channels (in-store, online, marketplace).",
+                      "userStory":  "As a store owner, I want to allocate inventory to specific channels so that I can manage inventory across in-store and online sales without overselling.",
+                      "acceptanceCriteria":  [
+                                                 "Given inventory items, when allocating to channels, then store owner can set quantities reserved for each channel (in-store, online, marketplace)",
+                                                 "Given channel allocation, when inventory is allocated, then total allocation cannot exceed available quantity",
+                                                 "Given sales occur, when sale happens in a channel, then inventory is decremented from that channel\u0027s allocation",
+                                                 "Given channel inventory, when viewed, then each channel shows available quantity for that channel",
+                                                 "Given allocation changes, when allocations are updated, then changes are reflected immediately across all channels",
+                                                 "Given overselling prevention, when channel allocation is exhausted, then that channel shows out of stock even if other channels have inventory"
+                                             ],
+                      "status":  "backlog",
+                      "priority":  "should_have",
+                      "epic":  "Multi-Channel Sales Support",
+                      "phase":  4,
+                      "dependencies":  [
+                                           "EPIC-1-001",
+                                           "EPIC-4-001"
+                                       ],
+                      "effort":  13,
+                      "labels":  [
+                                     "inventory",
+                                     "allocation",
+                                     "channels",
+                                     "backend",
+                                     "frontend"
+                                 ],
+                      "businessValue":  "Prevents overselling across channels. Enables strategic inventory distribution.",
+                      "technicalNotes":  "Create ChannelAllocation table to track inventory per channel. Update inventory queries to consider channel allocations. Implement allocation validation.",
+                      "successMetrics":  [
+                                             "Overselling prevention: 100% of channel sales respect allocation limits",
+                                             "Allocation usage: 60%+ of multi-channel stores use channel allocation"
+                                         ],
+                      "businessRules":  [
+                                            "Total channel allocations cannot exceed available inventory",
+                                            "Default allocation: 100% to in-store if not specified",
+                                            "Allocations can be adjusted at any time",
+                                            "When channel allocation is 0, that channel shows out of stock"
+                                        ],
+                      "isParentEpic":  true,
+                      "note":  "This is the original epic task. The subtasks should be broken down into 1-2 day units based on KANBAN-BREAKDOWN-GUIDE.md"
+                  }
+              ]
+}

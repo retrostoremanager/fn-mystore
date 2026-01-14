@@ -1,0 +1,61 @@
+﻿{
+    "metadata":  {
+                     "description":  "Kanban board for 30-Day Free Trial Management System. Contains original epic task (as reference) and broken-down subtasks (1-2 day units). See ../KANBAN-BREAKDOWN-GUIDE.md for breakdown details.",
+                     "originalEffort":  8,
+                     "createdDate":  "2026-01-13",
+                     "version":  "2.0",
+                     "phase":  0,
+                     "epicTitle":  "30-Day Free Trial Management System",
+                     "epic":  "Account Setup \u0026 Administration",
+                     "epicId":  "EPIC-0-006",
+                     "note":  "This file contains the original epic task. Broken-down subtasks should be added based on KANBAN-BREAKDOWN-GUIDE.md"
+                 },
+    "tasks":  [
+                  {
+                      "id":  "EPIC-0-006",
+                      "title":  "30-Day Free Trial Management System",
+                      "description":  "Implement trial period tracking, trial expiration handling, payment collection prompts, and trial-to-paid conversion workflow.",
+                      "userStory":  "As a prospective store owner, I want to try the platform for 30 days without payment so that I can evaluate the platform before committing to a subscription.",
+                      "acceptanceCriteria":  [
+                                                 "Given a new account is created, when the account is activated, then a 30-day trial period starts automatically",
+                                                 "Given a user is in trial, when they access the platform, then they see their trial status and days remaining",
+                                                 "Given a trial is expiring in 7 days, when the user logs in, then they receive a notification to add payment method",
+                                                 "Given a trial expires, when payment method is on file, then subscription billing begins automatically",
+                                                 "Given a trial expires, when no payment method is on file, then access is restricted and user is prompted to add payment",
+                                                 "Given a trial user, when they add payment method during trial, then it is stored but not charged until trial ends",
+                                                 "Given a trial expires, when user doesn\u0027t add payment within 7 days, then account is suspended and data is retained for 30 days"
+                                             ],
+                      "status":  "backlog",
+                      "priority":  "must_have",
+                      "epic":  "Account Setup \u0026 Administration",
+                      "phase":  0,
+                      "dependencies":  [
+                                           "EPIC-0-001",
+                                           "EPIC-0-004"
+                                       ],
+                      "effort":  8,
+                      "labels":  [
+                                     "billing",
+                                     "trial",
+                                     "subscription",
+                                     "backend",
+                                     "frontend"
+                                 ],
+                      "businessValue":  "Reduces barrier to entry and increases customer acquisition. Allows stores to experience value before paying.",
+                      "technicalNotes":  "Track trial start date and expiration date. Implement scheduled jobs to check trial status. Send email notifications at 7 days, 3 days, and 1 day before expiration.",
+                      "successMetrics":  [
+                                             "Trial-to-paid conversion rate: 40%+ of trials convert to paid subscriptions",
+                                             "Payment setup before trial end: 60%+ of converting users add payment before trial expires"
+                                         ],
+                      "businessRules":  [
+                                            "Trial period is exactly 30 days from account activation",
+                                            "No payment required during trial period",
+                                            "Payment method must be added before trial ends for subscription to continue",
+                                            "Trial cannot be extended or restarted",
+                                            "All features are available during trial period"
+                                        ],
+                      "isParentEpic":  true,
+                      "note":  "This is the original epic task. The subtasks should be broken down into 1-2 day units based on KANBAN-BREAKDOWN-GUIDE.md"
+                  }
+              ]
+}

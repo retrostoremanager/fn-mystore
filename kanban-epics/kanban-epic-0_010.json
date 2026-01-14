@@ -1,0 +1,59 @@
+﻿{
+    "metadata":  {
+                     "description":  "Kanban board for Account Settings and Preferences Management. Contains original epic task (as reference) and broken-down subtasks (1-2 day units). See ../KANBAN-BREAKDOWN-GUIDE.md for breakdown details.",
+                     "originalEffort":  8,
+                     "createdDate":  "2026-01-13",
+                     "version":  "2.0",
+                     "phase":  0,
+                     "epicTitle":  "Account Settings and Preferences Management",
+                     "epic":  "Account Setup \u0026 Administration",
+                     "epicId":  "EPIC-0-010",
+                     "note":  "This file contains the original epic task. Broken-down subtasks should be added based on KANBAN-BREAKDOWN-GUIDE.md"
+                 },
+    "tasks":  [
+                  {
+                      "id":  "EPIC-0-010",
+                      "title":  "Account Settings and Preferences Management",
+                      "description":  "Implement account settings including email notification preferences, default settings (currency, date format), security settings, and data export options.",
+                      "userStory":  "As a store owner, I want to manage my account settings and preferences so that the system works the way I prefer and I control my data.",
+                      "acceptanceCriteria":  [
+                                                 "Given a store owner views account settings, when they access the page, then they see all configurable settings organized by category",
+                                                 "Given a store owner updates email notification preferences, when they save, then their preferences are stored and respected for future notifications",
+                                                 "Given a store owner sets default currency and date format, when saved, then these defaults are used throughout the system",
+                                                 "Given a store owner enables two-factor authentication, when configured, then 2FA is required for future logins",
+                                                 "Given a store owner requests data export, when processed, then they receive a downloadable file with all their data in JSON/CSV format",
+                                                 "Given a store owner deletes their account, when confirmed, then all data is deleted (or anonymized) after 30-day grace period"
+                                             ],
+                      "status":  "backlog",
+                      "priority":  "should_have",
+                      "epic":  "Account Setup \u0026 Administration",
+                      "phase":  0,
+                      "dependencies":  [
+                                           "EPIC-0-002",
+                                           "EPIC-0-007"
+                                       ],
+                      "effort":  8,
+                      "labels":  [
+                                     "settings",
+                                     "preferences",
+                                     "security",
+                                     "frontend",
+                                     "backend"
+                                 ],
+                      "businessValue":  "Improves user experience through customization and provides data portability. Enhances security with 2FA.",
+                      "technicalNotes":  "Store preferences in database. Implement 2FA using Azure AD B2C or TOTP. Data export should be async job. Account deletion requires soft delete with retention period.",
+                      "successMetrics":  [
+                                             "Settings usage: 70%+ of users customize at least one setting",
+                                             "2FA adoption: 30%+ of accounts enable 2FA"
+                                         ],
+                      "businessRules":  [
+                                            "Account deletion has 30-day grace period for recovery",
+                                            "Data export includes all user data except payment information",
+                                            "Currency and date format must be valid values",
+                                            "Email notification preferences can be granular (by notification type)"
+                                        ],
+                      "isParentEpic":  true,
+                      "note":  "This is the original epic task. The subtasks should be broken down into 1-2 day units based on KANBAN-BREAKDOWN-GUIDE.md"
+                  }
+              ]
+}

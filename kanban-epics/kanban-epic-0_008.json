@@ -1,0 +1,61 @@
+﻿{
+    "metadata":  {
+                     "description":  "Kanban board for User and Role Management System. Contains original epic task (as reference) and broken-down subtasks (1-2 day units). See ../KANBAN-BREAKDOWN-GUIDE.md for breakdown details.",
+                     "originalEffort":  13,
+                     "createdDate":  "2026-01-13",
+                     "version":  "2.0",
+                     "phase":  0,
+                     "epicTitle":  "User and Role Management System",
+                     "epic":  "Account Setup \u0026 Administration",
+                     "epicId":  "EPIC-0-008",
+                     "note":  "This file contains the original epic task. Broken-down subtasks should be added based on KANBAN-BREAKDOWN-GUIDE.md"
+                 },
+    "tasks":  [
+                  {
+                      "id":  "EPIC-0-008",
+                      "title":  "User and Role Management System",
+                      "description":  "Implement user management with role assignment (Owner, Manager, Employee, Cashier), permissions, and user invitation system.",
+                      "userStory":  "As a store owner, I want to add employees and assign them appropriate roles so that I can control access and permissions for different users.",
+                      "acceptanceCriteria":  [
+                                                 "Given a store owner wants to add a user, when they enter email and select a role, then an invitation email is sent and user account is created in pending state",
+                                                 "Given a user receives an invitation, when they accept and set up their account, then they gain access based on their assigned role",
+                                                 "Given a store owner views users, when they access the user management page, then they see all users with their roles and status",
+                                                 "Given a store owner wants to change a user\u0027s role, when they update the role, then permissions are immediately updated",
+                                                 "Given a store owner removes a user, when confirmed, then the user loses access and cannot log in",
+                                                 "Given a user with Employee role, when they attempt to access Manager-only features, then access is denied with appropriate message",
+                                                 "Given permissions are defined, when a user performs an action, then the system checks permissions before allowing the action"
+                                             ],
+                      "status":  "backlog",
+                      "priority":  "must_have",
+                      "epic":  "Account Setup \u0026 Administration",
+                      "phase":  0,
+                      "dependencies":  [
+                                           "EPIC-0-002",
+                                           "EPIC-0-007"
+                                       ],
+                      "effort":  13,
+                      "labels":  [
+                                     "authorization",
+                                     "rbac",
+                                     "user-management",
+                                     "backend",
+                                     "frontend"
+                                 ],
+                      "businessValue":  "Enables multi-user stores with appropriate access control. Critical for security and operational control.",
+                      "technicalNotes":  "Implement role-based access control (RBAC). Define permission matrix for each role. Use Azure AD B2C for user accounts. Store role assignments in database with company association.",
+                      "successMetrics":  [
+                                             "User invitation acceptance rate: 80%+ of invitations are accepted",
+                                             "Permission enforcement: 100% of unauthorized access attempts are blocked"
+                                         ],
+                      "businessRules":  [
+                                            "Each company must have at least one Owner role user",
+                                            "Owner role cannot be removed if it\u0027s the last Owner",
+                                            "Roles: Owner (full access), Manager (most access except billing), Employee (inventory and sales), Cashier (sales only)",
+                                            "User invitations expire after 7 days",
+                                            "Removed users\u0027 historical actions are preserved for audit"
+                                        ],
+                      "isParentEpic":  true,
+                      "note":  "This is the original epic task. The subtasks should be broken down into 1-2 day units based on KANBAN-BREAKDOWN-GUIDE.md"
+                  }
+              ]
+}

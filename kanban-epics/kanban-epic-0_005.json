@@ -1,0 +1,58 @@
+﻿{
+    "metadata":  {
+                     "description":  "Kanban board for Stripe Subscription Billing Management. Contains original epic task (as reference) and broken-down subtasks (1-2 day units). See ../KANBAN-BREAKDOWN-GUIDE.md for breakdown details.",
+                     "originalEffort":  13,
+                     "createdDate":  "2026-01-13",
+                     "version":  "2.0",
+                     "phase":  0,
+                     "epicTitle":  "Stripe Subscription Billing Management",
+                     "epic":  "Account Setup \u0026 Administration",
+                     "epicId":  "EPIC-0-005",
+                     "note":  "This file contains the original epic task. Broken-down subtasks should be added based on KANBAN-BREAKDOWN-GUIDE.md"
+                 },
+    "tasks":  [
+                  {
+                      "id":  "EPIC-0-005",
+                      "title":  "Stripe Subscription Billing Management",
+                      "description":  "Implement subscription billing through Stripe including subscription creation, tier management, billing cycle handling, and automatic renewals.",
+                      "userStory":  "As a store owner, I want my subscription to be automatically billed so that I don\u0027t have to manually manage payments and my service continues uninterrupted.",
+                      "acceptanceCriteria":  [
+                                                 "Given a store owner completes trial, when trial ends, then Stripe automatically creates a subscription and charges the payment method on file",
+                                                 "Given a subscription is active, when the billing cycle date arrives, then Stripe automatically charges the payment method and subscription continues",
+                                                 "Given a subscription payment fails, when Stripe retries fail, then the subscription is marked as past_due and the store owner is notified",
+                                                 "Given a store owner upgrades/downgrades subscription, when the change is processed, then prorated billing is calculated and applied correctly",
+                                                 "Given a subscription is cancelled, when the current billing period ends, then access is maintained until period end and then revoked",
+                                                 "Given subscription events occur, when Stripe sends webhooks, then the system processes them correctly and updates subscription status"
+                                             ],
+                      "status":  "backlog",
+                      "priority":  "must_have",
+                      "epic":  "Account Setup \u0026 Administration",
+                      "phase":  0,
+                      "dependencies":  [
+                                           "EPIC-0-004"
+                                       ],
+                      "effort":  13,
+                      "labels":  [
+                                     "payment",
+                                     "stripe",
+                                     "billing",
+                                     "backend",
+                                     "webhooks"
+                                 ],
+                      "businessValue":  "Automates revenue collection and reduces manual billing overhead. Ensures consistent cash flow.",
+                      "technicalNotes":  "Implement Stripe webhook handlers for subscription.created, subscription.updated, invoice.payment_succeeded, invoice.payment_failed. Handle idempotency. Store subscription status in database.",
+                      "successMetrics":  [
+                                             "Successful billing rate: 95%+ of billing attempts succeed",
+                                             "Payment failure recovery rate: 70%+ of failed payments are recovered within 7 days"
+                                         ],
+                      "businessRules":  [
+                                            "Subscriptions auto-renew unless cancelled",
+                                            "Prorated billing applies when changing tiers mid-cycle",
+                                            "Failed payments trigger 3 retry attempts over 7 days",
+                                            "Subscription access is revoked 7 days after final payment failure"
+                                        ],
+                      "isParentEpic":  true,
+                      "note":  "This is the original epic task. The subtasks should be broken down into 1-2 day units based on KANBAN-BREAKDOWN-GUIDE.md"
+                  }
+              ]
+}

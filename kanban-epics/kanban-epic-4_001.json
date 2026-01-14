@@ -1,0 +1,63 @@
+﻿{
+    "metadata":  {
+                     "description":  "Kanban board for In-Store POS/Checkout System. Contains original epic task (as reference) and broken-down subtasks (1-2 day units). See ../KANBAN-BREAKDOWN-GUIDE.md for breakdown details.",
+                     "originalEffort":  21,
+                     "createdDate":  "2026-01-13",
+                     "version":  "2.0",
+                     "phase":  4,
+                     "epicTitle":  "In-Store POS/Checkout System",
+                     "epic":  "Multi-Channel Sales Support",
+                     "epicId":  "EPIC-4-001",
+                     "note":  "This file contains the original epic task. Broken-down subtasks should be added based on KANBAN-BREAKDOWN-GUIDE.md"
+                 },
+    "tasks":  [
+                  {
+                      "id":  "EPIC-4-001",
+                      "title":  "In-Store POS/Checkout System",
+                      "description":  "Create point-of-sale checkout system for in-store sales including item scanning, payment processing, receipt generation, and sale recording.",
+                      "userStory":  "As a store employee, I want to process in-store sales through a POS system so that I can complete customer transactions efficiently.",
+                      "acceptanceCriteria":  [
+                                                 "Given a sale is initiated, when employee adds items to cart, then items are displayed with quantities and prices",
+                                                 "Given items in cart, when employee processes payment, then payment is recorded and inventory is decremented",
+                                                 "Given a sale is completed, when finished, then sale record is created with all details (items, customer, payment, employee, timestamp)",
+                                                 "Given receipt generation, when sale is completed, then receipt is generated and can be printed or emailed to customer",
+                                                 "Given payment processing, when payment is processed, then payment method is recorded (cash, card, etc.) and change is calculated if needed",
+                                                 "Given sale workflow, when processing, then system supports: add items, remove items, apply discounts, process payment, complete sale",
+                                                 "Given offline mode, when internet is down, then sales can be processed offline and synced when connection is restored"
+                                             ],
+                      "status":  "backlog",
+                      "priority":  "must_have",
+                      "epic":  "Multi-Channel Sales Support",
+                      "phase":  4,
+                      "dependencies":  [
+                                           "EPIC-1-001",
+                                           "EPIC-1-010",
+                                           "EPIC-3-001"
+                                       ],
+                      "effort":  21,
+                      "labels":  [
+                                     "pos",
+                                     "checkout",
+                                     "sales",
+                                     "backend",
+                                     "frontend"
+                                 ],
+                      "businessValue":  "Core functionality for processing sales. Enables revenue generation and transaction recording.",
+                      "technicalNotes":  "Create Sale and SaleItem tables. Implement cart functionality. Integrate with payment processor (Stripe for card payments). Generate receipts (PDF or thermal printer). Support offline mode with sync.",
+                      "successMetrics":  [
+                                             "Sale processing time: \u003c2 minutes average per transaction",
+                                             "Sale accuracy: 99%+ of sales recorded correctly",
+                                             "Offline sale sync: 100% of offline sales sync successfully"
+                                         ],
+                      "businessRules":  [
+                                            "Inventory is decremented immediately upon sale completion",
+                                            "Sales must include: items, quantities, prices, customer (optional), payment method, employee",
+                                            "Receipts must include: store info, sale date, items, totals, payment method",
+                                            "Sales can be processed offline and synced later",
+                                            "Payment methods: cash, credit card, debit card, store credit"
+                                        ],
+                      "isParentEpic":  true,
+                      "note":  "This is the original epic task. The subtasks should be broken down into 1-2 day units based on KANBAN-BREAKDOWN-GUIDE.md"
+                  }
+              ]
+}

@@ -1,0 +1,59 @@
+﻿{
+    "metadata":  {
+                     "description":  "Kanban board for Customer Wishlist Management System. Contains original epic task (as reference) and broken-down subtasks (1-2 day units). See ../KANBAN-BREAKDOWN-GUIDE.md for breakdown details.",
+                     "originalEffort":  13,
+                     "createdDate":  "2026-01-13",
+                     "version":  "2.0",
+                     "phase":  3,
+                     "epicTitle":  "Customer Wishlist Management System",
+                     "epic":  "Customer Loyalty \u0026 Wishlist",
+                     "epicId":  "EPIC-3-003",
+                     "note":  "This file contains the original epic task. Broken-down subtasks should be added based on KANBAN-BREAKDOWN-GUIDE.md"
+                 },
+    "tasks":  [
+                  {
+                      "id":  "EPIC-3-003",
+                      "title":  "Customer Wishlist Management System",
+                      "description":  "Implement wishlist functionality allowing customers to save desired items. Includes both customer-managed (via portal) and store-managed wishlists.",
+                      "userStory":  "As a customer, I want to create and manage a wishlist of items I\u0027m looking for so that the store can notify me when those items become available.",
+                      "acceptanceCriteria":  [
+                                                 "Given a customer is logged into portal, when they browse inventory, then they can add items to their wishlist",
+                                                 "Given a customer wishlist, when viewed, then it shows all wishlist items with current availability status",
+                                                 "Given a wishlist item, when customer removes it, then item is removed from wishlist",
+                                                 "Given store employees, when they view customer profile, then they can see customer\u0027s wishlist and add items on behalf of customer",
+                                                 "Given wishlist items, when inventory is added matching wishlist, then system detects match and triggers notification",
+                                                 "Given wishlist management, when customer has multiple wishlist items, then they can organize by priority or category"
+                                             ],
+                      "status":  "backlog",
+                      "priority":  "must_have",
+                      "epic":  "Customer Loyalty \u0026 Wishlist",
+                      "phase":  3,
+                      "dependencies":  [
+                                           "EPIC-3-002",
+                                           "EPIC-1-001"
+                                       ],
+                      "effort":  13,
+                      "labels":  [
+                                     "wishlist",
+                                     "customers",
+                                     "backend",
+                                     "frontend"
+                                 ],
+                      "businessValue":  "Increases sales through proactive customer notifications. Enables personalized customer service.",
+                      "technicalNotes":  "Create WishlistItem table linking Customer to InventoryItem. Implement matching logic to detect when wishlist items become available. Support both exact matches and fuzzy matching.",
+                      "successMetrics":  [
+                                             "Wishlist usage: 50+ customers with active wishlists",
+                                             "Wishlist conversion: 30%+ of wishlist items result in sales",
+                                             "Wishlist size: Average 5-10 items per customer wishlist"
+                                         ],
+                      "businessRules":  [
+                                            "Wishlist items are linked to specific inventory items or item criteria (name, condition)",
+                                            "Customers can have unlimited wishlist items",
+                                            "Wishlist matching supports: exact match, name match, condition match",
+                                            "Store employees can add items to customer wishlists"
+                                        ],
+                      "isParentEpic":  true,
+                      "note":  "This is the original epic task. The subtasks should be broken down into 1-2 day units based on KANBAN-BREAKDOWN-GUIDE.md"
+                  }
+              ]
+}

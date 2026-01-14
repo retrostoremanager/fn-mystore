@@ -1,0 +1,57 @@
+﻿{
+    "metadata":  {
+                     "description":  "Kanban board for Subscription Management - View and Upgrade/Downgrade. Contains original epic task (as reference) and broken-down subtasks (1-2 day units). See ../KANBAN-BREAKDOWN-GUIDE.md for breakdown details.",
+                     "originalEffort":  8,
+                     "createdDate":  "2026-01-13",
+                     "version":  "2.0",
+                     "phase":  0,
+                     "epicTitle":  "Subscription Management - View and Upgrade/Downgrade",
+                     "epic":  "Account Setup \u0026 Administration",
+                     "epicId":  "EPIC-0-009",
+                     "note":  "This file contains the original epic task. Broken-down subtasks should be added based on KANBAN-BREAKDOWN-GUIDE.md"
+                 },
+    "tasks":  [
+                  {
+                      "id":  "EPIC-0-009",
+                      "title":  "Subscription Management - View and Upgrade/Downgrade",
+                      "description":  "Create subscription management interface allowing store owners to view current subscription, upgrade/downgrade tiers, and manage billing cycle.",
+                      "userStory":  "As a store owner, I want to view and manage my subscription tier so that I can control my costs and upgrade/downgrade as needed.",
+                      "acceptanceCriteria":  [
+                                                 "Given a store owner views subscription page, when they access it, then they see current tier, billing cycle, next billing date, and usage limits",
+                                                 "Given a store owner wants to upgrade, when they select a higher tier, then prorated billing is calculated and subscription is updated immediately",
+                                                 "Given a store owner wants to downgrade, when they select a lower tier, then change is scheduled for end of current billing period",
+                                                 "Given a subscription change occurs, when processed, then the store owner receives email confirmation with billing details",
+                                                 "Given a store owner views subscription, when they are on a tier with limits, then they see current usage (e.g., locations used vs. allowed)",
+                                                 "Given feature access is tier-based, when subscription tier changes, then feature access is updated accordingly"
+                                             ],
+                      "status":  "backlog",
+                      "priority":  "must_have",
+                      "epic":  "Account Setup \u0026 Administration",
+                      "phase":  0,
+                      "dependencies":  [
+                                           "EPIC-0-005"
+                                       ],
+                      "effort":  8,
+                      "labels":  [
+                                     "subscription",
+                                     "billing",
+                                     "frontend",
+                                     "backend"
+                                 ],
+                      "businessValue":  "Enables self-service subscription management, reducing support burden and improving customer control.",
+                      "technicalNotes":  "Integrate with Stripe subscription management API. Handle prorated billing calculations. Update feature flags based on tier. Prevent downgrades that would exceed current usage.",
+                      "successMetrics":  [
+                                             "Subscription upgrade rate: 20%+ of Starter tier upgrade within 90 days",
+                                             "Self-service subscription changes: 90%+ of changes done without support"
+                                         ],
+                      "businessRules":  [
+                                            "Upgrades take effect immediately with prorated billing",
+                                            "Downgrades take effect at end of current billing period",
+                                            "Cannot downgrade if current usage exceeds lower tier limits",
+                                            "Billing cycle can be monthly or annual (annual provides discount)"
+                                        ],
+                      "isParentEpic":  true,
+                      "note":  "This is the original epic task. The subtasks should be broken down into 1-2 day units based on KANBAN-BREAKDOWN-GUIDE.md"
+                  }
+              ]
+}

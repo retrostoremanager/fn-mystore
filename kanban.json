@@ -1,0 +1,1060 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "createdDate": "2024-12-01",
+    "projectName": "MyStore - Retro Game & Card Store Management Platform",
+    "description": "Kanban board with detailed tasks derived from PRD v1.0"
+  },
+  "tasks": [
+    {
+      "id": "EPIC-0-001",
+      "title": "Account Registration Page with Email Verification",
+      "description": "Create public sign-up page that allows prospective store owners to create accounts with email verification. Includes company/store name collection and initial subscription tier selection.",
+      "userStory": "As a prospective store owner, I want to sign up for an account with email verification so that I can securely create my store account and start using the platform.",
+      "acceptanceCriteria": [
+        "Given a user visits the sign-up page, when they enter valid email, password, company name, and select a subscription tier, then they receive a verification email and account is created in pending state",
+        "Given a user submits the sign-up form, when the email already exists in the system, then they receive an error message indicating the email is already registered",
+        "Given a user receives a verification email, when they click the verification link, then their account is activated and they can log in",
+        "Given a user submits the sign-up form, when required fields are missing or invalid, then validation errors are displayed for each invalid field",
+        "Given a user successfully signs up, when they complete registration, then they are redirected to the onboarding flow",
+        "Given a user signs up, when they select a subscription tier, then the 30-day free trial period is automatically activated without requiring payment information"
+      ],
+      "status": "backlog",
+      "priority": "must_have",
+      "epic": "Account Setup & Administration",
+      "phase": 0,
+      "dependencies": [],
+      "effort": 8,
+      "labels": ["authentication", "onboarding", "frontend", "backend"],
+      "businessValue": "Enables stores to onboard quickly and start using the platform. Foundation for all other features.",
+      "technicalNotes": "Requires Azure AD B2C integration for authentication. Email verification should use secure tokens with expiration.",
+      "successMetrics": [
+        "Account sign-up conversion rate: 60%+ of visitors who start sign-up complete it",
+        "Email verification rate: 80%+ of sign-ups verify their email within 24 hours"
+      ],
+      "businessRules": [
+        "Email must be unique across all accounts",
+        "Password must meet security requirements (minimum 8 characters, complexity requirements)",
+        "Company name is required and must be at least 2 characters",
+        "Subscription tier selection is required but can be changed later",
+        "30-day free trial starts immediately upon account creation"
+      ]
+    },
+    {
+      "id": "EPIC-0-002",
+      "title": "Azure AD B2C Authentication Integration - Login/Logout",
+      "description": "Integrate Azure AD B2C for secure authentication including login, logout, session management, and 'Remember me' functionality.",
+      "userStory": "As a store owner or employee, I want to securely log in and log out of the system so that I can access the features I'm authorized to use while maintaining security.",
+      "acceptanceCriteria": [
+        "Given a user visits the login page, when they enter valid credentials, then they are authenticated and redirected to the dashboard",
+        "Given a user attempts to log in, when credentials are invalid, then they receive an error message without revealing which field is incorrect",
+        "Given a user successfully logs in, when they select 'Remember me', then their session persists across browser sessions",
+        "Given a logged-in user, when they click logout, then their session is terminated and they are redirected to the login page",
+        "Given a user with an active session, when they navigate to protected routes, then they can access those routes without re-authentication",
+        "Given a user with an expired session, when they attempt to access protected routes, then they are redirected to login with a message about session expiration"
+      ],
+      "status": "backlog",
+      "priority": "must_have",
+      "epic": "Account Setup & Administration",
+      "phase": 0,
+      "dependencies": ["EPIC-0-001"],
+      "effort": 13,
+      "labels": ["authentication", "security", "azure", "backend", "frontend"],
+      "businessValue": "Provides secure authentication foundation required for all user interactions. Ensures data security and user access control.",
+      "technicalNotes": "Requires Azure AD B2C tenant setup, custom user flows for sign-in, sign-up, password reset. Frontend must handle OAuth2/OIDC flow.",
+      "successMetrics": [
+        "Login success rate: 95%+ of login attempts succeed",
+        "Session security: Zero unauthorized access incidents"
+      ],
+      "businessRules": [
+        "Sessions expire after 24 hours of inactivity (or 7 days with 'Remember me')",
+        "Failed login attempts are rate-limited (5 attempts per 15 minutes)",
+        "All authentication must use HTTPS",
+        "Session tokens must be securely stored"
+      ]
+    },
+    {
+      "id": "EPIC-0-003",
+      "title": "Password Reset and Recovery Flow",
+      "description": "Implement password reset functionality using Azure AD B2C password reset user flow with email-based recovery.",
+      "userStory": "As a user, I want to reset my password when I forget it so that I can regain access to my account without contacting support.",
+      "acceptanceCriteria": [
+        "Given a user clicks 'Forgot Password', when they enter their registered email, then they receive a password reset email",
+        "Given a user receives a password reset email, when they click the reset link, then they are directed to a secure password reset page",
+        "Given a user is on the password reset page, when they enter a new password that meets requirements, then their password is updated and they can log in",
+        "Given a user attempts to use an expired password reset link, when they try to reset, then they receive an error message and must request a new reset link",
+        "Given a user requests password reset, when the email is not registered, then they receive a generic success message (for security, don't reveal if email exists)"
+      ],
+      "status": "backlog",
+      "priority": "must_have",
+      "epic": "Account Setup & Administration",
+      "phase": 0,
+      "dependencies": ["EPIC-0-002"],
+      "effort": 5,
+      "labels": ["authentication", "security", "azure", "backend"],
+      "businessValue": "Reduces support burden and improves user experience by allowing self-service password recovery.",
+      "technicalNotes": "Uses Azure AD B2C password reset user flow. Reset links must expire after 1 hour. Tokens must be single-use.",
+      "successMetrics": [
+        "Password reset success rate: 85%+ of reset requests result in successful password change",
+        "Support tickets for password issues: <5% of total support tickets"
+      ],
+      "businessRules": [
+        "Password reset links expire after 1 hour",
+        "Reset links can only be used once",
+        "New password must meet same requirements as initial password",
+        "Users cannot reuse their last 3 passwords"
+      ]
+    },
+    {
+      "id": "EPIC-0-004",
+      "title": "Stripe Payment Method Integration and Setup",
+      "description": "Integrate Stripe payment processing to collect and manage payment methods (credit card, ACH) for subscription billing. Includes secure payment method storage.",
+      "userStory": "As a store owner, I want to securely add and manage my payment method so that my subscription can be billed automatically.",
+      "acceptanceCriteria": [
+        "Given a store owner is setting up payment, when they enter valid credit card information, then the payment method is securely stored via Stripe and associated with their account",
+        "Given a store owner adds a payment method, when the card is declined or invalid, then they receive a clear error message with guidance on how to fix it",
+        "Given a store owner has a payment method on file, when they view their billing settings, then they can see the last 4 digits and expiration date of their card",
+        "Given a store owner wants to update payment, when they add a new payment method, then the new method becomes the default and the old method is archived",
+        "Given a payment method is stored, when subscription billing occurs, then Stripe automatically charges the default payment method",
+        "Given a store owner is in their 30-day trial, when they add a payment method, then it is stored but not charged until trial ends"
+      ],
+      "status": "backlog",
+      "priority": "must_have",
+      "epic": "Account Setup & Administration",
+      "phase": 0,
+      "dependencies": ["EPIC-0-001"],
+      "effort": 13,
+      "labels": ["payment", "stripe", "billing", "backend", "frontend"],
+      "businessValue": "Enables subscription billing and revenue collection. Critical for business model.",
+      "technicalNotes": "Use Stripe Elements for secure card input. Store Stripe customer ID and payment method IDs. Never store full card numbers. Implement webhook handlers for payment events.",
+      "successMetrics": [
+        "Payment setup success rate: 95%+ of accounts successfully set up payment",
+        "Payment method update success rate: 90%+ of update attempts succeed"
+      ],
+      "businessRules": [
+        "Payment methods are stored securely via Stripe (PCI compliance)",
+        "Only one default payment method per account",
+        "Payment methods can be updated at any time",
+        "Payment method is required before trial ends for subscription continuation"
+      ]
+    },
+    {
+      "id": "EPIC-0-005",
+      "title": "Stripe Subscription Billing Management",
+      "description": "Implement subscription billing through Stripe including subscription creation, tier management, billing cycle handling, and automatic renewals.",
+      "userStory": "As a store owner, I want my subscription to be automatically billed so that I don't have to manually manage payments and my service continues uninterrupted.",
+      "acceptanceCriteria": [
+        "Given a store owner completes trial, when trial ends, then Stripe automatically creates a subscription and charges the payment method on file",
+        "Given a subscription is active, when the billing cycle date arrives, then Stripe automatically charges the payment method and subscription continues",
+        "Given a subscription payment fails, when Stripe retries fail, then the subscription is marked as past_due and the store owner is notified",
+        "Given a store owner upgrades/downgrades subscription, when the change is processed, then prorated billing is calculated and applied correctly",
+        "Given a subscription is cancelled, when the current billing period ends, then access is maintained until period end and then revoked",
+        "Given subscription events occur, when Stripe sends webhooks, then the system processes them correctly and updates subscription status"
+      ],
+      "status": "backlog",
+      "priority": "must_have",
+      "epic": "Account Setup & Administration",
+      "phase": 0,
+      "dependencies": ["EPIC-0-004"],
+      "effort": 13,
+      "labels": ["payment", "stripe", "billing", "backend", "webhooks"],
+      "businessValue": "Automates revenue collection and reduces manual billing overhead. Ensures consistent cash flow.",
+      "technicalNotes": "Implement Stripe webhook handlers for subscription.created, subscription.updated, invoice.payment_succeeded, invoice.payment_failed. Handle idempotency. Store subscription status in database.",
+      "successMetrics": [
+        "Successful billing rate: 95%+ of billing attempts succeed",
+        "Payment failure recovery rate: 70%+ of failed payments are recovered within 7 days"
+      ],
+      "businessRules": [
+        "Subscriptions auto-renew unless cancelled",
+        "Prorated billing applies when changing tiers mid-cycle",
+        "Failed payments trigger 3 retry attempts over 7 days",
+        "Subscription access is revoked 7 days after final payment failure"
+      ]
+    },
+    {
+      "id": "EPIC-0-006",
+      "title": "30-Day Free Trial Management System",
+      "description": "Implement trial period tracking, trial expiration handling, payment collection prompts, and trial-to-paid conversion workflow.",
+      "userStory": "As a prospective store owner, I want to try the platform for 30 days without payment so that I can evaluate the platform before committing to a subscription.",
+      "acceptanceCriteria": [
+        "Given a new account is created, when the account is activated, then a 30-day trial period starts automatically",
+        "Given a user is in trial, when they access the platform, then they see their trial status and days remaining",
+        "Given a trial is expiring in 7 days, when the user logs in, then they receive a notification to add payment method",
+        "Given a trial expires, when payment method is on file, then subscription billing begins automatically",
+        "Given a trial expires, when no payment method is on file, then access is restricted and user is prompted to add payment",
+        "Given a trial user, when they add payment method during trial, then it is stored but not charged until trial ends",
+        "Given a trial expires, when user doesn't add payment within 7 days, then account is suspended and data is retained for 30 days"
+      ],
+      "status": "backlog",
+      "priority": "must_have",
+      "epic": "Account Setup & Administration",
+      "phase": 0,
+      "dependencies": ["EPIC-0-001", "EPIC-0-004"],
+      "effort": 8,
+      "labels": ["billing", "trial", "subscription", "backend", "frontend"],
+      "businessValue": "Reduces barrier to entry and increases customer acquisition. Allows stores to experience value before paying.",
+      "technicalNotes": "Track trial start date and expiration date. Implement scheduled jobs to check trial status. Send email notifications at 7 days, 3 days, and 1 day before expiration.",
+      "successMetrics": [
+        "Trial-to-paid conversion rate: 40%+ of trials convert to paid subscriptions",
+        "Payment setup before trial end: 60%+ of converting users add payment before trial expires"
+      ],
+      "businessRules": [
+        "Trial period is exactly 30 days from account activation",
+        "No payment required during trial period",
+        "Payment method must be added before trial ends for subscription to continue",
+        "Trial cannot be extended or restarted",
+        "All features are available during trial period"
+      ]
+    },
+    {
+      "id": "EPIC-0-007",
+      "title": "Company/Store Profile Setup and Management",
+      "description": "Create company/store profile management including store information, business details, branding preferences, and location setup.",
+      "userStory": "As a store owner, I want to set up and manage my store profile so that the system is configured for my business needs and preferences.",
+      "acceptanceCriteria": [
+        "Given a store owner is setting up their profile, when they enter store name, address, and contact information, then the profile is saved and used throughout the system",
+        "Given a store owner sets store type (retro game store, card store, both), when saved, then relevant features are enabled/configured accordingly",
+        "Given a store owner uploads a logo, when the logo is uploaded, then it is displayed in receipts, reports, and customer-facing materials",
+        "Given a store owner sets timezone and locale, when saved, then all dates and times are displayed in the selected timezone",
+        "Given a store owner has multiple locations, when they add locations, then each location can be managed independently",
+        "Given a store owner updates profile information, when changes are saved, then they are immediately reflected throughout the system"
+      ],
+      "status": "backlog",
+      "priority": "must_have",
+      "epic": "Account Setup & Administration",
+      "phase": 0,
+      "dependencies": ["EPIC-0-001"],
+      "effort": 8,
+      "labels": ["profile", "configuration", "multi-tenant", "backend", "frontend"],
+      "businessValue": "Enables proper system configuration and personalization. Required for multi-location support and branding.",
+      "technicalNotes": "Store profile in Company table. Support file upload for logos (Azure Blob Storage). Validate timezone and locale values. Ensure multi-tenant data isolation.",
+      "successMetrics": [
+        "Profile completion rate: 90%+ of accounts complete profile setup",
+        "Time to complete profile: <5 minutes average"
+      ],
+      "businessRules": [
+        "Store name is required and must be unique per account",
+        "At least one location must be created",
+        "Logo file size limited to 5MB, formats: PNG, JPG, SVG",
+        "Timezone must be a valid IANA timezone",
+        "Store type selection affects available features"
+      ]
+    },
+    {
+      "id": "EPIC-0-008",
+      "title": "User and Role Management System",
+      "description": "Implement user management with role assignment (Owner, Manager, Employee, Cashier), permissions, and user invitation system.",
+      "userStory": "As a store owner, I want to add employees and assign them appropriate roles so that I can control access and permissions for different users.",
+      "acceptanceCriteria": [
+        "Given a store owner wants to add a user, when they enter email and select a role, then an invitation email is sent and user account is created in pending state",
+        "Given a user receives an invitation, when they accept and set up their account, then they gain access based on their assigned role",
+        "Given a store owner views users, when they access the user management page, then they see all users with their roles and status",
+        "Given a store owner wants to change a user's role, when they update the role, then permissions are immediately updated",
+        "Given a store owner removes a user, when confirmed, then the user loses access and cannot log in",
+        "Given a user with Employee role, when they attempt to access Manager-only features, then access is denied with appropriate message",
+        "Given permissions are defined, when a user performs an action, then the system checks permissions before allowing the action"
+      ],
+      "status": "backlog",
+      "priority": "must_have",
+      "epic": "Account Setup & Administration",
+      "phase": 0,
+      "dependencies": ["EPIC-0-002", "EPIC-0-007"],
+      "effort": 13,
+      "labels": ["authorization", "rbac", "user-management", "backend", "frontend"],
+      "businessValue": "Enables multi-user stores with appropriate access control. Critical for security and operational control.",
+      "technicalNotes": "Implement role-based access control (RBAC). Define permission matrix for each role. Use Azure AD B2C for user accounts. Store role assignments in database with company association.",
+      "successMetrics": [
+        "User invitation acceptance rate: 80%+ of invitations are accepted",
+        "Permission enforcement: 100% of unauthorized access attempts are blocked"
+      ],
+      "businessRules": [
+        "Each company must have at least one Owner role user",
+        "Owner role cannot be removed if it's the last Owner",
+        "Roles: Owner (full access), Manager (most access except billing), Employee (inventory and sales), Cashier (sales only)",
+        "User invitations expire after 7 days",
+        "Removed users' historical actions are preserved for audit"
+      ]
+    },
+    {
+      "id": "EPIC-0-009",
+      "title": "Subscription Management - View and Upgrade/Downgrade",
+      "description": "Create subscription management interface allowing store owners to view current subscription, upgrade/downgrade tiers, and manage billing cycle.",
+      "userStory": "As a store owner, I want to view and manage my subscription tier so that I can control my costs and upgrade/downgrade as needed.",
+      "acceptanceCriteria": [
+        "Given a store owner views subscription page, when they access it, then they see current tier, billing cycle, next billing date, and usage limits",
+        "Given a store owner wants to upgrade, when they select a higher tier, then prorated billing is calculated and subscription is updated immediately",
+        "Given a store owner wants to downgrade, when they select a lower tier, then change is scheduled for end of current billing period",
+        "Given a subscription change occurs, when processed, then the store owner receives email confirmation with billing details",
+        "Given a store owner views subscription, when they are on a tier with limits, then they see current usage (e.g., locations used vs. allowed)",
+        "Given feature access is tier-based, when subscription tier changes, then feature access is updated accordingly"
+      ],
+      "status": "backlog",
+      "priority": "must_have",
+      "epic": "Account Setup & Administration",
+      "phase": 0,
+      "dependencies": ["EPIC-0-005"],
+      "effort": 8,
+      "labels": ["subscription", "billing", "frontend", "backend"],
+      "businessValue": "Enables self-service subscription management, reducing support burden and improving customer control.",
+      "technicalNotes": "Integrate with Stripe subscription management API. Handle prorated billing calculations. Update feature flags based on tier. Prevent downgrades that would exceed current usage.",
+      "successMetrics": [
+        "Subscription upgrade rate: 20%+ of Starter tier upgrade within 90 days",
+        "Self-service subscription changes: 90%+ of changes done without support"
+      ],
+      "businessRules": [
+        "Upgrades take effect immediately with prorated billing",
+        "Downgrades take effect at end of current billing period",
+        "Cannot downgrade if current usage exceeds lower tier limits",
+        "Billing cycle can be monthly or annual (annual provides discount)"
+      ]
+    },
+    {
+      "id": "EPIC-0-010",
+      "title": "Account Settings and Preferences Management",
+      "description": "Implement account settings including email notification preferences, default settings (currency, date format), security settings, and data export options.",
+      "userStory": "As a store owner, I want to manage my account settings and preferences so that the system works the way I prefer and I control my data.",
+      "acceptanceCriteria": [
+        "Given a store owner views account settings, when they access the page, then they see all configurable settings organized by category",
+        "Given a store owner updates email notification preferences, when they save, then their preferences are stored and respected for future notifications",
+        "Given a store owner sets default currency and date format, when saved, then these defaults are used throughout the system",
+        "Given a store owner enables two-factor authentication, when configured, then 2FA is required for future logins",
+        "Given a store owner requests data export, when processed, then they receive a downloadable file with all their data in JSON/CSV format",
+        "Given a store owner deletes their account, when confirmed, then all data is deleted (or anonymized) after 30-day grace period"
+      ],
+      "status": "backlog",
+      "priority": "should_have",
+      "epic": "Account Setup & Administration",
+      "phase": 0,
+      "dependencies": ["EPIC-0-002", "EPIC-0-007"],
+      "effort": 8,
+      "labels": ["settings", "preferences", "security", "frontend", "backend"],
+      "businessValue": "Improves user experience through customization and provides data portability. Enhances security with 2FA.",
+      "technicalNotes": "Store preferences in database. Implement 2FA using Azure AD B2C or TOTP. Data export should be async job. Account deletion requires soft delete with retention period.",
+      "successMetrics": [
+        "Settings usage: 70%+ of users customize at least one setting",
+        "2FA adoption: 30%+ of accounts enable 2FA"
+      ],
+      "businessRules": [
+        "Account deletion has 30-day grace period for recovery",
+        "Data export includes all user data except payment information",
+        "Currency and date format must be valid values",
+        "Email notification preferences can be granular (by notification type)"
+      ]
+    },
+    {
+      "id": "EPIC-1-001",
+      "title": "Multi-Location Database Schema and Data Model",
+      "description": "Design and implement database schema supporting multi-location architecture with company-level data isolation and location hierarchy.",
+      "userStory": "As a system architect, I want a database schema that supports multiple locations per company so that stores can manage inventory across locations.",
+      "acceptanceCriteria": [
+        "Given the database schema, when implemented, then Company table exists with proper multi-tenant isolation",
+        "Given the schema, when implemented, then Location table exists with foreign key to Company and supports location-specific data",
+        "Given inventory items, when stored, then each item has a LocationId foreign key linking it to a location",
+        "Given the schema, when queries are executed, then all queries include CompanyId filter for data isolation",
+        "Given indexes are created, when implemented, then composite indexes exist on (CompanyId, LocationId) for performance",
+        "Given foreign keys are defined, when implemented, then referential integrity is enforced with appropriate cascade rules"
+      ],
+      "status": "backlog",
+      "priority": "must_have",
+      "epic": "Multi-Location Inventory Management",
+      "phase": 1,
+      "dependencies": ["EPIC-0-007"],
+      "effort": 8,
+      "labels": ["database", "schema", "multi-tenant", "backend"],
+      "businessValue": "Foundation for multi-location support. Enables inventory tracking across locations and prevents data leakage between companies.",
+      "technicalNotes": "Create Location table with CompanyId foreign key. Update InventoryItem table with LocationId. Add indexes for query performance. Ensure all queries filter by CompanyId.",
+      "successMetrics": [
+        "Query performance: All location-based queries complete in <100ms",
+        "Data isolation: Zero instances of cross-company data access"
+      ],
+      "businessRules": [
+        "Each company must have at least one location",
+        "Location names must be unique within a company",
+        "Inventory items must belong to a location",
+        "CompanyId must be included in all data access queries"
+      ]
+    },
+    {
+      "id": "EPIC-1-002",
+      "title": "Real-Time Inventory Synchronization System",
+      "description": "Implement real-time inventory synchronization across all locations using cloud-based architecture with conflict resolution.",
+      "userStory": "As a multi-location store owner, I want inventory changes to sync in real-time across all locations so that I can prevent overselling and have accurate inventory visibility.",
+      "acceptanceCriteria": [
+        "Given inventory is updated at Location A, when the change is saved, then all other locations see the updated inventory within 5 seconds",
+        "Given two users update the same item simultaneously, when both changes occur, then conflict resolution is applied (last-write-wins with conflict detection)",
+        "Given inventory sync fails temporarily, when connection is restored, then pending changes are automatically synced",
+        "Given a user views inventory, when they access the inventory page, then they see real-time data from all locations",
+        "Given sync occurs, when inventory changes, then all connected clients receive updates via real-time mechanism (SignalR/WebSockets)",
+        "Given sync performance, when 100+ concurrent updates occur, then system handles them without data loss or corruption"
+      ],
+      "status": "backlog",
+      "priority": "must_have",
+      "epic": "Multi-Location Inventory Management",
+      "phase": 1,
+      "dependencies": ["EPIC-1-001"],
+      "effort": 21,
+      "labels": ["real-time", "sync", "performance", "backend", "frontend"],
+      "businessValue": "Prevents overselling, enables accurate inventory visibility, and supports efficient multi-location operations.",
+      "technicalNotes": "Use Azure SignalR for real-time updates. Implement optimistic concurrency control. Use database triggers or change tracking for inventory updates. Handle network partitions gracefully.",
+      "successMetrics": [
+        "Sync latency: 95%+ of updates sync within 5 seconds",
+        "Uptime: 99.9% sync availability",
+        "Conflict resolution: 100% of conflicts resolved without data loss"
+      ],
+      "businessRules": [
+        "Inventory updates must sync within 5 seconds",
+        "Last-write-wins conflict resolution with conflict detection alerts",
+        "Sync failures trigger retry with exponential backoff",
+        "Real-time updates only sent to users with appropriate permissions"
+      ]
+    },
+    {
+      "id": "EPIC-1-003",
+      "title": "Location Management Interface",
+      "description": "Create UI for managing locations including adding, editing, and viewing locations with location-specific settings.",
+      "userStory": "As a store owner, I want to manage my store locations so that I can configure and organize inventory by location.",
+      "acceptanceCriteria": [
+        "Given a store owner views locations, when they access the locations page, then they see all locations with name, address, and status",
+        "Given a store owner adds a location, when they enter location details and save, then the location is created and available for inventory assignment",
+        "Given a store owner edits a location, when they update details and save, then changes are reflected immediately",
+        "Given a store owner deletes a location, when confirmed and no inventory exists, then location is deleted",
+        "Given a store owner deletes a location, when inventory exists, then they receive an error and must transfer inventory first",
+        "Given location limits by subscription tier, when adding locations, then system enforces tier limits and prompts upgrade if needed"
+      ],
+      "status": "backlog",
+      "priority": "must_have",
+      "epic": "Multi-Location Inventory Management",
+      "phase": 1,
+      "dependencies": ["EPIC-1-001", "EPIC-0-009"],
+      "effort": 5,
+      "labels": ["locations", "frontend", "backend"],
+      "businessValue": "Enables stores to set up and manage multiple locations. Required for multi-location inventory tracking.",
+      "technicalNotes": "Create Location management API endpoints. Build React components for location CRUD operations. Validate location limits based on subscription tier.",
+      "successMetrics": [
+        "Location setup completion: 100% of multi-location stores set up all locations",
+        "Time to add location: <2 minutes average"
+      ],
+      "businessRules": [
+        "Location name must be unique within a company",
+        "Location address is required",
+        "Cannot delete location with existing inventory (must transfer first)",
+        "Location limits enforced by subscription tier (Starter: 1, Professional: 3, Enterprise: unlimited)"
+      ]
+    },
+    {
+      "id": "EPIC-1-004",
+      "title": "Cross-Location Inventory Search and Visibility",
+      "description": "Implement unified inventory search that shows availability across all locations with location filtering and drill-down capabilities.",
+      "userStory": "As a store employee, I want to search inventory across all locations so that I can find items and inform customers about availability at other locations.",
+      "acceptanceCriteria": [
+        "Given a user searches for an item, when they enter search terms, then results show all matching items across all locations with location indicator",
+        "Given search results, when displayed, then each result shows location name, quantity available, and condition",
+        "Given a user filters by location, when they select a location filter, then only items from that location are shown",
+        "Given search results, when a user clicks an item, then they see detailed view with all locations where item exists",
+        "Given inventory search, when performed, then results are returned in <2 seconds even with 10,000+ items",
+        "Given a user views inventory, when they select 'All Locations', then they see aggregated inventory across all locations"
+      ],
+      "status": "backlog",
+      "priority": "must_have",
+      "epic": "Multi-Location Inventory Management",
+      "phase": 1,
+      "dependencies": ["EPIC-1-001", "EPIC-1-003"],
+      "effort": 8,
+      "labels": ["search", "inventory", "frontend", "backend"],
+      "businessValue": "Enables efficient inventory discovery across locations, improving customer service and inventory utilization.",
+      "technicalNotes": "Implement full-text search on inventory items. Use database indexes for performance. Support filtering by location, condition, price range. Implement pagination for large result sets.",
+      "successMetrics": [
+        "Search performance: 95%+ of searches complete in <2 seconds",
+        "Search usage: 80%+ of inventory views use search functionality"
+      ],
+      "businessRules": [
+        "Search must include CompanyId filter for data isolation",
+        "Search results show location information for each item",
+        "Users can filter by one or more locations",
+        "Search supports partial matches on item name, SKU, barcode"
+      ]
+    },
+    {
+      "id": "EPIC-1-005",
+      "title": "Inventory Transfer Workflow Between Locations",
+      "description": "Create workflow for transferring inventory items between locations including transfer requests, approvals, and tracking.",
+      "userStory": "As a store employee, I want to transfer items between locations so that inventory can be moved to where it's needed.",
+      "acceptanceCriteria": [
+        "Given a user initiates a transfer, when they select source location, destination location, and items, then a transfer request is created",
+        "Given a transfer is created, when approved (if required), then inventory is decremented from source and incremented at destination",
+        "Given a transfer is in progress, when viewed, then status shows as 'In Transit' with expected delivery date",
+        "Given a transfer is received, when destination location confirms receipt, then transfer is marked complete and inventory updated",
+        "Given transfer approval is required, when Manager role user approves, then transfer proceeds",
+        "Given a transfer is cancelled, when cancelled before completion, then inventory is restored to source location"
+      ],
+      "status": "backlog",
+      "priority": "must_have",
+      "epic": "Multi-Location Inventory Management",
+      "phase": 1,
+      "dependencies": ["EPIC-1-001", "EPIC-1-002"],
+      "effort": 13,
+      "labels": ["transfer", "workflow", "inventory", "backend", "frontend"],
+      "businessValue": "Enables efficient inventory distribution across locations, improving inventory utilization and customer service.",
+      "technicalNotes": "Create Transfer table to track transfers. Implement state machine for transfer workflow (Pending, Approved, In Transit, Received, Cancelled). Use transactions for inventory updates.",
+      "successMetrics": [
+        "Transfer completion rate: 95%+ of transfers are completed successfully",
+        "Average transfer time: <3 days from initiation to completion"
+      ],
+      "businessRules": [
+        "Transfers require Manager or Owner approval if value exceeds $500",
+        "Source location must have sufficient quantity for transfer",
+        "Transfer status must be tracked through complete lifecycle",
+        "Inventory is reserved at source when transfer is approved"
+      ]
+    },
+    {
+      "id": "EPIC-1-006",
+      "title": "Condition-Based Inventory Tracking for Games and Cards",
+      "description": "Extend inventory system to support condition-based variants (CIB, loose, cartridge only for games; graded/ungraded, condition levels for cards).",
+      "userStory": "As a store owner, I want to track inventory with condition-based variants so that I can accurately manage stock for games and cards with different conditions.",
+      "acceptanceCriteria": [
+        "Given an inventory item is a game, when adding to inventory, then user can select condition (CIB, loose, cartridge only, box only)",
+        "Given an inventory item is a card, when adding to inventory, then user can select condition (Near Mint, Lightly Played, Moderately Played, etc.) and graded status",
+        "Given inventory items, when displayed, then condition is shown clearly for each item",
+        "Given inventory search, when filtering by condition, then only items matching selected conditions are shown",
+        "Given condition variants, when the same item exists in multiple conditions, then they are tracked as separate inventory entries",
+        "Given pricing, when condition is selected, then pricing can vary by condition"
+      ],
+      "status": "backlog",
+      "priority": "must_have",
+      "epic": "Intelligent Inventory Tracking",
+      "phase": 1,
+      "dependencies": ["EPIC-1-001"],
+      "effort": 13,
+      "labels": ["inventory", "condition", "games", "cards", "backend", "frontend"],
+      "businessValue": "Essential for collectibles business. Enables accurate tracking and pricing of items in different conditions.",
+      "technicalNotes": "Add Condition field to InventoryItem table. Define condition enums for games and cards. Update UI to support condition selection. Ensure condition is included in search and filtering.",
+      "successMetrics": [
+        "Condition tracking usage: 90%+ of items have condition specified",
+        "Condition-based search usage: 60%+ of searches include condition filter"
+      ],
+      "businessRules": [
+        "Condition is required for all inventory items",
+        "Game conditions: CIB (Complete In Box), Loose, Cartridge Only, Box Only",
+        "Card conditions: Near Mint, Lightly Played, Moderately Played, Heavily Played, Damaged, plus Graded (with grade number)",
+        "Same item in different conditions is tracked separately"
+      ]
+    },
+    {
+      "id": "EPIC-1-007",
+      "title": "Bulk Inventory Import via CSV/Excel",
+      "description": "Implement bulk import functionality allowing stores to upload CSV/Excel files to import large quantities of inventory items efficiently.",
+      "userStory": "As a store owner, I want to bulk import inventory from CSV/Excel so that I can efficiently set up my initial inventory without manual entry.",
+      "acceptanceCriteria": [
+        "Given a user wants to import inventory, when they upload a CSV/Excel file, then the system validates the file format and structure",
+        "Given a valid import file, when processed, then the system parses rows and creates inventory items",
+        "Given import validation, when required fields are missing or invalid, then errors are reported with row numbers and specific issues",
+        "Given import processing, when duplicate items are detected, then user is prompted to choose: skip, update, or create duplicate",
+        "Given import completes, when finished, then user receives summary report showing: total rows, successful imports, errors, and skipped items",
+        "Given import is in progress, when processing large files (1000+ rows), then progress indicator shows status and estimated completion time",
+        "Given import errors, when errors occur, then user can download error report with details for correction and re-import"
+      ],
+      "status": "backlog",
+      "priority": "must_have",
+      "epic": "Intelligent Inventory Tracking",
+      "phase": 1,
+      "dependencies": ["EPIC-1-006"],
+      "effort": 13,
+      "labels": ["import", "bulk", "csv", "excel", "backend", "frontend"],
+      "businessValue": "Dramatically reduces time to set up initial inventory. Essential for stores with large existing inventories.",
+      "technicalNotes": "Use library for CSV/Excel parsing (e.g., PapaParse, ExcelJS). Implement async processing for large files. Validate data before import. Provide template download. Store import history for audit.",
+      "successMetrics": [
+        "Import success rate: 95%+ of rows import successfully",
+        "Time saved: 80%+ reduction in inventory setup time vs. manual entry",
+        "Import usage: 70%+ of stores use bulk import for initial setup"
+      ],
+      "businessRules": [
+        "Required fields: Name, Condition, Quantity, Location, Cost (or Price)",
+        "File size limited to 10MB",
+        "Maximum 10,000 rows per import",
+        "Import must include CompanyId and LocationId for data isolation",
+        "Duplicate detection based on Name + Condition + Location"
+      ]
+    },
+    {
+      "id": "EPIC-1-008",
+      "title": "Optimized Inventory Search and Filtering",
+      "description": "Implement high-performance inventory search with filtering by type, condition, price range, location, and other attributes. Must handle 10,000+ items efficiently.",
+      "userStory": "As a store employee, I want to quickly search and filter large inventories so that I can find items efficiently even with 10,000+ items.",
+      "acceptanceCriteria": [
+        "Given inventory search, when user enters search terms, then results are returned in <2 seconds even with 10,000+ items",
+        "Given search functionality, when filtering by item type (game, card, console, etc.), then only matching items are shown",
+        "Given search functionality, when filtering by condition, then only items with selected conditions are shown",
+        "Given search functionality, when filtering by price range, then only items within price range are shown",
+        "Given search results, when displayed, then pagination is used (50 items per page) for performance",
+        "Given search, when multiple filters are applied, then all filters work together (AND logic)",
+        "Given search performance, when 10,000+ items exist, then search completes without timeout or performance degradation"
+      ],
+      "status": "backlog",
+      "priority": "must_have",
+      "epic": "Intelligent Inventory Tracking",
+      "phase": 1,
+      "dependencies": ["EPIC-1-001", "EPIC-1-006"],
+      "effort": 13,
+      "labels": ["search", "performance", "filtering", "backend", "frontend"],
+      "businessValue": "Enables efficient inventory management for large stores. Critical for user experience with large inventories.",
+      "technicalNotes": "Implement database indexes on searchable fields. Use full-text search where appropriate. Implement query optimization. Use pagination and lazy loading. Consider caching for frequent searches.",
+      "successMetrics": [
+        "Search performance: 95%+ of searches complete in <2 seconds",
+        "Search accuracy: 98%+ of relevant items found in search results"
+      ],
+      "businessRules": [
+        "Search must support partial matches",
+        "Filters can be combined (AND logic)",
+        "Results must be paginated (50 items per page default)",
+        "Search must include CompanyId filter for data isolation",
+        "Search supports: name, SKU, barcode, description"
+      ]
+    },
+    {
+      "id": "EPIC-1-009",
+      "title": "Low Stock Alerts with Configurable Thresholds",
+      "description": "Implement automated low stock alerts that notify users when inventory falls below configured thresholds per location.",
+      "userStory": "As a store owner, I want to receive alerts when inventory is low so that I can reorder items before running out of stock.",
+      "acceptanceCriteria": [
+        "Given a store owner configures low stock threshold, when they set threshold (e.g., 5 items), then threshold is saved per location",
+        "Given inventory is updated, when quantity falls below threshold, then alert is triggered and notification is sent",
+        "Given low stock alerts, when multiple items are low, then consolidated alert is sent with list of low stock items",
+        "Given alert preferences, when store owner sets notification method (email, in-app), then alerts are sent via selected method",
+        "Given low stock items, when viewed in inventory list, then they are highlighted or marked with low stock indicator",
+        "Given alert is sent, when inventory is replenished above threshold, then alert is cleared"
+      ],
+      "status": "backlog",
+      "priority": "should_have",
+      "epic": "Intelligent Inventory Tracking",
+      "phase": 1,
+      "dependencies": ["EPIC-1-001"],
+      "effort": 8,
+      "labels": ["alerts", "notifications", "inventory", "backend"],
+      "businessValue": "Prevents stockouts and enables proactive inventory management. Improves customer satisfaction.",
+      "technicalNotes": "Implement background job to check inventory levels. Use database triggers or scheduled tasks. Integrate with email service (SendGrid). Store alert preferences in database.",
+      "successMetrics": [
+        "Alert accuracy: 100% of low stock situations trigger alerts",
+        "False positive rate: <5% of alerts for items that are actually in stock"
+      ],
+      "businessRules": [
+        "Low stock threshold is configurable per location",
+        "Default threshold is 5 items",
+        "Alerts are sent once per day maximum (to prevent spam)",
+        "Alert is cleared when inventory exceeds threshold + 10% buffer"
+      ]
+    },
+    {
+      "id": "EPIC-1-010",
+      "title": "Offline Capability with Local Storage and Background Sync",
+      "description": "Implement offline-first architecture allowing users to work offline with local data storage (IndexedDB) and automatic background sync when internet is restored.",
+      "userStory": "As a store employee, I want to use the system even when the internet is down so that I can continue working and sync changes when internet is restored.",
+      "acceptanceCriteria": [
+        "Given user is offline, when they access the application, then they can view cached inventory data",
+        "Given user is offline, when they add or update inventory, then changes are stored locally in IndexedDB",
+        "Given user is offline, when they process a sale, then sale is stored locally and queued for sync",
+        "Given internet connection is restored, when sync occurs, then all pending local changes are automatically synced to server",
+        "Given sync conflicts, when local and server data conflict, then conflict resolution UI is shown for user to resolve",
+        "Given offline status, when user is offline, then UI clearly indicates offline mode with sync status indicator",
+        "Given sync status, when sync is in progress, then progress indicator shows sync status and pending items count"
+      ],
+      "status": "backlog",
+      "priority": "must_have",
+      "epic": "Intelligent Inventory Tracking",
+      "phase": 1,
+      "dependencies": ["EPIC-1-001", "EPIC-1-002"],
+      "effort": 21,
+      "labels": ["offline", "pwa", "indexeddb", "sync", "frontend", "backend"],
+      "businessValue": "Ensures business continuity during internet outages. Critical for stores with unreliable connectivity.",
+      "technicalNotes": "Implement Service Worker for offline support. Use IndexedDB for local storage. Implement sync queue with retry logic. Handle conflict resolution (last-write-wins with manual override). Use background sync API.",
+      "successMetrics": [
+        "Offline functionality: 100% of core features work offline",
+        "Sync success rate: 95%+ of offline changes sync successfully",
+        "Conflict resolution: 90%+ of conflicts resolved automatically"
+      ],
+      "businessRules": [
+        "Local data is cached for 7 days maximum",
+        "Sync occurs automatically when connection is restored",
+        "Conflicts are resolved with last-write-wins, but user can override",
+        "Critical operations (sales) are queued and synced with priority",
+        "Offline mode supports: view inventory, add inventory, process sales"
+      ]
+    },
+    {
+      "id": "EPIC-2-001",
+      "title": "Price Charting API Integration for Game Pricing",
+      "description": "Integrate Price Charting API to fetch real-time market prices for video games based on title, platform, and condition.",
+      "userStory": "As a store owner, I want real-time market prices for games from Price Charting API so that I can value trade-ins accurately.",
+      "acceptanceCriteria": [
+        "Given a game item, when user requests price lookup, then system calls Price Charting API with game title and platform",
+        "Given API response, when price data is received, then system parses and stores price information (loose, CIB, new prices)",
+        "Given API call fails, when error occurs, then system handles gracefully with error message and fallback pricing if available",
+        "Given API rate limits, when rate limit is approached, then system implements rate limiting and queues requests",
+        "Given price data, when displayed, then prices are shown for different conditions (loose, CIB, new) with last updated timestamp",
+        "Given API integration, when configured, then API key is securely stored and used for all requests"
+      ],
+      "status": "backlog",
+      "priority": "must_have",
+      "epic": "Trade-In Valuation System",
+      "phase": 2,
+      "dependencies": ["EPIC-1-006"],
+      "effort": 13,
+      "labels": ["pricing", "api", "integration", "games", "backend"],
+      "businessValue": "Provides accurate market pricing for games, enabling profitable trade-in valuations. Critical for trade-in feature.",
+      "technicalNotes": "Implement Price Charting API client. Handle rate limiting (check API docs for limits). Cache price data to reduce API calls. Store API responses with timestamps. Implement retry logic for failed requests.",
+      "successMetrics": [
+        "API success rate: 95%+ of price lookups succeed",
+        "Price accuracy: Prices match Price Charting website within 5%",
+        "Response time: 90%+ of lookups complete in <3 seconds"
+      ],
+      "businessRules": [
+        "API key must be configured per company (or globally)",
+        "Rate limiting: Respect Price Charting API rate limits",
+        "Price data is cached for 24 hours to reduce API calls",
+        "Fallback to manual pricing if API is unavailable",
+        "Prices shown for: loose, complete (CIB), new conditions"
+      ]
+    },
+    {
+      "id": "EPIC-2-002",
+      "title": "TCGPlayer API Integration for Card Pricing",
+      "description": "Integrate TCGPlayer API to fetch real-time market prices for trading cards based on card name, set, condition, and grading.",
+      "userStory": "As a store owner, I want real-time market prices for cards from TCGPlayer API so that I can value card trade-ins accurately.",
+      "acceptanceCriteria": [
+        "Given a card item, when user requests price lookup, then system calls TCGPlayer API with card name, set, and condition",
+        "Given API response, when price data is received, then system parses and stores price information (market price, low, mid, high)",
+        "Given graded cards, when price lookup is requested, then system fetches graded card pricing if applicable",
+        "Given API call fails, when error occurs, then system handles gracefully with error message and fallback pricing",
+        "Given API rate limits, when rate limit is approached, then system implements rate limiting and queues requests",
+        "Given price data, when displayed, then prices are shown with condition and last updated timestamp"
+      ],
+      "status": "backlog",
+      "priority": "must_have",
+      "epic": "Trade-In Valuation System",
+      "phase": 2,
+      "dependencies": ["EPIC-1-006"],
+      "effort": 13,
+      "labels": ["pricing", "api", "integration", "cards", "backend"],
+      "businessValue": "Provides accurate market pricing for cards, enabling profitable trade-in valuations. Critical for card store trade-ins.",
+      "technicalNotes": "Implement TCGPlayer API client. Handle OAuth if required. Implement rate limiting. Cache price data. Store API responses with timestamps. Handle graded vs. ungraded card pricing.",
+      "successMetrics": [
+        "API success rate: 95%+ of price lookups succeed",
+        "Price accuracy: Prices match TCGPlayer website within 5%",
+        "Response time: 90%+ of lookups complete in <3 seconds"
+      ],
+      "businessRules": [
+        "API credentials must be configured per company",
+        "Rate limiting: Respect TCGPlayer API rate limits",
+        "Price data is cached for 24 hours",
+        "Supports both graded and ungraded card pricing",
+        "Fallback to manual pricing if API is unavailable"
+      ]
+    },
+    {
+      "id": "EPIC-2-003",
+      "title": "Trade-In Valuation Calculator with Configurable Margins",
+      "description": "Create trade-in valuation calculator that uses market prices from APIs and applies configurable margin percentages to calculate trade-in offers.",
+      "userStory": "As a store owner, I want to calculate trade-in values with configurable margins so that I can offer fair prices while maintaining profitable margins.",
+      "acceptanceCriteria": [
+        "Given market price is fetched, when calculating trade-in value, then system applies configured margin percentage (e.g., 50% of market price)",
+        "Given margin configuration, when store owner sets margin percentage, then margin is saved and used for all future calculations",
+        "Given different conditions, when calculating trade-in value, then system uses condition-specific market price and applies margin",
+        "Given margin calculation, when trade-in value is calculated, then breakdown is shown: market price, margin %, and final offer",
+        "Given multiple items, when calculating batch trade-in, then system calculates total value for all items",
+        "Given margin settings, when viewed, then store owner can set different margins for games vs. cards if desired"
+      ],
+      "status": "backlog",
+      "priority": "must_have",
+      "epic": "Trade-In Valuation System",
+      "phase": 2,
+      "dependencies": ["EPIC-2-001", "EPIC-2-002"],
+      "effort": 8,
+      "labels": ["valuation", "calculator", "pricing", "backend", "frontend"],
+      "businessValue": "Automates trade-in pricing calculations, reducing manual work and ensuring consistent, profitable margins.",
+      "technicalNotes": "Create margin configuration in database. Implement calculation logic. Support different margins for different item types. Store calculation history for audit.",
+      "successMetrics": [
+        "Calculation accuracy: 100% of calculations use correct margin formulas",
+        "Margin configuration usage: 80%+ of stores configure custom margins"
+      ],
+      "businessRules": [
+        "Default margin is 50% of market price (configurable)",
+        "Margin can be set per item type (games, cards) or globally",
+        "Margin percentage must be between 10% and 90%",
+        "Calculation breakdown must be visible to user"
+      ]
+    },
+    {
+      "id": "EPIC-2-004",
+      "title": "Trade-In Processing Workflow with Approval",
+      "description": "Create complete trade-in workflow from item entry through condition assessment, valuation, approval (if needed), to inventory addition.",
+      "userStory": "As a store employee, I want a simple workflow to process trade-ins with automated pricing so that I can handle trade-ins quickly without needing extensive product knowledge.",
+      "acceptanceCriteria": [
+        "Given a trade-in is initiated, when employee enters item details, then system searches for item and fetches market price",
+        "Given item is found, when condition is assessed and entered, then system calculates trade-in value based on condition",
+        "Given trade-in value, when value exceeds approval threshold (e.g., $500), then approval workflow is triggered requiring Manager/Owner approval",
+        "Given trade-in is approved, when employee accepts trade-in, then items are automatically added to inventory and customer account is credited",
+        "Given trade-in workflow, when processing, then each step is clearly indicated with progress indicator",
+        "Given trade-in is completed, when finished, then trade-in record is saved with all details for reporting and audit",
+        "Given trade-in can be cancelled, when cancelled before completion, then no inventory changes occur and workflow is terminated"
+      ],
+      "status": "backlog",
+      "priority": "must_have",
+      "epic": "Trade-In Valuation System",
+      "phase": 2,
+      "dependencies": ["EPIC-2-003", "EPIC-1-006"],
+      "effort": 21,
+      "labels": ["workflow", "trade-in", "approval", "backend", "frontend"],
+      "businessValue": "Streamlines trade-in process, reducing time per transaction and enabling employees to process trade-ins efficiently.",
+      "technicalNotes": "Create TradeIn table to track trade-ins. Implement state machine for workflow. Integrate with inventory system for auto-add. Create approval workflow with notifications.",
+      "successMetrics": [
+        "Time saved: 50% reduction in time per trade-in transaction",
+        "Trade-in processing: 90%+ of trade-ins processed without errors",
+        "Approval workflow: 100% of high-value trade-ins go through approval"
+      ],
+      "businessRules": [
+        "Trade-in approval required for values exceeding $500 (configurable)",
+        "Only Manager or Owner roles can approve trade-ins",
+        "Trade-in items are automatically added to inventory upon acceptance",
+        "Trade-in records must include: items, values, customer, employee, timestamp",
+        "Trade-in can be cancelled before final acceptance"
+      ]
+    },
+    {
+      "id": "EPIC-3-001",
+      "title": "Customer Profile Management System",
+      "description": "Create comprehensive customer profile system with contact information, purchase history, preferences, and customer segmentation.",
+      "userStory": "As a store owner, I want to track customer profiles with purchase history so that I can build relationships and understand customer preferences.",
+      "acceptanceCriteria": [
+        "Given a customer profile, when created, then it includes: name, email, phone, address, and optional preferences",
+        "Given customer purchases, when sales are processed, then purchase history is automatically tracked and linked to customer",
+        "Given customer profile, when viewed, then it shows: contact info, total purchases, last purchase date, favorite items/categories",
+        "Given customer segmentation, when customers are tagged (VIP, collector, etc.), then tags are displayed and can be used for filtering",
+        "Given customer lifetime value, when calculated, then CLV is displayed based on total purchase history",
+        "Given customer communication, when interactions occur, then communication history is logged (emails, calls, notes)"
+      ],
+      "status": "backlog",
+      "priority": "must_have",
+      "epic": "Customer Loyalty & Wishlist",
+      "phase": 3,
+      "dependencies": [],
+      "effort": 13,
+      "labels": ["customers", "crm", "backend", "frontend"],
+      "businessValue": "Enables customer relationship management, personalized service, and customer retention. Foundation for loyalty programs.",
+      "technicalNotes": "Create Customer table with all profile fields. Link to Sale table for purchase history. Implement tagging system. Calculate CLV from sales data.",
+      "successMetrics": [
+        "Customer profile usage: 80%+ of sales are linked to customer profiles",
+        "Profile completeness: 70%+ of profiles have complete contact information"
+      ],
+      "businessRules": [
+        "Customer email or phone is required for profile creation",
+        "Purchase history is automatically linked when customer is selected during sale",
+        "Customer tags are customizable per store",
+        "CLV is calculated as sum of all purchase amounts"
+      ]
+    },
+    {
+      "id": "EPIC-3-002",
+      "title": "Customer Portal with Authentication",
+      "description": "Create web-based customer portal where customers can log in to manage their wishlists, view purchase history, and account information.",
+      "userStory": "As a customer, I want to log in to a customer portal so that I can securely access my wishlist and account information.",
+      "acceptanceCriteria": [
+        "Given a customer visits the portal, when they want to log in, then they can authenticate using email/password or social login",
+        "Given customer authentication, when logged in, then they can access their wishlist, purchase history, and account settings",
+        "Given customer portal, when customer views purchase history, then they see all past purchases with details and dates",
+        "Given customer account, when customer updates profile information, then changes are saved and reflected in store's customer database",
+        "Given customer authentication, when session expires, then customer is prompted to log in again",
+        "Given customer portal security, when accessed, then all data is isolated to the customer's account (no access to other customers' data)"
+      ],
+      "status": "backlog",
+      "priority": "must_have",
+      "epic": "Customer Loyalty & Wishlist",
+      "phase": 3,
+      "dependencies": ["EPIC-0-002", "EPIC-3-001"],
+      "effort": 21,
+      "labels": ["customer-portal", "authentication", "frontend", "backend"],
+      "businessValue": "Enables customer self-service and wishlist management. Required for automated wishlist notifications.",
+      "technicalNotes": "Create separate customer authentication system (can use Azure AD B2C with separate tenant or custom auth). Build customer-facing React app. Ensure data isolation between customers and stores.",
+      "successMetrics": [
+        "Customer portal adoption: 40%+ of customers create portal accounts",
+        "Portal login rate: 30%+ of registered customers log in monthly"
+      ],
+      "businessRules": [
+        "Customer portal requires separate authentication from store employee system",
+        "Customers can only access their own data",
+        "Customer accounts are linked to store customer profiles",
+        "Portal supports email/password and optional social login"
+      ]
+    },
+    {
+      "id": "EPIC-3-003",
+      "title": "Customer Wishlist Management System",
+      "description": "Implement wishlist functionality allowing customers to save desired items. Includes both customer-managed (via portal) and store-managed wishlists.",
+      "userStory": "As a customer, I want to create and manage a wishlist of items I'm looking for so that the store can notify me when those items become available.",
+      "acceptanceCriteria": [
+        "Given a customer is logged into portal, when they browse inventory, then they can add items to their wishlist",
+        "Given a customer wishlist, when viewed, then it shows all wishlist items with current availability status",
+        "Given a wishlist item, when customer removes it, then item is removed from wishlist",
+        "Given store employees, when they view customer profile, then they can see customer's wishlist and add items on behalf of customer",
+        "Given wishlist items, when inventory is added matching wishlist, then system detects match and triggers notification",
+        "Given wishlist management, when customer has multiple wishlist items, then they can organize by priority or category"
+      ],
+      "status": "backlog",
+      "priority": "must_have",
+      "epic": "Customer Loyalty & Wishlist",
+      "phase": 3,
+      "dependencies": ["EPIC-3-002", "EPIC-1-001"],
+      "effort": 13,
+      "labels": ["wishlist", "customers", "backend", "frontend"],
+      "businessValue": "Increases sales through proactive customer notifications. Enables personalized customer service.",
+      "technicalNotes": "Create WishlistItem table linking Customer to InventoryItem. Implement matching logic to detect when wishlist items become available. Support both exact matches and fuzzy matching.",
+      "successMetrics": [
+        "Wishlist usage: 50+ customers with active wishlists",
+        "Wishlist conversion: 30%+ of wishlist items result in sales",
+        "Wishlist size: Average 5-10 items per customer wishlist"
+      ],
+      "businessRules": [
+        "Wishlist items are linked to specific inventory items or item criteria (name, condition)",
+        "Customers can have unlimited wishlist items",
+        "Wishlist matching supports: exact match, name match, condition match",
+        "Store employees can add items to customer wishlists"
+      ]
+    },
+    {
+      "id": "EPIC-3-004",
+      "title": "Automated Wishlist Availability Notifications",
+      "description": "Implement automated email/SMS notifications when wishlist items become available in inventory.",
+      "userStory": "As a customer, I want to be notified when wishlist items become available so that I don't miss opportunities to purchase desired items.",
+      "acceptanceCriteria": [
+        "Given a wishlist item, when matching inventory is added to system, then system detects match and queues notification",
+        "Given notification is queued, when processed, then email (or SMS if configured) is sent to customer with item details and link to purchase",
+        "Given multiple wishlist matches, when multiple items become available, then consolidated notification is sent with all matching items",
+        "Given notification preferences, when customer sets preferences, then notifications are sent via preferred method (email, SMS, or both)",
+        "Given notification is sent, when customer views notification, then they can click link to view item and add to cart or purchase",
+        "Given notification frequency, when same item becomes available multiple times, then customer receives notification each time (unless they opt out)"
+      ],
+      "status": "backlog",
+      "priority": "must_have",
+      "epic": "Customer Loyalty & Wishlist",
+      "phase": 3,
+      "dependencies": ["EPIC-3-003"],
+      "effort": 13,
+      "labels": ["notifications", "wishlist", "email", "sms", "backend"],
+      "businessValue": "Drives sales through proactive customer engagement. Increases customer satisfaction and repeat business.",
+      "technicalNotes": "Implement background job to check wishlist matches when inventory is added. Integrate with email service (SendGrid) and SMS service (Twilio). Queue notifications for batch processing. Track notification history.",
+      "successMetrics": [
+        "Notification delivery rate: 95%+ of notifications are delivered successfully",
+        "Wishlist conversion rate: 30%+ of wishlist items result in sales after notification",
+        "Customer engagement: 60%+ of notified customers view the item"
+      ],
+      "businessRules": [
+        "Notifications are sent within 1 hour of item availability",
+        "Customers can opt out of notifications per item or globally",
+        "Notification includes: item name, condition, price, direct link to item",
+        "Consolidated notifications sent if multiple items become available within 24 hours"
+      ]
+    },
+    {
+      "id": "EPIC-4-001",
+      "title": "In-Store POS/Checkout System",
+      "description": "Create point-of-sale checkout system for in-store sales including item scanning, payment processing, receipt generation, and sale recording.",
+      "userStory": "As a store employee, I want to process in-store sales through a POS system so that I can complete customer transactions efficiently.",
+      "acceptanceCriteria": [
+        "Given a sale is initiated, when employee adds items to cart, then items are displayed with quantities and prices",
+        "Given items in cart, when employee processes payment, then payment is recorded and inventory is decremented",
+        "Given a sale is completed, when finished, then sale record is created with all details (items, customer, payment, employee, timestamp)",
+        "Given receipt generation, when sale is completed, then receipt is generated and can be printed or emailed to customer",
+        "Given payment processing, when payment is processed, then payment method is recorded (cash, card, etc.) and change is calculated if needed",
+        "Given sale workflow, when processing, then system supports: add items, remove items, apply discounts, process payment, complete sale",
+        "Given offline mode, when internet is down, then sales can be processed offline and synced when connection is restored"
+      ],
+      "status": "backlog",
+      "priority": "must_have",
+      "epic": "Multi-Channel Sales Support",
+      "phase": 4,
+      "dependencies": ["EPIC-1-001", "EPIC-1-010", "EPIC-3-001"],
+      "effort": 21,
+      "labels": ["pos", "checkout", "sales", "backend", "frontend"],
+      "businessValue": "Core functionality for processing sales. Enables revenue generation and transaction recording.",
+      "technicalNotes": "Create Sale and SaleItem tables. Implement cart functionality. Integrate with payment processor (Stripe for card payments). Generate receipts (PDF or thermal printer). Support offline mode with sync.",
+      "successMetrics": [
+        "Sale processing time: <2 minutes average per transaction",
+        "Sale accuracy: 99%+ of sales recorded correctly",
+        "Offline sale sync: 100% of offline sales sync successfully"
+      ],
+      "businessRules": [
+        "Inventory is decremented immediately upon sale completion",
+        "Sales must include: items, quantities, prices, customer (optional), payment method, employee",
+        "Receipts must include: store info, sale date, items, totals, payment method",
+        "Sales can be processed offline and synced later",
+        "Payment methods: cash, credit card, debit card, store credit"
+      ]
+    },
+    {
+      "id": "EPIC-4-002",
+      "title": "Unified Sales Dashboard with Channel Breakdown",
+      "description": "Create sales dashboard showing unified view of all sales across channels (in-store, online, marketplace) with channel-specific breakdowns and analytics.",
+      "userStory": "As a store owner, I want to see unified sales reporting across all channels so that I can understand which channels are most profitable.",
+      "acceptanceCriteria": [
+        "Given sales dashboard, when accessed, then it shows total sales, sales by channel, sales trends over time, and top-selling items",
+        "Given channel breakdown, when viewed, then sales are categorized by: in-store, online, marketplace (eBay, Amazon, etc.)",
+        "Given sales analytics, when displayed, then metrics include: revenue by channel, profit margins, sales volume, average order value",
+        "Given date filtering, when date range is selected, then sales data is filtered to selected range",
+        "Given sales export, when requested, then sales data can be exported to CSV/Excel for external analysis",
+        "Given real-time updates, when new sales occur, then dashboard updates automatically or on refresh"
+      ],
+      "status": "backlog",
+      "priority": "must_have",
+      "epic": "Multi-Channel Sales Support",
+      "phase": 4,
+      "dependencies": ["EPIC-4-001"],
+      "effort": 13,
+      "labels": ["dashboard", "analytics", "reporting", "frontend", "backend"],
+      "businessValue": "Provides business intelligence for decision-making. Enables channel performance comparison and optimization.",
+      "technicalNotes": "Create sales aggregation queries. Build dashboard UI with charts (use charting library). Implement date filtering. Support data export. Cache aggregated data for performance.",
+      "successMetrics": [
+        "Dashboard load time: <3 seconds for sales data",
+        "Dashboard usage: 80%+ of store owners view dashboard weekly",
+        "Data accuracy: 100% of displayed sales match source data"
+      ],
+      "businessRules": [
+        "Sales data includes all channels: in-store, online, marketplace",
+        "Channel attribution is tracked for each sale",
+        "Sales data is aggregated by: day, week, month, year",
+        "Dashboard shows: revenue, profit, volume, trends, top items"
+      ]
+    },
+    {
+      "id": "EPIC-4-003",
+      "title": "Channel-Specific Inventory Allocation",
+      "description": "Implement inventory allocation system allowing stores to reserve inventory for specific sales channels (in-store, online, marketplace).",
+      "userStory": "As a store owner, I want to allocate inventory to specific channels so that I can manage inventory across in-store and online sales without overselling.",
+      "acceptanceCriteria": [
+        "Given inventory items, when allocating to channels, then store owner can set quantities reserved for each channel (in-store, online, marketplace)",
+        "Given channel allocation, when inventory is allocated, then total allocation cannot exceed available quantity",
+        "Given sales occur, when sale happens in a channel, then inventory is decremented from that channel's allocation",
+        "Given channel inventory, when viewed, then each channel shows available quantity for that channel",
+        "Given allocation changes, when allocations are updated, then changes are reflected immediately across all channels",
+        "Given overselling prevention, when channel allocation is exhausted, then that channel shows out of stock even if other channels have inventory"
+      ],
+      "status": "backlog",
+      "priority": "should_have",
+      "epic": "Multi-Channel Sales Support",
+      "phase": 4,
+      "dependencies": ["EPIC-1-001", "EPIC-4-001"],
+      "effort": 13,
+      "labels": ["inventory", "allocation", "channels", "backend", "frontend"],
+      "businessValue": "Prevents overselling across channels. Enables strategic inventory distribution.",
+      "technicalNotes": "Create ChannelAllocation table to track inventory per channel. Update inventory queries to consider channel allocations. Implement allocation validation.",
+      "successMetrics": [
+        "Overselling prevention: 100% of channel sales respect allocation limits",
+        "Allocation usage: 60%+ of multi-channel stores use channel allocation"
+      ],
+      "businessRules": [
+        "Total channel allocations cannot exceed available inventory",
+        "Default allocation: 100% to in-store if not specified",
+        "Allocations can be adjusted at any time",
+        "When channel allocation is 0, that channel shows out of stock"
+      ]
+    }
+  ]
+}
