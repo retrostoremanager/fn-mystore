@@ -1,0 +1,59 @@
+﻿{
+    "metadata":  {
+                     "description":  "Kanban board for Condition-Based Inventory Tracking for Games and Cards. Contains original epic task (as reference) and broken-down subtasks (1-2 day units). See ../KANBAN-BREAKDOWN-GUIDE.md for breakdown details.",
+                     "originalEffort":  13,
+                     "createdDate":  "2026-01-13",
+                     "version":  "2.0",
+                     "phase":  1,
+                     "epicTitle":  "Condition-Based Inventory Tracking for Games and Cards",
+                     "epic":  "Intelligent Inventory Tracking",
+                     "epicId":  "EPIC-1-006",
+                     "note":  "This file contains the original epic task. Broken-down subtasks should be added based on KANBAN-BREAKDOWN-GUIDE.md"
+                 },
+    "tasks":  [
+                  {
+                      "id":  "EPIC-1-006",
+                      "title":  "Condition-Based Inventory Tracking for Games and Cards",
+                      "description":  "Extend inventory system to support condition-based variants (CIB, loose, cartridge only for games; graded/ungraded, condition levels for cards).",
+                      "userStory":  "As a store owner, I want to track inventory with condition-based variants so that I can accurately manage stock for games and cards with different conditions.",
+                      "acceptanceCriteria":  [
+                                                 "Given an inventory item is a game, when adding to inventory, then user can select condition (CIB, loose, cartridge only, box only)",
+                                                 "Given an inventory item is a card, when adding to inventory, then user can select condition (Near Mint, Lightly Played, Moderately Played, etc.) and graded status",
+                                                 "Given inventory items, when displayed, then condition is shown clearly for each item",
+                                                 "Given inventory search, when filtering by condition, then only items matching selected conditions are shown",
+                                                 "Given condition variants, when the same item exists in multiple conditions, then they are tracked as separate inventory entries",
+                                                 "Given pricing, when condition is selected, then pricing can vary by condition"
+                                             ],
+                      "status":  "backlog",
+                      "priority":  "must_have",
+                      "epic":  "Intelligent Inventory Tracking",
+                      "phase":  1,
+                      "dependencies":  [
+                                           "EPIC-1-001"
+                                       ],
+                      "effort":  13,
+                      "labels":  [
+                                     "inventory",
+                                     "condition",
+                                     "games",
+                                     "cards",
+                                     "backend",
+                                     "frontend"
+                                 ],
+                      "businessValue":  "Essential for collectibles business. Enables accurate tracking and pricing of items in different conditions.",
+                      "technicalNotes":  "Add Condition field to InventoryItem table. Define condition enums for games and cards. Update UI to support condition selection. Ensure condition is included in search and filtering.",
+                      "successMetrics":  [
+                                             "Condition tracking usage: 90%+ of items have condition specified",
+                                             "Condition-based search usage: 60%+ of searches include condition filter"
+                                         ],
+                      "businessRules":  [
+                                            "Condition is required for all inventory items",
+                                            "Game conditions: CIB (Complete In Box), Loose, Cartridge Only, Box Only",
+                                            "Card conditions: Near Mint, Lightly Played, Moderately Played, Heavily Played, Damaged, plus Graded (with grade number)",
+                                            "Same item in different conditions is tracked separately"
+                                        ],
+                      "isParentEpic":  true,
+                      "note":  "This is the original epic task. The subtasks should be broken down into 1-2 day units based on KANBAN-BREAKDOWN-GUIDE.md"
+                  }
+              ]
+}

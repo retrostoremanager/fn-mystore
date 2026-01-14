@@ -1,0 +1,57 @@
+﻿{
+    "metadata":  {
+                     "description":  "Kanban board for Customer Profile Management System. Contains original epic task (as reference) and broken-down subtasks (1-2 day units). See ../KANBAN-BREAKDOWN-GUIDE.md for breakdown details.",
+                     "originalEffort":  13,
+                     "createdDate":  "2026-01-13",
+                     "version":  "2.0",
+                     "phase":  3,
+                     "epicTitle":  "Customer Profile Management System",
+                     "epic":  "Customer Loyalty \u0026 Wishlist",
+                     "epicId":  "EPIC-3-001",
+                     "note":  "This file contains the original epic task. Broken-down subtasks should be added based on KANBAN-BREAKDOWN-GUIDE.md"
+                 },
+    "tasks":  [
+                  {
+                      "id":  "EPIC-3-001",
+                      "title":  "Customer Profile Management System",
+                      "description":  "Create comprehensive customer profile system with contact information, purchase history, preferences, and customer segmentation.",
+                      "userStory":  "As a store owner, I want to track customer profiles with purchase history so that I can build relationships and understand customer preferences.",
+                      "acceptanceCriteria":  [
+                                                 "Given a customer profile, when created, then it includes: name, email, phone, address, and optional preferences",
+                                                 "Given customer purchases, when sales are processed, then purchase history is automatically tracked and linked to customer",
+                                                 "Given customer profile, when viewed, then it shows: contact info, total purchases, last purchase date, favorite items/categories",
+                                                 "Given customer segmentation, when customers are tagged (VIP, collector, etc.), then tags are displayed and can be used for filtering",
+                                                 "Given customer lifetime value, when calculated, then CLV is displayed based on total purchase history",
+                                                 "Given customer communication, when interactions occur, then communication history is logged (emails, calls, notes)"
+                                             ],
+                      "status":  "backlog",
+                      "priority":  "must_have",
+                      "epic":  "Customer Loyalty \u0026 Wishlist",
+                      "phase":  3,
+                      "dependencies":  [
+
+                                       ],
+                      "effort":  13,
+                      "labels":  [
+                                     "customers",
+                                     "crm",
+                                     "backend",
+                                     "frontend"
+                                 ],
+                      "businessValue":  "Enables customer relationship management, personalized service, and customer retention. Foundation for loyalty programs.",
+                      "technicalNotes":  "Create Customer table with all profile fields. Link to Sale table for purchase history. Implement tagging system. Calculate CLV from sales data.",
+                      "successMetrics":  [
+                                             "Customer profile usage: 80%+ of sales are linked to customer profiles",
+                                             "Profile completeness: 70%+ of profiles have complete contact information"
+                                         ],
+                      "businessRules":  [
+                                            "Customer email or phone is required for profile creation",
+                                            "Purchase history is automatically linked when customer is selected during sale",
+                                            "Customer tags are customizable per store",
+                                            "CLV is calculated as sum of all purchase amounts"
+                                        ],
+                      "isParentEpic":  true,
+                      "note":  "This is the original epic task. The subtasks should be broken down into 1-2 day units based on KANBAN-BREAKDOWN-GUIDE.md"
+                  }
+              ]
+}

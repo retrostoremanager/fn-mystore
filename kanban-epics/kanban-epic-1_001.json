@@ -1,0 +1,57 @@
+﻿{
+    "metadata":  {
+                     "description":  "Kanban board for Multi-Location Database Schema and Data Model. Contains original epic task (as reference) and broken-down subtasks (1-2 day units). See ../KANBAN-BREAKDOWN-GUIDE.md for breakdown details.",
+                     "originalEffort":  8,
+                     "createdDate":  "2026-01-13",
+                     "version":  "2.0",
+                     "phase":  1,
+                     "epicTitle":  "Multi-Location Database Schema and Data Model",
+                     "epic":  "Multi-Location Inventory Management",
+                     "epicId":  "EPIC-1-001",
+                     "note":  "This file contains the original epic task. Broken-down subtasks should be added based on KANBAN-BREAKDOWN-GUIDE.md"
+                 },
+    "tasks":  [
+                  {
+                      "id":  "EPIC-1-001",
+                      "title":  "Multi-Location Database Schema and Data Model",
+                      "description":  "Design and implement database schema supporting multi-location architecture with company-level data isolation and location hierarchy.",
+                      "userStory":  "As a system architect, I want a database schema that supports multiple locations per company so that stores can manage inventory across locations.",
+                      "acceptanceCriteria":  [
+                                                 "Given the database schema, when implemented, then Company table exists with proper multi-tenant isolation",
+                                                 "Given the schema, when implemented, then Location table exists with foreign key to Company and supports location-specific data",
+                                                 "Given inventory items, when stored, then each item has a LocationId foreign key linking it to a location",
+                                                 "Given the schema, when queries are executed, then all queries include CompanyId filter for data isolation",
+                                                 "Given indexes are created, when implemented, then composite indexes exist on (CompanyId, LocationId) for performance",
+                                                 "Given foreign keys are defined, when implemented, then referential integrity is enforced with appropriate cascade rules"
+                                             ],
+                      "status":  "backlog",
+                      "priority":  "must_have",
+                      "epic":  "Multi-Location Inventory Management",
+                      "phase":  1,
+                      "dependencies":  [
+                                           "EPIC-0-007"
+                                       ],
+                      "effort":  8,
+                      "labels":  [
+                                     "database",
+                                     "schema",
+                                     "multi-tenant",
+                                     "backend"
+                                 ],
+                      "businessValue":  "Foundation for multi-location support. Enables inventory tracking across locations and prevents data leakage between companies.",
+                      "technicalNotes":  "Create Location table with CompanyId foreign key. Update InventoryItem table with LocationId. Add indexes for query performance. Ensure all queries filter by CompanyId.",
+                      "successMetrics":  [
+                                             "Query performance: All location-based queries complete in \u003c100ms",
+                                             "Data isolation: Zero instances of cross-company data access"
+                                         ],
+                      "businessRules":  [
+                                            "Each company must have at least one location",
+                                            "Location names must be unique within a company",
+                                            "Inventory items must belong to a location",
+                                            "CompanyId must be included in all data access queries"
+                                        ],
+                      "isParentEpic":  true,
+                      "note":  "This is the original epic task. The subtasks should be broken down into 1-2 day units based on KANBAN-BREAKDOWN-GUIDE.md"
+                  }
+              ]
+}

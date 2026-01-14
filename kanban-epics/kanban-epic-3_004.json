@@ -1,0 +1,59 @@
+﻿{
+    "metadata":  {
+                     "description":  "Kanban board for Automated Wishlist Availability Notifications. Contains original epic task (as reference) and broken-down subtasks (1-2 day units). See ../KANBAN-BREAKDOWN-GUIDE.md for breakdown details.",
+                     "originalEffort":  13,
+                     "createdDate":  "2026-01-13",
+                     "version":  "2.0",
+                     "phase":  3,
+                     "epicTitle":  "Automated Wishlist Availability Notifications",
+                     "epic":  "Customer Loyalty \u0026 Wishlist",
+                     "epicId":  "EPIC-3-004",
+                     "note":  "This file contains the original epic task. Broken-down subtasks should be added based on KANBAN-BREAKDOWN-GUIDE.md"
+                 },
+    "tasks":  [
+                  {
+                      "id":  "EPIC-3-004",
+                      "title":  "Automated Wishlist Availability Notifications",
+                      "description":  "Implement automated email/SMS notifications when wishlist items become available in inventory.",
+                      "userStory":  "As a customer, I want to be notified when wishlist items become available so that I don\u0027t miss opportunities to purchase desired items.",
+                      "acceptanceCriteria":  [
+                                                 "Given a wishlist item, when matching inventory is added to system, then system detects match and queues notification",
+                                                 "Given notification is queued, when processed, then email (or SMS if configured) is sent to customer with item details and link to purchase",
+                                                 "Given multiple wishlist matches, when multiple items become available, then consolidated notification is sent with all matching items",
+                                                 "Given notification preferences, when customer sets preferences, then notifications are sent via preferred method (email, SMS, or both)",
+                                                 "Given notification is sent, when customer views notification, then they can click link to view item and add to cart or purchase",
+                                                 "Given notification frequency, when same item becomes available multiple times, then customer receives notification each time (unless they opt out)"
+                                             ],
+                      "status":  "backlog",
+                      "priority":  "must_have",
+                      "epic":  "Customer Loyalty \u0026 Wishlist",
+                      "phase":  3,
+                      "dependencies":  [
+                                           "EPIC-3-003"
+                                       ],
+                      "effort":  13,
+                      "labels":  [
+                                     "notifications",
+                                     "wishlist",
+                                     "email",
+                                     "sms",
+                                     "backend"
+                                 ],
+                      "businessValue":  "Drives sales through proactive customer engagement. Increases customer satisfaction and repeat business.",
+                      "technicalNotes":  "Implement background job to check wishlist matches when inventory is added. Integrate with email service (SendGrid) and SMS service (Twilio). Queue notifications for batch processing. Track notification history.",
+                      "successMetrics":  [
+                                             "Notification delivery rate: 95%+ of notifications are delivered successfully",
+                                             "Wishlist conversion rate: 30%+ of wishlist items result in sales after notification",
+                                             "Customer engagement: 60%+ of notified customers view the item"
+                                         ],
+                      "businessRules":  [
+                                            "Notifications are sent within 1 hour of item availability",
+                                            "Customers can opt out of notifications per item or globally",
+                                            "Notification includes: item name, condition, price, direct link to item",
+                                            "Consolidated notifications sent if multiple items become available within 24 hours"
+                                        ],
+                      "isParentEpic":  true,
+                      "note":  "This is the original epic task. The subtasks should be broken down into 1-2 day units based on KANBAN-BREAKDOWN-GUIDE.md"
+                  }
+              ]
+}

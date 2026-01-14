@@ -1,0 +1,209 @@
+﻿{
+    "metadata":  {
+                     "description":  "Kanban board for Stripe Payment Method Integration and Setup. Contains original epic task (as reference) and broken-down subtasks (1-2 day units). See ../KANBAN-BREAKDOWN-GUIDE.md for breakdown details.",
+                     "originalEffort":  13,
+                     "createdDate":  "2026-01-13",
+                     "version":  "2.0",
+                     "phase":  0,
+                     "epicTitle":  "Stripe Payment Method Integration and Setup",
+                     "epic":  "Account Setup \u0026 Administration",
+                     "epicId":  "EPIC-0-004",
+                     "brokenDownTasks":  6,
+                     "totalEffort":  9,
+                     "note":  "This file contains the original epic task and 6 broken-down subtasks (1-2 day units)."
+                 },
+    "tasks":  [
+                  {
+                      "id":  "EPIC-0-004",
+                      "title":  "Stripe Payment Method Integration and Setup",
+                      "description":  "Integrate Stripe payment processing to collect and manage payment methods (credit card, ACH) for subscription billing. Includes secure payment method storage.",
+                      "userStory":  "As a store owner, I want to securely add and manage my payment method so that my subscription can be billed automatically.",
+                      "acceptanceCriteria":  [
+                                                 "Given a store owner is setting up payment, when they enter valid credit card information, then the payment method is securely stored via Stripe and associated with their account",
+                                                 "Given a store owner adds a payment method, when the card is declined or invalid, then they receive a clear error message with guidance on how to fix it",
+                                                 "Given a store owner has a payment method on file, when they view their billing settings, then they can see the last 4 digits and expiration date of their card",
+                                                 "Given a store owner wants to update payment, when they add a new payment method, then the new method becomes the default and the old method is archived",
+                                                 "Given a payment method is stored, when subscription billing occurs, then Stripe automatically charges the default payment method",
+                                                 "Given a store owner is in their 30-day trial, when they add a payment method, then it is stored but not charged until trial ends"
+                                             ],
+                      "status":  "backlog",
+                      "priority":  "must_have",
+                      "epic":  "Account Setup \u0026 Administration",
+                      "phase":  0,
+                      "dependencies":  [
+                                           "EPIC-0-001"
+                                       ],
+                      "effort":  13,
+                      "labels":  [
+                                     "payment",
+                                     "stripe",
+                                     "billing",
+                                     "backend",
+                                     "frontend"
+                                 ],
+                      "businessValue":  "Enables subscription billing and revenue collection. Critical for business model.",
+                      "technicalNotes":  "Use Stripe Elements for secure card input. Store Stripe customer ID and payment method IDs. Never store full card numbers. Implement webhook handlers for payment events.",
+                      "successMetrics":  [
+                                             "Payment setup success rate: 95%+ of accounts successfully set up payment",
+                                             "Payment method update success rate: 90%+ of update attempts succeed"
+                                         ],
+                      "businessRules":  [
+                                            "Payment methods are stored securely via Stripe (PCI compliance)",
+                                            "Only one default payment method per account",
+                                            "Payment methods can be updated at any time",
+                                            "Payment method is required before trial ends for subscription continuation"
+                                        ],
+                      "isParentEpic":  true,
+                      "note":  "This is the original epic task. The subtasks below break this down into 1-2 day units."
+                  },
+                  {
+                      "id":  "EPIC-0-004-001",
+                      "title":  "Stripe Account Setup and Configuration",
+                      "description":  "Set up Stripe account, obtain API keys, configure webhook endpoints, and store credentials securely.",
+                      "userStory":  "As a developer, I want to configure Stripe so that payment processing infrastructure is ready.",
+                      "acceptanceCriteria":  [
+                                                 "Given Stripe account, when created, then API keys (publishable and secret) are obtained",
+                                                 "Given Stripe configuration, when set up, then webhook endpoints are configured for payment events",
+                                                 "Given API keys, when stored, then they are stored securely in Azure Key Vault or environment variables",
+                                                 "Given webhook configuration, when complete, then webhook signing secret is stored securely",
+                                                 "Given Stripe setup, when configured, then test mode and production mode are properly separated"
+                                             ],
+                      "status":  "backlog",
+                      "priority":  "must_have",
+                      "epic":  "Account Setup & Administration",
+                      "phase":  0,
+                      "dependencies":  [],
+                      "effort":  1,
+                      "labels":  ["stripe", "configuration", "backend", "infrastructure"],
+                      "businessValue":  "Foundation for payment processing. Required for subscription billing.",
+                      "technicalNotes":  "Create Stripe account. Obtain API keys. Configure webhook endpoints. Store secrets in Azure Key Vault. Document configuration.",
+                      "successMetrics":  ["Stripe account is operational", "API keys are securely stored", "Webhook endpoints are configured"],
+                      "businessRules":  ["API keys must be stored securely (never in code)", "Separate test and production keys", "Webhook signing secret must be validated"]
+                  },
+                  {
+                      "id":  "EPIC-0-004-002",
+                      "title":  "Stripe Elements Integration in Frontend",
+                      "description":  "Integrate Stripe Elements in React frontend to securely collect payment method information without handling card data directly.",
+                      "userStory":  "As a developer, I want to use Stripe Elements so that payment information is collected securely without PCI compliance burden.",
+                      "acceptanceCriteria":  [
+                                                 "Given payment form, when rendered, then Stripe Elements card input is displayed",
+                                                 "Given card input, when user enters card details, then data is sent directly to Stripe (not through our server)",
+                                                 "Given card validation, when card is invalid, then validation errors are displayed in real-time",
+                                                 "Given payment form, when submitted, then payment method is created via Stripe API",
+                                                 "Given payment method creation, when successful, then payment method ID is returned and stored",
+                                                 "Given payment form, when displayed, then it follows Material UI design and is responsive"
+                                             ],
+                      "status":  "backlog",
+                      "priority":  "must_have",
+                      "epic":  "Account Setup & Administration",
+                      "phase":  0,
+                      "dependencies":  ["EPIC-0-004-001"],
+                      "effort":  2,
+                      "labels":  ["stripe", "frontend", "react", "payment", "security"],
+                      "businessValue":  "Enables secure payment method collection without PCI compliance requirements.",
+                      "technicalNotes":  "Use @stripe/stripe-js and @stripe/react-stripe-js. Implement Stripe Elements (CardElement). Handle validation. Create payment method via Stripe API.",
+                      "successMetrics":  ["Payment form renders correctly", "100% of valid cards are accepted", "No card data touches our servers"],
+                      "businessRules":  ["Card data must never be sent to our backend", "Payment method creation happens client-side", "Stripe Elements handles PCI compliance"]
+                  },
+                  {
+                      "id":  "EPIC-0-004-003",
+                      "title":  "Backend API for Payment Method Storage",
+                      "description":  "Create backend API endpoints to store payment method IDs, associate with company accounts, and manage payment methods.",
+                      "userStory":  "As a developer, I want backend APIs so that payment methods can be stored and associated with company accounts.",
+                      "acceptanceCriteria":  [
+                                                 "Given payment method ID, when received from frontend, then it is validated with Stripe API",
+                                                 "Given valid payment method, when stored, then Stripe customer ID and payment method ID are saved to database",
+                                                 "Given payment method storage, when processed, then payment method is associated with company account",
+                                                 "Given payment method API, when accessed, then it requires authentication and company context",
+                                                 "Given payment method retrieval, when requested, then stored payment methods are returned with last 4 digits and expiration",
+                                                 "Given payment method storage, when successful, then default payment method is set if it's the first one"
+                                             ],
+                      "status":  "backlog",
+                      "priority":  "must_have",
+                      "epic":  "Account Setup & Administration",
+                      "phase":  0,
+                      "dependencies":  ["EPIC-0-004-002"],
+                      "effort":  2,
+                      "labels":  ["stripe", "backend", "api", "database"],
+                      "businessValue":  "Enables secure storage and management of payment methods on the backend.",
+                      "technicalNotes":  "Create StorePaymentMethod HTTP function. Validate payment method with Stripe. Store Stripe customer ID and payment method ID. Never store full card numbers. Use transactions.",
+                      "successMetrics":  ["Payment methods stored successfully", "100% of stored payment methods are valid", "API responds in <500ms"],
+                      "businessRules":  ["Never store full card numbers", "Only store Stripe payment method IDs", "One default payment method per account", "Payment methods must be validated with Stripe"]
+                  },
+                  {
+                      "id":  "EPIC-0-004-004",
+                      "title":  "Payment Method Management UI",
+                      "description":  "Create React UI for viewing, adding, and managing payment methods in billing settings.",
+                      "userStory":  "As a store owner, I want a UI to manage my payment methods so that I can view and update my billing information.",
+                      "acceptanceCriteria":  [
+                                                 "Given billing settings page, when accessed, then stored payment methods are displayed with last 4 digits and expiration",
+                                                 "Given payment method display, when viewed, then default payment method is clearly indicated",
+                                                 "Given add payment method, when clicked, then Stripe Elements form is displayed",
+                                                 "Given payment method form, when submitted, then new payment method is added and displayed",
+                                                 "Given payment method list, when displayed, then all payment methods are shown with option to set as default",
+                                                 "Given payment method UI, when loaded, then it shows loading state and handles errors gracefully"
+                                             ],
+                      "status":  "backlog",
+                      "priority":  "must_have",
+                      "epic":  "Account Setup & Administration",
+                      "phase":  0,
+                      "dependencies":  ["EPIC-0-004-003"],
+                      "effort":  2,
+                      "labels":  ["payment", "frontend", "react", "ui"],
+                      "businessValue":  "Provides user interface for payment method management, enabling self-service billing management.",
+                      "technicalNotes":  "Create PaymentMethodManagement component. Use Material UI for layout. Integrate Stripe Elements. Call backend API for storage. Handle loading and error states.",
+                      "successMetrics":  ["UI renders correctly", "Payment methods are displayed accurately", "Add payment method flow works end-to-end"],
+                      "businessRules":  ["Default payment method must be clearly indicated", "Users can add multiple payment methods", "Only one default at a time"]
+                  },
+                  {
+                      "id":  "EPIC-0-004-005",
+                      "title":  "Payment Method Update and Deletion",
+                      "description":  "Implement functionality to update default payment method and delete payment methods.",
+                      "userStory":  "As a store owner, I want to update or remove payment methods so that I can manage my billing information.",
+                      "acceptanceCriteria":  [
+                                                 "Given payment method list, when user sets new default, then default is updated and old default is unset",
+                                                 "Given payment method deletion, when user deletes a payment method, then confirmation dialog is shown",
+                                                 "Given deletion confirmation, when confirmed, then payment method is removed from Stripe and database",
+                                                 "Given deletion, when last payment method is deleted, then user is warned and cannot delete if it's the only one",
+                                                 "Given default update, when processed, then new default is immediately reflected in UI",
+                                                 "Given payment method operations, when performed, then success/error messages are displayed"
+                                             ],
+                      "status":  "backlog",
+                      "priority":  "must_have",
+                      "epic":  "Account Setup & Administration",
+                      "phase":  0,
+                      "dependencies":  ["EPIC-0-004-004"],
+                      "effort":  1,
+                      "labels":  ["payment", "backend", "frontend"],
+                      "businessValue":  "Enables payment method management, allowing users to update billing information.",
+                      "technicalNotes":  "Create UpdateDefaultPaymentMethod and DeletePaymentMethod API endpoints. Update Stripe customer. Update database. Handle edge cases (last payment method).",
+                      "successMetrics":  ["Default update succeeds 100% of the time", "Deletion works correctly", "Edge cases handled gracefully"],
+                      "businessRules":  ["Cannot delete last payment method", "Default update must be atomic", "Deletion requires confirmation"]
+                  },
+                  {
+                      "id":  "EPIC-0-004-006",
+                      "title":  "Payment Method Validation and Error Handling",
+                      "description":  "Implement comprehensive validation and error handling for payment method operations including card validation, decline handling, and user-friendly error messages.",
+                      "userStory":  "As a developer, I want robust validation and error handling so that payment method operations provide clear feedback to users.",
+                      "acceptanceCriteria":  [
+                                                 "Given card validation, when card is declined, then user receives clear error message with guidance",
+                                                 "Given card validation, when card is expired, then specific error message is shown",
+                                                 "Given card validation, when card number is invalid, then validation error is displayed immediately",
+                                                 "Given API errors, when Stripe API fails, then user-friendly error message is shown",
+                                                 "Given network errors, when connection fails, then retry option is provided",
+                                                 "Given error handling, when implemented, then all error scenarios are handled gracefully"
+                                             ],
+                      "status":  "backlog",
+                      "priority":  "must_have",
+                      "epic":  "Account Setup & Administration",
+                      "phase":  0,
+                      "dependencies":  ["EPIC-0-004-005"],
+                      "effort":  1,
+                      "labels":  ["payment", "validation", "error-handling", "frontend", "backend"],
+                      "businessValue":  "Improves user experience with clear error messages and validation feedback.",
+                      "technicalNotes":  "Handle Stripe error codes. Map technical errors to user-friendly messages. Implement retry logic. Validate card details before submission.",
+                      "successMetrics":  ["100% of errors show user-friendly messages", "Validation errors are clear and actionable", "Error recovery works correctly"],
+                      "businessRules":  ["Error messages must be user-friendly (no technical jargon)", "Card validation happens in real-time", "Network errors allow retry"]
+                  }
+              ]
+}

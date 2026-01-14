@@ -1,0 +1,62 @@
+﻿{
+    "metadata":  {
+                     "description":  "Kanban board for Trade-In Processing Workflow with Approval. Contains original epic task (as reference) and broken-down subtasks (1-2 day units). See ../KANBAN-BREAKDOWN-GUIDE.md for breakdown details.",
+                     "originalEffort":  21,
+                     "createdDate":  "2026-01-13",
+                     "version":  "2.0",
+                     "phase":  2,
+                     "epicTitle":  "Trade-In Processing Workflow with Approval",
+                     "epic":  "Trade-In Valuation System",
+                     "epicId":  "EPIC-2-004",
+                     "note":  "This file contains the original epic task. Broken-down subtasks should be added based on KANBAN-BREAKDOWN-GUIDE.md"
+                 },
+    "tasks":  [
+                  {
+                      "id":  "EPIC-2-004",
+                      "title":  "Trade-In Processing Workflow with Approval",
+                      "description":  "Create complete trade-in workflow from item entry through condition assessment, valuation, approval (if needed), to inventory addition.",
+                      "userStory":  "As a store employee, I want a simple workflow to process trade-ins with automated pricing so that I can handle trade-ins quickly without needing extensive product knowledge.",
+                      "acceptanceCriteria":  [
+                                                 "Given a trade-in is initiated, when employee enters item details, then system searches for item and fetches market price",
+                                                 "Given item is found, when condition is assessed and entered, then system calculates trade-in value based on condition",
+                                                 "Given trade-in value, when value exceeds approval threshold (e.g., $500), then approval workflow is triggered requiring Manager/Owner approval",
+                                                 "Given trade-in is approved, when employee accepts trade-in, then items are automatically added to inventory and customer account is credited",
+                                                 "Given trade-in workflow, when processing, then each step is clearly indicated with progress indicator",
+                                                 "Given trade-in is completed, when finished, then trade-in record is saved with all details for reporting and audit",
+                                                 "Given trade-in can be cancelled, when cancelled before completion, then no inventory changes occur and workflow is terminated"
+                                             ],
+                      "status":  "backlog",
+                      "priority":  "must_have",
+                      "epic":  "Trade-In Valuation System",
+                      "phase":  2,
+                      "dependencies":  [
+                                           "EPIC-2-003",
+                                           "EPIC-1-006"
+                                       ],
+                      "effort":  21,
+                      "labels":  [
+                                     "workflow",
+                                     "trade-in",
+                                     "approval",
+                                     "backend",
+                                     "frontend"
+                                 ],
+                      "businessValue":  "Streamlines trade-in process, reducing time per transaction and enabling employees to process trade-ins efficiently.",
+                      "technicalNotes":  "Create TradeIn table to track trade-ins. Implement state machine for workflow. Integrate with inventory system for auto-add. Create approval workflow with notifications.",
+                      "successMetrics":  [
+                                             "Time saved: 50% reduction in time per trade-in transaction",
+                                             "Trade-in processing: 90%+ of trade-ins processed without errors",
+                                             "Approval workflow: 100% of high-value trade-ins go through approval"
+                                         ],
+                      "businessRules":  [
+                                            "Trade-in approval required for values exceeding $500 (configurable)",
+                                            "Only Manager or Owner roles can approve trade-ins",
+                                            "Trade-in items are automatically added to inventory upon acceptance",
+                                            "Trade-in records must include: items, values, customer, employee, timestamp",
+                                            "Trade-in can be cancelled before final acceptance"
+                                        ],
+                      "isParentEpic":  true,
+                      "note":  "This is the original epic task. The subtasks should be broken down into 1-2 day units based on KANBAN-BREAKDOWN-GUIDE.md"
+                  }
+              ]
+}
