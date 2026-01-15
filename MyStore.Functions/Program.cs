@@ -16,12 +16,14 @@ var host = new HostBuilder()
         services.AddScoped<ICustomerRepository, CustomerRepository>();
         services.AddScoped<IEmployeeRepository, EmployeeRepository>();
         services.AddScoped<ISalesRepository, SalesRepository>();
+        services.AddScoped<ICompanyRepository, CompanyRepository>();
         
         // Register services
         services.AddScoped<IInventoryService, InventoryService>();
         services.AddScoped<ICustomerService, CustomerService>();
         services.AddScoped<IEmployeeService, EmployeeService>();
         services.AddScoped<ISalesService, SalesService>();
+        services.AddScoped<ICompanyService, CompanyService>();
     })
     .Build();
 
