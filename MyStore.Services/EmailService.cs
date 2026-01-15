@@ -1,0 +1,321 @@
+using System.Text;
+using Azure;
+using Azure.Communication.Email;
+using Microsoft.Extensions.Logging;
+
+namespace MyStore.Services;
+
+/// <summary>
+/// Email service implementation using Azure Communication Services Email.
+/// Sends verification emails with HTML and plain text content, including retry logic for reliability.
+/// </summary>
+/// <remarks>
+/// Configuration required:
+/// - AzureCommunicationServices__ConnectionString: Connection string from Azure Communication Services resource
+/// - Email__FromEmail: Verified email address (must be from verified domain)
+/// - Email__FromName: Display name for sender
+/// - VerificationBaseUrl: Base URL for verification links (e.g., https://app.mystore.com/verify)
+/// </remarks>
+public class EmailService : IEmailService
+{
+    private readonly ILogger<EmailService> _logger;
+    private readonly EmailClient _emailClient;
+    private readonly string _fromEmail;
+    private readonly string _fromName;
+    private readonly string _verificationBaseUrl;
+
+    /// <summary>
+    /// Initializes a new instance of the EmailService.
+    /// </summary>
+    /// <param name="logger">Logger for email operations.</param>
+    /// <exception cref="InvalidOperationException">Thrown when required configuration is missing.</exception>
+    public EmailService(ILogger<EmailService> logger)
+    {
+        _logger = logger;
+        
+        // Get Azure Communication Services connection string from environment
+        var connectionString = Environment.GetEnvironmentVariable("AzureCommunicationServices__ConnectionString")
+            ?? throw new InvalidOperationException("AzureCommunicationServices__ConnectionString environment variable is not configured. Get this from Azure Portal > Communication Services > Keys.");
+        
+        _emailClient = new EmailClient(connectionString);
+        
+        _fromEmail = Environment.GetEnvironmentVariable("Email__FromEmail")
+            ?? throw new InvalidOperationException("Email__FromEmail environment variable is not configured. This should be your verified domain email address (e.g., noreply@yourdomain.com)");
+        
+        _fromName = Environment.GetEnvironmentVariable("Email__FromName")
+            ?? "MyStore";
+        
+        _verificationBaseUrl = Environment.GetEnvironmentVariable("VerificationBaseUrl")
+            ?? "https://app.mystore.com/verify";
+    }
+
+    /// <summary>
+    /// Sends a verification email to the specified recipient with a verification token.
+    /// Includes both HTML and plain text content, and implements retry logic with exponential backoff.
+    /// </summary>
+    /// <param name="toEmail">The email address of the recipient.</param>
+    /// <param name="verificationToken">The secure verification token to include in the email link.</param>
+    /// <param name="companyName">The name of the company/store for personalization.</param>
+    /// <returns>An EmailSendResult indicating success or failure of the email send operation.</returns>
+    public async Task<EmailSendResult> SendVerificationEmailAsync(string toEmail, string verificationToken, string companyName)
+    {
+        try
+        {
+            // Build verification URL
+            var verificationUrl = $"{_verificationBaseUrl}?token={Uri.EscapeDataString(verificationToken)}";
+            
+            // Create email content
+            var emailContent = new EmailContent("Verify Your MyStore Account")
+            {
+                PlainText = GetPlainTextContent(companyName, verificationUrl),
+                Html = GetHtmlContent(companyName, verificationUrl)
+            };
+            
+            var emailMessage = new EmailMessage(
+                senderAddress: _fromEmail,
+                recipientAddress: toEmail,
+                content: emailContent
+            );
+            
+            // Send email with retry logic
+            var success = await SendWithRetryAsync(emailMessage);
+            
+            if (success)
+            {
+                _logger.LogInformation(
+                    "Verification email sent successfully to {Email}",
+                    toEmail
+                );
+                
+                return new EmailSendResult
+                {
+                    Success = true
+                };
+            }
+            else
+            {
+                _logger.LogError(
+                    "Failed to send verification email to {Email} after retries",
+                    toEmail
+                );
+                
+                return new EmailSendResult
+                {
+                    Success = false,
+                    ErrorMessage = "Failed to send email after retries"
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Exception occurred while sending verification email to {Email}", toEmail);
+            return new EmailSendResult
+            {
+                Success = false,
+                ErrorMessage = ex.Message
+            };
+        }
+    }
+
+    /// <summary>
+    /// Sends an email with retry logic using exponential backoff.
+    /// Retries up to 3 times for transient errors (5xx status codes or 429 rate limiting).
+    /// </summary>
+    /// <param name="emailMessage">The email message to send.</param>
+    /// <returns>True if the email was sent successfully, false otherwise.</returns>
+    private async Task<bool> SendWithRetryAsync(EmailMessage emailMessage)
+    {
+        const int maxRetries = 3;
+        const int baseDelayMs = 1000; // 1 second
+        
+        for (int attempt = 0; attempt < maxRetries; attempt++)
+        {
+            try
+            {
+                EmailSendOperation emailSendOperation = await _emailClient.SendAsync(
+                    WaitUntil.Started,
+                    emailMessage
+                );
+                
+                // Check if the operation completed successfully
+                // Note: We use WaitUntil.Started to get the operation immediately,
+                // but in production you might want to poll for completion
+                if (emailSendOperation.HasValue)
+                {
+                    return true; // Success
+                }
+                
+                // If we get here, the operation started but we should check status
+                // For simplicity, we'll consider it successful if no exception was thrown
+                return true;
+            }
+            catch (RequestFailedException ex)
+            {
+                // Check if it's a retryable error (5xx or 429)
+                var isRetryable = ex.Status >= 500 || ex.Status == 429;
+                
+                if (!isRetryable || attempt == maxRetries - 1)
+                {
+                    _logger.LogError(ex, "Email send failed with non-retryable error or max retries reached. Status: {Status}", ex.Status);
+                    return false;
+                }
+                
+                // Calculate exponential backoff delay
+                var delayMs = baseDelayMs * (int)Math.Pow(2, attempt);
+                _logger.LogWarning(
+                    ex,
+                    "Email send failed (attempt {Attempt}/{MaxRetries}). Retrying in {DelayMs}ms. Status: {Status}",
+                    attempt + 1,
+                    maxRetries,
+                    delayMs,
+                    ex.Status
+                );
+                
+                await Task.Delay(delayMs);
+            }
+            catch (Exception ex)
+            {
+                if (attempt == maxRetries - 1)
+                {
+                    _logger.LogError(ex, "Email send failed after {MaxRetries} attempts", maxRetries);
+                    return false;
+                }
+                
+                var delayMs = baseDelayMs * (int)Math.Pow(2, attempt);
+                _logger.LogWarning(
+                    ex,
+                    "Email send exception (attempt {Attempt}/{MaxRetries}). Retrying in {DelayMs}ms",
+                    attempt + 1,
+                    maxRetries,
+                    delayMs
+                );
+                
+                await Task.Delay(delayMs);
+            }
+        }
+        
+        return false;
+    }
+
+    private static string GetPlainTextContent(string companyName, string verificationUrl)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"Welcome to MyStore, {companyName}!");
+        sb.AppendLine();
+        sb.AppendLine("Thank you for creating an account. To complete your registration and activate your account, please verify your email address by clicking the link below:");
+        sb.AppendLine();
+        sb.AppendLine(verificationUrl);
+        sb.AppendLine();
+        sb.AppendLine("This verification link will expire in 24 hours.");
+        sb.AppendLine();
+        sb.AppendLine("If you did not create an account with MyStore, please ignore this email.");
+        sb.AppendLine();
+        sb.AppendLine("Best regards,");
+        sb.AppendLine("The MyStore Team");
+        
+        return sb.ToString();
+    }
+
+    private static string GetHtmlContent(string companyName, string verificationUrl)
+    {
+        return $@"
+<!DOCTYPE html>
+<html lang=""en"">
+<head>
+    <meta charset=""UTF-8"">
+    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+    <title>Verify Your MyStore Account</title>
+    <style>
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }}
+        .container {{
+            background-color: #ffffff;
+            border-radius: 8px;
+            padding: 40px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }}
+        .header {{
+            text-align: center;
+            margin-bottom: 30px;
+        }}
+        .header h1 {{
+            color: #2c3e50;
+            margin: 0;
+            font-size: 28px;
+        }}
+        .content {{
+            margin-bottom: 30px;
+        }}
+        .button-container {{
+            text-align: center;
+            margin: 30px 0;
+        }}
+        .button {{
+            display: inline-block;
+            padding: 14px 32px;
+            background-color: #3498db;
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 16px;
+        }}
+        .button:hover {{
+            background-color: #2980b9;
+        }}
+        .link {{
+            color: #3498db;
+            word-break: break-all;
+        }}
+        .footer {{
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+            font-size: 12px;
+            color: #7f8c8d;
+            text-align: center;
+        }}
+        .warning {{
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 12px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }}
+    </style>
+</head>
+<body>
+    <div class=""container"">
+        <div class=""header"">
+            <h1>Welcome to MyStore!</h1>
+        </div>
+        <div class=""content"">
+            <p>Hello {companyName},</p>
+            <p>Thank you for creating an account with MyStore. To complete your registration and activate your account, please verify your email address by clicking the button below:</p>
+            
+            <div class=""button-container"">
+                <a href=""{verificationUrl}"" class=""button"">Verify Email Address</a>
+            </div>
+            
+            <p>Or copy and paste this link into your browser:</p>
+            <p><a href=""{verificationUrl}"" class=""link"">{verificationUrl}</a></p>
+            
+            <div class=""warning"">
+                <strong>Important:</strong> This verification link will expire in 24 hours. If you did not create an account with MyStore, please ignore this email.
+            </div>
+        </div>
+        <div class=""footer"">
+            <p>Best regards,<br>The MyStore Team</p>
+        </div>
+    </div>
+</body>
+</html>";
+    }
+}

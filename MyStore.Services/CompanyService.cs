@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Collections.Generic;
+using Microsoft.Extensions.Logging;
 using MyStore.Models;
 using MyStore.Repositories;
 
@@ -10,10 +11,14 @@ namespace MyStore.Services;
 public class CompanyService : ICompanyService
 {
     private readonly ICompanyRepository _repository;
+    private readonly IEmailService _emailService;
+    private readonly ILogger<CompanyService> _logger;
 
-    public CompanyService(ICompanyRepository repository)
+    public CompanyService(ICompanyRepository repository, IEmailService emailService, ILogger<CompanyService> logger)
     {
         _repository = repository;
+        _emailService = emailService;
+        _logger = logger;
     }
 
     public async Task<ApiResponse<RegisterAccountResponse>> RegisterAccountAsync(RegisterAccountRequest request)
@@ -130,6 +135,50 @@ public class CompanyService : ICompanyService
             // Use transaction for data consistency (repository handles this)
             var created = await _repository.CreateAsync(company);
 
+            // Send verification email asynchronously (fire-and-forget pattern with error handling)
+            // Note: Email sending failure does not fail account creation - email can be resent later
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var emailResult = await _emailService.SendVerificationEmailAsync(
+                        created.Email,
+                        verificationToken,
+                        request.CompanyName ?? "Store Owner"
+                    );
+
+                    if (emailResult.Success)
+                    {
+                        _logger.LogInformation(
+                            "Verification email queued successfully for account {AccountId}, email {Email}",
+                            created.Id,
+                            created.Email
+                        );
+                    }
+                    else
+                    {
+                        _logger.LogWarning(
+                            "Failed to send verification email for account {AccountId}, email {Email}. Error: {Error}",
+                            created.Id,
+                            created.Email,
+                            emailResult.ErrorMessage
+                        );
+                        // Note: Email sending failure doesn't fail account creation
+                        // The email can be resent later via resend verification endpoint
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Exception occurred while sending verification email for account {AccountId}, email {Email}",
+                        created.Id,
+                        created.Email
+                    );
+                    // Don't throw - account creation succeeded, email can be resent later
+                }
+            });
+
             // Create response
             var response = new RegisterAccountResponse
             {
@@ -141,7 +190,7 @@ public class CompanyService : ICompanyService
                 SubscriptionTier = created.SubscriptionTier
             };
 
-            return ApiResponse<RegisterAccountResponse>.SuccessResponse(response, "Account registered successfully");
+            return ApiResponse<RegisterAccountResponse>.SuccessResponse(response, "Account registered successfully. Please check your email to verify your account.");
         }
         catch (Exception ex)
         {
