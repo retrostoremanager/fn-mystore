@@ -23,6 +23,7 @@ var host = new HostBuilder()
         services.AddScoped<ICustomerService, CustomerService>();
         services.AddScoped<IEmployeeService, EmployeeService>();
         services.AddScoped<ISalesService, SalesService>();
+        services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<ICompanyService, CompanyService>();
     })
     .Build();
