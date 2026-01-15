@@ -29,6 +29,9 @@ fn-mystore/
 
 ## API Endpoints
 
+### Accounts
+- `POST /api/accounts/register` - Register a new account (company)
+
 ### Inventory
 - `GET /api/inventory` - Get all inventory items
 - `GET /api/inventory/{id}` - Get inventory item by ID
