@@ -33,15 +33,25 @@ public class AccountFunctionsTests
         _functions = new AccountFunctions(_serviceMock.Object, _loggerFactoryMock.Object);
     }
 
+    /// <summary>
+    /// Helper method to create a valid RegisterAccountRequest for testing.
+    /// </summary>
+    private static RegisterAccountRequest CreateValidRequest(string? email = null, string? password = null, string? companyName = null, string? subscriptionTier = null)
+    {
+        return new RegisterAccountRequest
+        {
+            Email = email ?? "test@example.com",
+            Password = password ?? "ValidPass123",
+            CompanyName = companyName ?? "Test Company",
+            SubscriptionTier = subscriptionTier ?? "Trial"
+        };
+    }
+
     [Fact]
     public async Task RegisterAccount_ValidRequest_Returns201Created()
     {
         // Arrange
-        var request = new RegisterAccountRequest
-        {
-            Email = "test@example.com",
-            SubscriptionTier = "Trial"
-        };
+        var request = CreateValidRequest();
 
         var response = new RegisterAccountResponse
         {
@@ -84,11 +94,7 @@ public class AccountFunctionsTests
     public async Task RegisterAccount_DuplicateEmail_Returns409Conflict()
     {
         // Arrange
-        var request = new RegisterAccountRequest
-        {
-            Email = "existing@example.com",
-            SubscriptionTier = "Trial"
-        };
+        var request = CreateValidRequest(email: "existing@example.com");
 
         var apiResponse = ApiResponse<RegisterAccountResponse>.ErrorResponse(
             "An account with this email already exists");
@@ -143,11 +149,7 @@ public class AccountFunctionsTests
     public async Task RegisterAccount_ServiceValidationError_Returns400BadRequest()
     {
         // Arrange
-        var request = new RegisterAccountRequest
-        {
-            Email = "invalid-email",
-            SubscriptionTier = "Trial"
-        };
+        var request = CreateValidRequest(email: "invalid-email");
 
         var apiResponse = ApiResponse<RegisterAccountResponse>.ErrorResponse("Invalid email format");
 
@@ -178,11 +180,7 @@ public class AccountFunctionsTests
     public async Task RegisterAccount_ServiceException_Returns500InternalServerError()
     {
         // Arrange
-        var request = new RegisterAccountRequest
-        {
-            Email = "test@example.com",
-            SubscriptionTier = "Trial"
-        };
+        var request = CreateValidRequest();
 
         _serviceMock
             .Setup(s => s.RegisterAccountAsync(It.IsAny<RegisterAccountRequest>()))
@@ -211,11 +209,7 @@ public class AccountFunctionsTests
     public async Task RegisterAccount_ResponseHasCorrectContentType()
     {
         // Arrange
-        var request = new RegisterAccountRequest
-        {
-            Email = "test@example.com",
-            SubscriptionTier = "Trial"
-        };
+        var request = CreateValidRequest();
 
         var response = new RegisterAccountResponse
         {
@@ -248,11 +242,7 @@ public class AccountFunctionsTests
     public async Task RegisterAccount_ResponseUsesCamelCase()
     {
         // Arrange
-        var request = new RegisterAccountRequest
-        {
-            Email = "test@example.com",
-            SubscriptionTier = "Trial"
-        };
+        var request = CreateValidRequest();
 
         var response = new RegisterAccountResponse
         {
@@ -288,11 +278,7 @@ public class AccountFunctionsTests
     public async Task RegisterAccount_LogsInformation()
     {
         // Arrange
-        var request = new RegisterAccountRequest
-        {
-            Email = "test@example.com",
-            SubscriptionTier = "Trial"
-        };
+        var request = CreateValidRequest();
 
         var response = new RegisterAccountResponse
         {
@@ -331,11 +317,7 @@ public class AccountFunctionsTests
     public async Task RegisterAccount_ServiceException_LogsError()
     {
         // Arrange
-        var request = new RegisterAccountRequest
-        {
-            Email = "test@example.com",
-            SubscriptionTier = "Trial"
-        };
+        var request = CreateValidRequest();
 
         var exception = new Exception("Database connection failed");
 

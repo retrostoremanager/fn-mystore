@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Net;
 using System.Text.Json;
 using Microsoft.Azure.Functions.Worker;
@@ -53,13 +54,22 @@ public class AccountFunctions
             var response = await _companyService.RegisterAccountAsync(request);
 
             // Handle duplicate email case - return 409 Conflict
-            if (!response.Success && response.Message?.Contains("already exists", StringComparison.OrdinalIgnoreCase) == true)
+            // Check both message and field errors for duplicate email
+            if (!response.Success && 
+                (response.Message?.Contains("already exists", StringComparison.OrdinalIgnoreCase) == true ||
+                 response.FieldErrors?.ContainsKey("email") == true && 
+                 response.FieldErrors["email"].Any(e => e.Contains("already registered", StringComparison.OrdinalIgnoreCase))))
             {
                 return await CreateHttpResponse(req, response, HttpStatusCode.Conflict);
             }
 
             // Return 201 Created for successful registration
-            var statusCode = response.Success ? HttpStatusCode.Created : HttpStatusCode.BadRequest;
+            // Return 400 Bad Request for validation errors (field-level errors)
+            var statusCode = response.Success 
+                ? HttpStatusCode.Created 
+                : (response.FieldErrors != null && response.FieldErrors.Count > 0 
+                    ? HttpStatusCode.BadRequest 
+                    : HttpStatusCode.BadRequest);
             return await CreateHttpResponse(req, response, statusCode);
         }
         catch (Exception ex)

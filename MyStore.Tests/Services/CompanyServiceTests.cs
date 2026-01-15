@@ -1,3 +1,4 @@
+using System;
 using FluentAssertions;
 using Moq;
 using MyStore.Models;
@@ -18,15 +19,25 @@ public class CompanyServiceTests
         _service = new CompanyService(_repositoryMock.Object);
     }
 
+    /// <summary>
+    /// Helper method to create a valid RegisterAccountRequest for testing.
+    /// </summary>
+    private static RegisterAccountRequest CreateValidRequest(string? email = null, string? password = null, string? companyName = null, string? subscriptionTier = null)
+    {
+        return new RegisterAccountRequest
+        {
+            Email = email ?? "test@example.com",
+            Password = password ?? "ValidPass123",
+            CompanyName = companyName ?? "Test Company",
+            SubscriptionTier = subscriptionTier ?? "Trial"
+        };
+    }
+
     [Fact]
     public async Task RegisterAccountAsync_ValidRequest_CreatesCompanyWithPendingStatus()
     {
         // Arrange
-        var request = new RegisterAccountRequest
-        {
-            Email = "test@example.com",
-            SubscriptionTier = "Trial"
-        };
+        var request = CreateValidRequest();
 
         Company? capturedCompany = null;
         _repositoryMock
@@ -57,11 +68,7 @@ public class CompanyServiceTests
     public async Task RegisterAccountAsync_DuplicateEmail_ReturnsErrorWith409Message()
     {
         // Arrange
-        var request = new RegisterAccountRequest
-        {
-            Email = "existing@example.com",
-            SubscriptionTier = "Trial"
-        };
+        var request = CreateValidRequest(email: "existing@example.com");
 
         var existingCompany = new Company
         {
@@ -79,7 +86,9 @@ public class CompanyServiceTests
 
         // Assert
         result.Success.Should().BeFalse();
-        result.Message.Should().Contain("already exists", because: "Duplicate email should return error");
+        result.FieldErrors.Should().NotBeNull();
+        result.FieldErrors!.Should().ContainKey("email");
+        result.FieldErrors["email"].Should().Contain(e => e.Contains("already registered", StringComparison.OrdinalIgnoreCase));
         result.Data.Should().BeNull();
         
         _repositoryMock.Verify(r => r.CreateAsync(It.IsAny<Company>()), Times.Never);
@@ -89,11 +98,7 @@ public class CompanyServiceTests
     public async Task RegisterAccountAsync_Initializes30DayTrialPeriod()
     {
         // Arrange
-        var request = new RegisterAccountRequest
-        {
-            Email = "test@example.com",
-            SubscriptionTier = "Trial"
-        };
+        var request = CreateValidRequest();
 
         var beforeCreation = DateTime.UtcNow;
 
@@ -131,11 +136,7 @@ public class CompanyServiceTests
     public async Task RegisterAccountAsync_GeneratesSecureVerificationToken()
     {
         // Arrange
-        var request = new RegisterAccountRequest
-        {
-            Email = "test@example.com",
-            SubscriptionTier = "Trial"
-        };
+        var request = CreateValidRequest();
 
         _repositoryMock
             .Setup(r => r.GetByEmailAsync(It.IsAny<string>()))
@@ -165,11 +166,7 @@ public class CompanyServiceTests
     public async Task RegisterAccountAsync_TokenExpiresIn24Hours()
     {
         // Arrange
-        var request = new RegisterAccountRequest
-        {
-            Email = "test@example.com",
-            SubscriptionTier = "Trial"
-        };
+        var request = CreateValidRequest();
 
         var beforeCreation = DateTime.UtcNow;
 
@@ -201,11 +198,7 @@ public class CompanyServiceTests
     public async Task RegisterAccountAsync_Returns201CreatedResponse()
     {
         // Arrange
-        var request = new RegisterAccountRequest
-        {
-            Email = "test@example.com",
-            SubscriptionTier = "Trial"
-        };
+        var request = CreateValidRequest();
 
         _repositoryMock
             .Setup(r => r.GetByEmailAsync(It.IsAny<string>()))
@@ -229,11 +222,7 @@ public class CompanyServiceTests
     public async Task RegisterAccountAsync_AssociatesSubscriptionTier()
     {
         // Arrange
-        var request = new RegisterAccountRequest
-        {
-            Email = "test@example.com",
-            SubscriptionTier = "Premium"
-        };
+        var request = CreateValidRequest(subscriptionTier: "Premium");
 
         _repositoryMock
             .Setup(r => r.GetByEmailAsync(It.IsAny<string>()))
@@ -261,7 +250,9 @@ public class CompanyServiceTests
         // Arrange
         var request = new RegisterAccountRequest
         {
-            Email = "test@example.com"
+            Email = "test@example.com",
+            Password = "ValidPass123",
+            CompanyName = "Test Company"
             // SubscriptionTier not set, should default to "Trial"
         };
 
@@ -289,18 +280,16 @@ public class CompanyServiceTests
     public async Task RegisterAccountAsync_EmailValidation_EmptyEmail_ReturnsError()
     {
         // Arrange
-        var request = new RegisterAccountRequest
-        {
-            Email = string.Empty,
-            SubscriptionTier = "Trial"
-        };
+        var request = CreateValidRequest(email: string.Empty);
 
         // Act
         var result = await _service.RegisterAccountAsync(request);
 
         // Assert
         result.Success.Should().BeFalse();
-        result.Message.Should().Contain("required", because: "Empty email should return error");
+        result.FieldErrors.Should().NotBeNull();
+        result.FieldErrors!.Should().ContainKey("email");
+        result.FieldErrors["email"].Should().Contain(e => e.Contains("required", StringComparison.OrdinalIgnoreCase));
         result.Data.Should().BeNull();
         
         _repositoryMock.Verify(r => r.GetByEmailAsync(It.IsAny<string>()), Times.Never);
@@ -311,18 +300,16 @@ public class CompanyServiceTests
     public async Task RegisterAccountAsync_EmailValidation_WhitespaceEmail_ReturnsError()
     {
         // Arrange
-        var request = new RegisterAccountRequest
-        {
-            Email = "   ",
-            SubscriptionTier = "Trial"
-        };
+        var request = CreateValidRequest(email: "   ");
 
         // Act
         var result = await _service.RegisterAccountAsync(request);
 
         // Assert
         result.Success.Should().BeFalse();
-        result.Message.Should().Contain("required", because: "Empty email should return error");
+        result.FieldErrors.Should().NotBeNull();
+        result.FieldErrors!.Should().ContainKey("email");
+        result.FieldErrors["email"].Should().Contain(e => e.Contains("required", StringComparison.OrdinalIgnoreCase));
         result.Data.Should().BeNull();
         
         _repositoryMock.Verify(r => r.GetByEmailAsync(It.IsAny<string>()), Times.Never);
@@ -333,18 +320,16 @@ public class CompanyServiceTests
     public async Task RegisterAccountAsync_EmailValidation_InvalidEmailFormat_ReturnsError()
     {
         // Arrange
-        var request = new RegisterAccountRequest
-        {
-            Email = "not-an-email",
-            SubscriptionTier = "Trial"
-        };
+        var request = CreateValidRequest(email: "not-an-email");
 
         // Act
         var result = await _service.RegisterAccountAsync(request);
 
         // Assert
         result.Success.Should().BeFalse();
-        result.Message.Should().Contain("Invalid email format", because: "Invalid email should return error");
+        result.FieldErrors.Should().NotBeNull();
+        result.FieldErrors!.Should().ContainKey("email");
+        result.FieldErrors["email"].Should().Contain(e => e.Contains("valid", StringComparison.OrdinalIgnoreCase));
         result.Data.Should().BeNull();
         
         _repositoryMock.Verify(r => r.GetByEmailAsync(It.IsAny<string>()), Times.Never);
@@ -365,11 +350,7 @@ public class CompanyServiceTests
 
         foreach (var email in validEmails)
         {
-            var request = new RegisterAccountRequest
-            {
-                Email = email,
-                SubscriptionTier = "Trial"
-            };
+            var request = CreateValidRequest(email: email);
 
             _repositoryMock
                 .Setup(r => r.GetByEmailAsync(It.IsAny<string>()))
@@ -392,11 +373,7 @@ public class CompanyServiceTests
     public async Task RegisterAccountAsync_EmailNormalizedToLowercase()
     {
         // Arrange
-        var request = new RegisterAccountRequest
-        {
-            Email = "Test@Example.COM",
-            SubscriptionTier = "Trial"
-        };
+        var request = CreateValidRequest(email: "Test@Example.COM");
 
         _repositoryMock
             .Setup(r => r.GetByEmailAsync(It.IsAny<string>()))
@@ -422,11 +399,7 @@ public class CompanyServiceTests
     public async Task RegisterAccountAsync_RepositoryException_ReturnsError()
     {
         // Arrange
-        var request = new RegisterAccountRequest
-        {
-            Email = "test@example.com",
-            SubscriptionTier = "Trial"
-        };
+        var request = CreateValidRequest();
 
         _repositoryMock
             .Setup(r => r.GetByEmailAsync(It.IsAny<string>()))
@@ -446,11 +419,7 @@ public class CompanyServiceTests
     public async Task RegisterAccountAsync_UniqueTokensGenerated()
     {
         // Arrange
-        var request = new RegisterAccountRequest
-        {
-            Email = "test@example.com",
-            SubscriptionTier = "Trial"
-        };
+        var request = CreateValidRequest();
 
         var tokens = new List<string>();
 
