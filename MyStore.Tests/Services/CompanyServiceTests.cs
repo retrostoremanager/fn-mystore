@@ -1,5 +1,6 @@
 using System;
 using FluentAssertions;
+using Microsoft.Extensions.Logging;
 using Moq;
 using MyStore.Models;
 using MyStore.Repositories;
@@ -11,12 +12,16 @@ namespace MyStore.Tests.Services;
 public class CompanyServiceTests
 {
     private readonly Mock<ICompanyRepository> _repositoryMock;
+    private readonly Mock<IEmailService> _emailServiceMock;
+    private readonly Mock<ILogger<CompanyService>> _loggerMock;
     private readonly CompanyService _service;
 
     public CompanyServiceTests()
     {
         _repositoryMock = new Mock<ICompanyRepository>();
-        _service = new CompanyService(_repositoryMock.Object);
+        _emailServiceMock = new Mock<IEmailService>();
+        _loggerMock = new Mock<ILogger<CompanyService>>();
+        _service = new CompanyService(_repositoryMock.Object, _emailServiceMock.Object, _loggerMock.Object);
     }
 
     /// <summary>
@@ -442,5 +447,155 @@ public class CompanyServiceTests
         // Assert
         tokens.Should().HaveCount(10);
         tokens.Should().OnlyHaveUniqueItems();
+    }
+
+    [Fact]
+    public async Task RegisterAccountAsync_SuccessfulRegistration_SendsVerificationEmail()
+    {
+        // Arrange
+        var request = CreateValidRequest(email: "test@example.com", companyName: "Test Company");
+
+        _repositoryMock
+            .Setup(r => r.GetByEmailAsync(It.IsAny<string>()))
+            .ReturnsAsync((Company?)null);
+
+        Company? capturedCompany = null;
+        _repositoryMock
+            .Setup(r => r.CreateAsync(It.IsAny<Company>()))
+            .Callback<Company>(c => capturedCompany = c)
+            .ReturnsAsync((Company c) => { c.Id = 1; return c; });
+
+        _emailServiceMock
+            .Setup(e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync(new EmailSendResult { Success = true });
+
+        // Act
+        var result = await _service.RegisterAccountAsync(request);
+
+        // Assert
+        result.Success.Should().BeTrue();
+        
+        // Wait a bit for the async email task to start (fire-and-forget pattern)
+        await Task.Delay(200);
+        
+        // Verify email service was called with correct parameters
+        _emailServiceMock.Verify(
+            e => e.SendVerificationEmailAsync(
+                "test@example.com",
+                It.Is<string>(token => !string.IsNullOrEmpty(token) && token.Length >= 20),
+                "Test Company"
+            ),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public async Task RegisterAccountAsync_EmailSendingFails_AccountCreationStillSucceeds()
+    {
+        // Arrange
+        var request = CreateValidRequest();
+
+        _repositoryMock
+            .Setup(r => r.GetByEmailAsync(It.IsAny<string>()))
+            .ReturnsAsync((Company?)null);
+
+        _repositoryMock
+            .Setup(r => r.CreateAsync(It.IsAny<Company>()))
+            .ReturnsAsync((Company c) => { c.Id = 1; return c; });
+
+        _emailServiceMock
+            .Setup(e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync(new EmailSendResult 
+            { 
+                Success = false, 
+                ErrorMessage = "Email service unavailable" 
+            });
+
+        // Act
+        var result = await _service.RegisterAccountAsync(request);
+
+        // Assert
+        // Account creation should succeed even if email fails
+        result.Success.Should().BeTrue();
+        result.Data.Should().NotBeNull();
+        result.Data!.Id.Should().BeGreaterThan(0);
+        
+        // Verify email service was still called (attempted)
+        await Task.Delay(200); // Wait for async email task
+        _emailServiceMock.Verify(
+            e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public async Task RegisterAccountAsync_EmailSendingThrowsException_AccountCreationStillSucceeds()
+    {
+        // Arrange
+        var request = CreateValidRequest();
+
+        _repositoryMock
+            .Setup(r => r.GetByEmailAsync(It.IsAny<string>()))
+            .ReturnsAsync((Company?)null);
+
+        _repositoryMock
+            .Setup(r => r.CreateAsync(It.IsAny<Company>()))
+            .ReturnsAsync((Company c) => { c.Id = 1; return c; });
+
+        _emailServiceMock
+            .Setup(e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .ThrowsAsync(new Exception("Email service error"));
+
+        // Act
+        var result = await _service.RegisterAccountAsync(request);
+
+        // Assert
+        // Account creation should succeed even if email throws exception
+        result.Success.Should().BeTrue();
+        result.Data.Should().NotBeNull();
+        result.Data!.Id.Should().BeGreaterThan(0);
+        
+        // Verify email service was still called (attempted)
+        await Task.Delay(200); // Wait for async email task
+        _emailServiceMock.Verify(
+            e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public async Task RegisterAccountAsync_EmailServiceCalledWithCorrectToken()
+    {
+        // Arrange
+        var request = CreateValidRequest();
+
+        _repositoryMock
+            .Setup(r => r.GetByEmailAsync(It.IsAny<string>()))
+            .ReturnsAsync((Company?)null);
+
+        Company? capturedCompany = null;
+        _repositoryMock
+            .Setup(r => r.CreateAsync(It.IsAny<Company>()))
+            .Callback<Company>(c => capturedCompany = c)
+            .ReturnsAsync((Company c) => { c.Id = 1; return c; });
+
+        string? capturedToken = null;
+        _emailServiceMock
+            .Setup(e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .Callback<string, string, string>((email, token, companyName) => capturedToken = token)
+            .ReturnsAsync(new EmailSendResult { Success = true });
+
+        // Act
+        var result = await _service.RegisterAccountAsync(request);
+
+        // Assert
+        result.Success.Should().BeTrue();
+        
+        await Task.Delay(200); // Wait for async email task
+        
+        // Verify the token passed to email service matches the one stored in company
+        capturedToken.Should().NotBeNull();
+        capturedCompany.Should().NotBeNull();
+        capturedToken.Should().Be(capturedCompany!.VerificationToken);
     }
 }
