@@ -51,17 +51,17 @@ public class CompanyRepository : ICompanyRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         var id = await connection.QuerySingleAsync<int>(
-            "SELECT company_create(@p_email, @p_status, @p_trial_start_date, @p_trial_end_date, @p_verification_token, @p_verification_token_expires, @p_subscription_tier, @p_created_date, @p_last_modified_date)",
+            "SELECT company_create(@p_email, @p_status, @p_trial_start_date, @p_trial_end_date, @p_subscription_tier, @p_created_date, @p_verification_token, @p_verification_token_expires, @p_last_modified_date)",
             new
             {
                 p_email = company.Email,
                 p_status = company.Status,
                 p_trial_start_date = company.TrialStartDate,
                 p_trial_end_date = company.TrialEndDate,
-                p_verification_token = company.VerificationToken,
-                p_verification_token_expires = company.VerificationTokenExpires,
                 p_subscription_tier = company.SubscriptionTier,
                 p_created_date = company.CreatedDate,
+                p_verification_token = company.VerificationToken,
+                p_verification_token_expires = company.VerificationTokenExpires,
                 p_last_modified_date = company.LastModifiedDate
             });
 
