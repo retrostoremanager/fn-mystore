@@ -11,8 +11,10 @@ public class CompanyRepository : ICompanyRepository
     public CompanyRepository()
     {
         // Get connection string from environment variable (standard for Azure Functions)
-        _connectionString = Environment.GetEnvironmentVariable("PostgresConnectionString") 
-            ?? throw new InvalidOperationException("PostgresConnectionString environment variable is not set");
+        // Try ConnectionStrings__DefaultConnection first (Azure Functions standard), then PostgresConnectionString
+        _connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection") 
+            ?? Environment.GetEnvironmentVariable("PostgresConnectionString")
+            ?? throw new InvalidOperationException("Connection string environment variable is not set");
     }
 
     public async Task<Company?> GetByIdAsync(int id)
