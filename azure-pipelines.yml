@@ -142,7 +142,7 @@ stages:
                   },
                   {
                     "name": "ConnectionStrings__DefaultConnection",
-                    "value": "$(sqlConnectionString)",
+                    "value": "$(postgresConnectionString)",
                     "slotSetting": false
                   }
                 ]
