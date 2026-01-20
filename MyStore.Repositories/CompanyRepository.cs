@@ -8,6 +8,12 @@ public class CompanyRepository : ICompanyRepository
 {
     private readonly string _connectionString;
 
+    static CompanyRepository()
+    {
+        // Configure Dapper to map snake_case database columns to PascalCase properties
+        DefaultTypeMap.MatchNamesWithUnderscores = true;
+    }
+
     public CompanyRepository()
     {
         // Get connection string from environment variable (standard for Azure Functions)
