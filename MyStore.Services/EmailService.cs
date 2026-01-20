@@ -34,8 +34,17 @@ public class EmailService : IEmailService
         _logger = logger;
         
         // Get Azure Communication Services connection string from environment
-        var connectionString = Environment.GetEnvironmentVariable("AzureCommunicationServices__ConnectionString")
-            ?? throw new InvalidOperationException("AzureCommunicationServices__ConnectionString environment variable is not configured. Get this from Azure Portal > Communication Services > Keys.");
+        var connectionString = Environment.GetEnvironmentVariable("AzureCommunicationServices__ConnectionString");
+        
+        if (string.IsNullOrEmpty(connectionString))
+        {
+            _logger.LogWarning("AzureCommunicationServices__ConnectionString is not configured. Email functionality will be disabled.");
+            _emailClient = null!;
+            _fromEmail = string.Empty;
+            _fromName = "MyStore";
+            _verificationBaseUrl = "https://app.mystore.com/verify";
+            return;
+        }
         
         _emailClient = new EmailClient(connectionString);
         
@@ -59,6 +68,17 @@ public class EmailService : IEmailService
     /// <returns>An EmailSendResult indicating success or failure of the email send operation.</returns>
     public async Task<EmailSendResult> SendVerificationEmailAsync(string toEmail, string verificationToken, string companyName)
     {
+        // If email service is not configured, return success (account creation still proceeds)
+        if (_emailClient == null)
+        {
+            _logger.LogWarning("Email service not configured. Skipping verification email for {Email}", toEmail);
+            return new EmailSendResult
+            {
+                Success = true,
+                ErrorMessage = "Email service not configured"
+            };
+        }
+
         try
         {
             // Build verification URL
