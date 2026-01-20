@@ -21,42 +21,42 @@ public class CompanyRepository : ICompanyRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         return await connection.QueryFirstOrDefaultAsync<Company>(
-            "SELECT * FROM company_get_by_id(@id)",
-            new { id });
+            "SELECT * FROM company_get_by_id(@p_id)",
+            new { p_id = id });
     }
 
     public async Task<Company?> GetByEmailAsync(string email)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         return await connection.QueryFirstOrDefaultAsync<Company>(
-            "SELECT * FROM company_get_by_email(@email)",
-            new { email });
+            "SELECT * FROM company_get_by_email(@p_email)",
+            new { p_email = email });
     }
 
     public async Task<Company?> GetByVerificationTokenAsync(string token)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         return await connection.QueryFirstOrDefaultAsync<Company>(
-            "SELECT * FROM company_get_by_verification_token(@token)",
-            new { token });
+            "SELECT * FROM company_get_by_verification_token(@p_token)",
+            new { p_token = token });
     }
 
     public async Task<Company> CreateAsync(Company company)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         var id = await connection.QuerySingleAsync<int>(
-            "SELECT company_create(@email, @status, @trialstartdate, @trialenddate, @verificationtoken, @verificationtokenexpires, @subscriptiontier, @createddate, @lastmodifieddate)",
+            "SELECT company_create(@p_email, @p_status, @p_trial_start_date, @p_trial_end_date, @p_verification_token, @p_verification_token_expires, @p_subscription_tier, @p_created_date, @p_last_modified_date)",
             new
             {
-                email = company.Email,
-                status = company.Status,
-                trialstartdate = company.TrialStartDate,
-                trialenddate = company.TrialEndDate,
-                verificationtoken = company.VerificationToken,
-                verificationtokenexpires = company.VerificationTokenExpires,
-                subscriptiontier = company.SubscriptionTier,
-                createddate = company.CreatedDate,
-                lastmodifieddate = company.LastModifiedDate
+                p_email = company.Email,
+                p_status = company.Status,
+                p_trial_start_date = company.TrialStartDate,
+                p_trial_end_date = company.TrialEndDate,
+                p_verification_token = company.VerificationToken,
+                p_verification_token_expires = company.VerificationTokenExpires,
+                p_subscription_tier = company.SubscriptionTier,
+                p_created_date = company.CreatedDate,
+                p_last_modified_date = company.LastModifiedDate
             });
 
         company.Id = id;
@@ -67,18 +67,18 @@ public class CompanyRepository : ICompanyRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         var rowsAffected = await connection.QuerySingleAsync<int>(
-            "SELECT company_update(@id, @email, @status, @trialstartdate, @trialenddate, @verificationtoken, @verificationtokenexpires, @subscriptiontier, @lastmodifieddate)",
+            "SELECT company_update(@p_id, @p_email, @p_status, @p_trial_start_date, @p_trial_end_date, @p_verification_token, @p_verification_token_expires, @p_subscription_tier, @p_last_modified_date)",
             new
             {
-                id,
-                email = company.Email,
-                status = company.Status,
-                trialstartdate = company.TrialStartDate,
-                trialenddate = company.TrialEndDate,
-                verificationtoken = company.VerificationToken,
-                verificationtokenexpires = company.VerificationTokenExpires,
-                subscriptiontier = company.SubscriptionTier,
-                lastmodifieddate = company.LastModifiedDate
+                p_id = id,
+                p_email = company.Email,
+                p_status = company.Status,
+                p_trial_start_date = company.TrialStartDate,
+                p_trial_end_date = company.TrialEndDate,
+                p_verification_token = company.VerificationToken,
+                p_verification_token_expires = company.VerificationTokenExpires,
+                p_subscription_tier = company.SubscriptionTier,
+                p_last_modified_date = company.LastModifiedDate
             });
 
         if (rowsAffected == 0)
