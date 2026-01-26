@@ -2,13 +2,17 @@
 
 Backend Azure Functions for handling MyStore requests.
 
+## Deployment Status
+
+✅ **Deployed to Azure** - This project is currently deployed and running on Azure Function Apps.
+
 ## Architecture
 
 This project follows a layered architecture pattern:
 
 - **Function Layer** (`MyStore.Functions`): HTTP-triggered Azure Functions that handle incoming requests
 - **Service Layer** (`MyStore.Services`): Business logic and orchestration
-- **Repository Layer** (`MyStore.Repositories`): Data access layer (currently using in-memory storage)
+- **Repository Layer** (`MyStore.Repositories`): Data access layer with PostgreSQL database
 - **Models Layer** (`MyStore.Models`): DTOs, entities, and request/response models
 
 ## Technology Stack
@@ -16,6 +20,7 @@ This project follows a layered architecture pattern:
 - .NET 8.0
 - Azure Functions v4 (Isolated Worker Process)
 - Azure Functions Worker SDK
+- PostgreSQL (Azure Database for PostgreSQL)
 
 ## Project Structure
 
@@ -99,24 +104,45 @@ fn-mystore/
 
 The `local.settings.json` file contains local development settings. This file is excluded from source control.
 
-## Data Storage
+**Required local.settings.json configuration:**
+```json
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+    "DatabaseConnectionString": "your-postgresql-connection-string"
+  }
+}
+```
 
-Currently, the application uses in-memory storage for all repositories. To persist data, you'll need to:
+## Database
 
-1. Replace the repository implementations with actual database access (e.g., Cosmos DB, SQL Server, Azure Table Storage)
-2. Update the dependency injection configuration in `Program.cs` to use the new repository implementations
+This application uses **Azure Database for PostgreSQL Flexible Server**. The database schema is managed in the `dbproj-mystore` repository.
+
+## Deployment
+
+The application is currently deployed to Azure using direct deployment from Visual Studio Code or Azure CLI. To deploy updates:
+
+```bash
+# Build the project
+dotnet publish -c Release
+
+# Deploy using Azure CLI (update with your resource names)
+func azure functionapp publish <your-function-app-name>
+```
 
 ## Future Enhancements
 
-- [ ] Replace in-memory storage with persistent database (Cosmos DB or SQL Server)
 - [ ] Add authentication and authorization
 - [ ] Integrate with game API (Price Charting/GameEye) for game data
 - [ ] Add comprehensive error handling and logging
-- [ ] Add unit tests
+- [ ] Expand unit test coverage
 - [ ] Add integration tests
 - [ ] Add API documentation (Swagger/OpenAPI)
 
 ## Notes
 
-- The project is currently configured for .NET 8.0. To upgrade to .NET 10 when available, update the `TargetFramework` in all `.csproj` files.
-- All API responses follow a consistent `ApiResponse<T>` format with `success`, `data`, `message`, and `errors` fields.
+- The project is currently configured for .NET 8.0
+- All API responses follow a consistent `ApiResponse<T>` format with `success`, `data`, `message`, and `errors` fields
+- API authentication is handled at the application level (no API Management layer currently)

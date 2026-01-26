@@ -51,7 +51,7 @@ public class DomainFunctions
 
 ### HTTP Functions
 - Use `HttpRequestData` and `HttpResponseData` for HTTP operations
-- Always use `AuthorizationLevel.Anonymous` (authentication handled at APIM level)
+- Use `AuthorizationLevel.Anonymous` for functions (authentication handled at application level)
 - Use RESTful route naming: `resource`, `resource/{id}`, `resource/{id}/subresource`
 - HTTP methods should match their purpose:
   - `GET` for retrieval
