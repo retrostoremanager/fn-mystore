@@ -83,6 +83,61 @@ public class AccountFunctions
         }
     }
 
+    [Function("VerifyEmail")]
+    public async Task<HttpResponseData> VerifyEmail(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "accounts/verify-email")] HttpRequestData req)
+    {
+        try
+        {
+            // Extract token from query parameters
+            var query = System.Web.HttpUtility.ParseQueryString(req.Url.Query);
+            var token = query["token"];
+
+            _logger.LogInformation("Verifying email with token");
+
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                var errorResponse = ApiResponse<VerifyEmailResponse>.ErrorResponse(
+                    "Invalid verification link. The token is missing.",
+                    new List<string> { "Token parameter is required" }
+                );
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+            }
+
+            var response = await _companyService.VerifyEmailAsync(token);
+
+            // Determine appropriate HTTP status code based on response
+            HttpStatusCode statusCode;
+            if (response.Success)
+            {
+                statusCode = HttpStatusCode.OK;
+            }
+            else if (response.Errors?.Any(e => e.Contains("expired", StringComparison.OrdinalIgnoreCase)) == true)
+            {
+                statusCode = HttpStatusCode.Gone; // 410 Gone for expired tokens
+            }
+            else if (response.Errors?.Any(e => e.Contains("Invalid token", StringComparison.OrdinalIgnoreCase)) == true)
+            {
+                statusCode = HttpStatusCode.NotFound; // 404 Not Found for invalid tokens
+            }
+            else
+            {
+                statusCode = HttpStatusCode.BadRequest; // 400 Bad Request for other errors
+            }
+
+            return await CreateHttpResponse(req, response, statusCode);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error verifying email");
+            var errorResponse = ApiResponse<VerifyEmailResponse>.ErrorResponse(
+                "An unexpected error occurred while verifying your email. Please try again later.",
+                new List<string> { ex.Message }
+            );
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
+        }
+    }
+
     private static async Task<HttpResponseData> CreateHttpResponse<T>(
         HttpRequestData req,
         ApiResponse<T> apiResponse,
