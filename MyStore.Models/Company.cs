@@ -31,3 +31,16 @@ public class RegisterAccountResponse
     public DateTime TrialEndDate { get; set; }
     public string SubscriptionTier { get; set; } = string.Empty;
 }
+
+public class VerifyEmailRequest
+{
+    public string Token { get; set; } = string.Empty;
+}
+
+public class VerifyEmailResponse
+{
+    public bool Success { get; set; }
+    public string Message { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+}

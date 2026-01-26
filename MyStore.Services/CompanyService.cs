@@ -278,6 +278,107 @@ public class CompanyService : ICompanyService
         return Regex.IsMatch(companyName, companyNamePattern);
     }
 
+    public async Task<ApiResponse<VerifyEmailResponse>> VerifyEmailAsync(string token)
+    {
+        try
+        {
+            // Validate token parameter
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                return ApiResponse<VerifyEmailResponse>.ErrorResponse(
+                    "Invalid verification link. The token is missing.",
+                    new List<string> { "Token is required" }
+                );
+            }
+
+            // Get company by verification token
+            var company = await _repository.GetByVerificationTokenAsync(token);
+
+            if (company == null)
+            {
+                _logger.LogWarning("Verification attempt with invalid token: {Token}", token);
+                return ApiResponse<VerifyEmailResponse>.ErrorResponse(
+                    "Invalid verification link. The token may have been used already or does not exist.",
+                    new List<string> { "Invalid token" }
+                );
+            }
+
+            // Check if account is already verified
+            if (company.Status == "Active")
+            {
+                _logger.LogInformation("Account {AccountId} is already verified", company.Id);
+                return ApiResponse<VerifyEmailResponse>.SuccessResponse(
+                    new VerifyEmailResponse
+                    {
+                        Success = true,
+                        Message = "Your account is already verified. You can log in now.",
+                        Email = company.Email,
+                        Status = company.Status
+                    },
+                    "Your account is already verified."
+                );
+            }
+
+            // Check if token has expired
+            if (company.VerificationTokenExpires.HasValue && 
+                company.VerificationTokenExpires.Value < DateTime.UtcNow)
+            {
+                _logger.LogWarning(
+                    "Verification token expired for account {AccountId}, email {Email}. Expired at {ExpiryTime}",
+                    company.Id,
+                    company.Email,
+                    company.VerificationTokenExpires.Value
+                );
+                return ApiResponse<VerifyEmailResponse>.ErrorResponse(
+                    "Your verification link has expired. Please request a new verification email.",
+                    new List<string> { "Token expired" }
+                );
+            }
+
+            // Update company status to Active and clear verification token
+            company.Status = "Active";
+            company.VerificationToken = null;
+            company.VerificationTokenExpires = null;
+            company.LastModifiedDate = DateTime.UtcNow;
+
+            var updated = await _repository.UpdateAsync(company.Id, company);
+
+            if (updated == null)
+            {
+                _logger.LogError("Failed to update company {AccountId} during email verification", company.Id);
+                return ApiResponse<VerifyEmailResponse>.ErrorResponse(
+                    "An error occurred while verifying your account. Please try again later.",
+                    new List<string> { "Update failed" }
+                );
+            }
+
+            _logger.LogInformation(
+                "Account {AccountId}, email {Email} successfully verified and activated",
+                company.Id,
+                company.Email
+            );
+
+            return ApiResponse<VerifyEmailResponse>.SuccessResponse(
+                new VerifyEmailResponse
+                {
+                    Success = true,
+                    Message = "Your email has been verified successfully! You can now log in to your account.",
+                    Email = company.Email,
+                    Status = "Active"
+                },
+                "Email verified successfully."
+            );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error verifying email with token: {Token}", token);
+            return ApiResponse<VerifyEmailResponse>.ErrorResponse(
+                "An unexpected error occurred while verifying your email. Please try again later.",
+                new List<string> { ex.Message }
+            );
+        }
+    }
+
     /// <summary>
     /// Helper method to add field errors to the dictionary.
     /// </summary>
