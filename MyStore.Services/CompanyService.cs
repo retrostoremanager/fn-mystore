@@ -14,6 +14,13 @@ public class CompanyService : ICompanyService
     private readonly IEmailService _emailService;
     private readonly ILogger<CompanyService> _logger;
 
+    // Rate limiting: Track resend attempts per email address
+    // Key: email (lowercase), Value: List of request timestamps
+    private static readonly Dictionary<string, List<DateTime>> _resendAttempts = new();
+    private static readonly object _rateLimitLock = new();
+    private const int MaxResendAttemptsPerHour = 3;
+    private static readonly TimeSpan RateLimitWindow = TimeSpan.FromHours(1);
+
     public CompanyService(ICompanyRepository repository, IEmailService emailService, ILogger<CompanyService> logger)
     {
         _repository = repository;
@@ -329,9 +336,17 @@ public class CompanyService : ICompanyService
                     company.Email,
                     company.VerificationTokenExpires.Value
                 );
+                // Include email in response for expired tokens so user can resend verification
                 return ApiResponse<VerifyEmailResponse>.ErrorResponse(
                     "Your verification link has expired. Please request a new verification email.",
-                    new List<string> { "Token expired" }
+                    new List<string> { "Token expired" },
+                    new VerifyEmailResponse
+                    {
+                        Success = false,
+                        Message = "Your verification link has expired. Please request a new verification email.",
+                        Email = company.Email,
+                        Status = company.Status
+                    }
                 );
             }
 
@@ -374,6 +389,212 @@ public class CompanyService : ICompanyService
             _logger.LogError(ex, "Error verifying email with token: {Token}", token);
             return ApiResponse<VerifyEmailResponse>.ErrorResponse(
                 "An unexpected error occurred while verifying your email. Please try again later.",
+                new List<string> { ex.Message }
+            );
+        }
+    }
+
+    /// <summary>
+    /// Resends a verification email to an unverified account.
+    /// Implements rate limiting (max 3 requests per hour per email) and generates a new verification token.
+    /// </summary>
+    /// <param name="request">The resend verification email request containing the email address.</param>
+    /// <returns>
+    /// An ApiResponse containing the result. Returns success even for non-existent emails (security best practice).
+    /// Returns error if account is already verified, rate limit exceeded, or validation fails.
+    /// </returns>
+    /// <remarks>
+    /// This method:
+    /// - Validates the email format
+    /// - Checks if account exists and is unverified
+    /// - Enforces rate limiting (max 3 requests per hour per email)
+    /// - Invalidates the old verification token
+    /// - Generates a new secure token with 24-hour expiration
+    /// - Sends verification email asynchronously (fire-and-forget pattern)
+    /// - Does not reveal if email exists for security reasons
+    /// </remarks>
+    public async Task<ApiResponse<ResendVerificationEmailResponse>> ResendVerificationEmailAsync(ResendVerificationEmailRequest request)
+    {
+        try
+        {
+            // Validate email parameter
+            if (string.IsNullOrWhiteSpace(request.Email))
+            {
+                return ApiResponse<ResendVerificationEmailResponse>.ErrorResponse(
+                    "Email is required",
+                    new List<string> { "Email parameter is required" }
+                );
+            }
+
+            var email = request.Email.Trim().ToLowerInvariant();
+
+            // Validate email format
+            if (!IsValidEmail(email))
+            {
+                return ApiResponse<ResendVerificationEmailResponse>.ErrorResponse(
+                    "Please enter a valid email address",
+                    new List<string> { "Invalid email format" }
+                );
+            }
+
+            // Get company by email
+            var company = await _repository.GetByEmailAsync(email);
+
+            if (company == null)
+            {
+                // Don't reveal if email exists or not for security reasons
+                _logger.LogWarning("Resend verification requested for non-existent email: {Email}", email);
+                return ApiResponse<ResendVerificationEmailResponse>.SuccessResponse(
+                    new ResendVerificationEmailResponse
+                    {
+                        Success = true,
+                        Message = "If an account exists with this email, a verification email has been sent.",
+                        Email = email
+                    },
+                    "If an account exists with this email, a verification email has been sent."
+                );
+            }
+
+            // Check if account is already verified
+            if (company.Status == "Active")
+            {
+                _logger.LogInformation("Resend verification requested for already verified account {AccountId}, email {Email}", company.Id, email);
+                return ApiResponse<ResendVerificationEmailResponse>.ErrorResponse(
+                    "This account is already verified. You can log in now.",
+                    new List<string> { "Account already verified" }
+                );
+            }
+
+            // Rate limiting: Enforce max 3 resend requests per hour per email address
+            // Uses in-memory dictionary to track attempts with automatic cleanup of expired entries
+            // Rate limit window resets 1 hour after the first request in the window
+            lock (_rateLimitLock)
+            {
+                var now = DateTime.UtcNow;
+                
+                // Clean up old attempts (older than 1 hour) to prevent memory growth
+                if (_resendAttempts.ContainsKey(email))
+                {
+                    _resendAttempts[email].RemoveAll(timestamp => now - timestamp > RateLimitWindow);
+                    
+                    // Remove empty lists to keep dictionary clean
+                    if (_resendAttempts[email].Count == 0)
+                    {
+                        _resendAttempts.Remove(email);
+                    }
+                }
+
+                // Check if rate limit exceeded (max 3 requests per hour)
+                if (_resendAttempts.ContainsKey(email) && _resendAttempts[email].Count >= MaxResendAttemptsPerHour)
+                {
+                    // Calculate time until rate limit resets (1 hour from oldest attempt)
+                    var oldestAttempt = _resendAttempts[email].Min();
+                    var timeUntilReset = RateLimitWindow - (now - oldestAttempt);
+                    var minutesUntilReset = (int)Math.Ceiling(timeUntilReset.TotalMinutes);
+                    
+                    _logger.LogWarning(
+                        "Rate limit exceeded for resend verification: {Email}. Attempts: {Attempts}, Reset in: {Minutes} minutes",
+                        email,
+                        _resendAttempts[email].Count,
+                        minutesUntilReset
+                    );
+
+                    return ApiResponse<ResendVerificationEmailResponse>.ErrorResponse(
+                        $"Too many resend requests. Please wait {minutesUntilReset} minute(s) before requesting another verification email.",
+                        new List<string> { $"Rate limit exceeded. Maximum {MaxResendAttemptsPerHour} requests per hour allowed." }
+                    );
+                }
+
+                // Record this attempt timestamp for rate limiting
+                if (!_resendAttempts.ContainsKey(email))
+                {
+                    _resendAttempts[email] = new List<DateTime>();
+                }
+                _resendAttempts[email].Add(now);
+            }
+
+            // Invalidate old token and generate new token
+            var newVerificationToken = GenerateSecureToken();
+            var tokenExpires = DateTime.UtcNow.AddHours(24);
+
+            // Update company with new token
+            company.VerificationToken = newVerificationToken;
+            company.VerificationTokenExpires = tokenExpires;
+            company.LastModifiedDate = DateTime.UtcNow;
+
+            var updated = await _repository.UpdateAsync(company.Id, company);
+
+            if (updated == null)
+            {
+                _logger.LogError("Failed to update company {AccountId} during resend verification", company.Id);
+                return ApiResponse<ResendVerificationEmailResponse>.ErrorResponse(
+                    "An error occurred while processing your request. Please try again later.",
+                    new List<string> { "Update failed" }
+                );
+            }
+
+            // Send verification email asynchronously (fire-and-forget pattern with error handling)
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    // Note: CompanyName is not stored in Company table, so we'll use a default
+                    var emailResult = await _emailService.SendVerificationEmailAsync(
+                        updated.Email,
+                        newVerificationToken,
+                        "Store Owner" // Default since CompanyName is not stored
+                    );
+
+                    if (emailResult.Success)
+                    {
+                        _logger.LogInformation(
+                            "Resend verification email queued successfully for account {AccountId}, email {Email}",
+                            updated.Id,
+                            updated.Email
+                        );
+                    }
+                    else
+                    {
+                        _logger.LogWarning(
+                            "Failed to send resend verification email for account {AccountId}, email {Email}. Error: {Error}",
+                            updated.Id,
+                            updated.Email,
+                            emailResult.ErrorMessage
+                        );
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Exception occurred while sending resend verification email for account {AccountId}, email {Email}",
+                        updated.Id,
+                        updated.Email
+                    );
+                }
+            });
+
+            _logger.LogInformation(
+                "Resend verification email requested successfully for account {AccountId}, email {Email}",
+                company.Id,
+                email
+            );
+
+            return ApiResponse<ResendVerificationEmailResponse>.SuccessResponse(
+                new ResendVerificationEmailResponse
+                {
+                    Success = true,
+                    Message = "A new verification email has been sent. Please check your inbox.",
+                    Email = email
+                },
+                "Verification email sent successfully."
+            );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error resending verification email for email: {Email}", request.Email);
+            return ApiResponse<ResendVerificationEmailResponse>.ErrorResponse(
+                "An unexpected error occurred while processing your request. Please try again later.",
                 new List<string> { ex.Message }
             );
         }

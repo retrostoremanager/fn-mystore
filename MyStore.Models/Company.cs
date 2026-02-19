@@ -44,3 +44,35 @@ public class VerifyEmailResponse
     public string Email { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
 }
+
+/// <summary>
+/// Request model for resending verification email.
+/// </summary>
+public class ResendVerificationEmailRequest
+{
+    /// <summary>
+    /// The email address of the account requesting verification email resend.
+    /// </summary>
+    public string Email { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Response model for resend verification email operation.
+/// </summary>
+public class ResendVerificationEmailResponse
+{
+    /// <summary>
+    /// Indicates whether the operation was successful.
+    /// </summary>
+    public bool Success { get; set; }
+    
+    /// <summary>
+    /// Message describing the result of the operation.
+    /// </summary>
+    public string Message { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// The email address the verification email was sent to (or requested for).
+    /// </summary>
+    public string Email { get; set; } = string.Empty;
+}
