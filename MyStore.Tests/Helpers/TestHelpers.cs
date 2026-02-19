@@ -26,6 +26,28 @@ public static class TestHelpers
         return request;
     }
 
+    /// <summary>
+    /// Creates HttpRequestData with optional headers and query parameters.
+    /// </summary>
+    public static HttpRequestData CreateHttpRequestData(
+        FunctionContext? context,
+        object? body,
+        IReadOnlyDictionary<string, string>? headers,
+        NameValueCollection? query = null)
+    {
+        var functionContext = context ?? CreateMockFunctionContext();
+        var request = new MockHttpRequestData(functionContext, headers, query);
+        
+        if (body != null)
+        {
+            var json = JsonSerializer.Serialize(body);
+            var bytes = Encoding.UTF8.GetBytes(json);
+            request.SetBody(bytes);
+        }
+        
+        return request;
+    }
+
     public static FunctionContext CreateMockFunctionContext()
     {
         var mock = new Mock<FunctionContext>();
@@ -49,11 +71,25 @@ public class MockHttpRequestData : HttpRequestData
 {
     private Stream _body;
     private readonly HttpHeadersCollection _headers;
+    private readonly NameValueCollection _query;
 
-    public MockHttpRequestData(FunctionContext functionContext) : base(functionContext)
+    public MockHttpRequestData(FunctionContext functionContext) : this(functionContext, null, null)
+    {
+    }
+
+    public MockHttpRequestData(
+        FunctionContext functionContext,
+        IReadOnlyDictionary<string, string>? headers = null,
+        NameValueCollection? query = null) : base(functionContext)
     {
         _body = new MemoryStream();
         _headers = new HttpHeadersCollection();
+        if (headers != null)
+        {
+            foreach (var (key, value) in headers)
+                _headers.TryAddWithoutValidation(key, value);
+        }
+        _query = query ?? new NameValueCollection();
     }
 
     public override Stream Body => _body;
@@ -64,7 +100,7 @@ public class MockHttpRequestData : HttpRequestData
     
     public override Uri Url { get; } = new Uri("https://localhost/api/");
     
-    public override NameValueCollection Query { get; } = new NameValueCollection();
+    public override NameValueCollection Query => _query;
     
     public override string Method { get; } = "POST";
     

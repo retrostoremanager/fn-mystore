@@ -1,4 +1,6 @@
+using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
+using MyStore.Functions.Middleware;
 
 namespace MyStore.Functions.Helpers;
 
@@ -9,30 +11,40 @@ public static class CompanyHelper
 
     /// <summary>
     /// Extracts the company ID from the HTTP request.
-    /// Checks headers first (X-Company-Id), then query parameters (companyId).
+    /// Checks JWT claims first (from auth middleware), then headers (X-Company-Id), then query parameters (companyId).
     /// </summary>
     /// <param name="request">The HTTP request data</param>
     /// <returns>The company ID if found, otherwise null</returns>
     public static int? GetCompanyId(HttpRequestData request)
     {
-        // Try to get from header first
+        var companyId = GetCompanyIdFromJwt(request);
+        if (companyId.HasValue)
+            return companyId;
+
         if (request.Headers.TryGetValues(CompanyIdHeader, out var headerValues))
         {
             var headerValue = headerValues.FirstOrDefault();
-            if (!string.IsNullOrEmpty(headerValue) && int.TryParse(headerValue, out var companyId))
-            {
-                return companyId;
-            }
+            if (!string.IsNullOrEmpty(headerValue) && int.TryParse(headerValue, out var headerCompanyId))
+                return headerCompanyId;
         }
 
-        // Try to get from query parameter
         var queryValue = request.Query[CompanyIdQueryParam];
         if (!string.IsNullOrEmpty(queryValue) && int.TryParse(queryValue, out var queryCompanyId))
-        {
             return queryCompanyId;
-        }
 
         return null;
+    }
+
+    /// <summary>
+    /// Attempts to get company ID from JWT claims (set by JwtAuthenticationMiddleware).
+    /// </summary>
+    private static int? GetCompanyIdFromJwt(HttpRequestData request)
+    {
+        var context = request.FunctionContext;
+        if (context?.Features == null)
+            return null;
+        var feature = context.Features.Get<JwtPrincipalFeature>();
+        return feature?.CompanyId;
     }
 
     /// <summary>
@@ -46,7 +58,8 @@ public static class CompanyHelper
         var companyId = GetCompanyId(request);
         if (!companyId.HasValue)
         {
-            throw new UnauthorizedAccessException("Company ID is required. Please provide X-Company-Id header or companyId query parameter.");
+            throw new UnauthorizedAccessException(
+                "Company ID is required. Provide a valid JWT with CompanyId claim, or X-Company-Id header, or companyId query parameter.");
         }
 
         return companyId.Value;
