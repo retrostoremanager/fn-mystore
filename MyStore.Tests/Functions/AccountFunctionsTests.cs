@@ -342,4 +342,317 @@ public class AccountFunctionsTests
             Times.Once);
     }
 
+    #region ResendVerification Tests
+
+    [Fact]
+    public async Task ResendVerification_ValidRequest_Returns200OK()
+    {
+        // Arrange
+        var request = new ResendVerificationEmailRequest { Email = "test@example.com" };
+
+        var response = new ResendVerificationEmailResponse
+        {
+            Success = true,
+            Message = "A new verification email has been sent. Please check your inbox.",
+            Email = "test@example.com"
+        };
+
+        var apiResponse = ApiResponse<ResendVerificationEmailResponse>.SuccessResponse(response, "Verification email sent successfully.");
+
+        _serviceMock
+            .Setup(s => s.ResendVerificationEmailAsync(It.IsAny<ResendVerificationEmailRequest>()))
+            .ReturnsAsync(apiResponse);
+
+        var context = new Mock<FunctionContext>();
+        var httpRequestData = TestHelpers.CreateHttpRequestData(context.Object, request);
+
+        // Act
+        var result = await _functions.ResendVerification(httpRequestData);
+
+        // Assert
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        
+        var responseBody = await TestHelpers.ReadResponseBody(result);
+        var deserializedResponse = JsonSerializer.Deserialize<ApiResponse<ResendVerificationEmailResponse>>(
+            responseBody,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserializedResponse.Should().NotBeNull();
+        deserializedResponse!.Success.Should().BeTrue();
+        deserializedResponse.Data.Should().NotBeNull();
+        deserializedResponse.Data!.Email.Should().Be("test@example.com");
+    }
+
+    [Fact]
+    public async Task ResendVerification_RateLimitExceeded_Returns429TooManyRequests()
+    {
+        // Arrange
+        var request = new ResendVerificationEmailRequest { Email = "ratelimited@example.com" };
+
+        var apiResponse = ApiResponse<ResendVerificationEmailResponse>.ErrorResponse(
+            "Too many resend requests. Please wait 30 minute(s) before requesting another verification email.",
+            new List<string> { "Rate limit exceeded. Maximum 3 requests per hour allowed." }
+        );
+
+        _serviceMock
+            .Setup(s => s.ResendVerificationEmailAsync(It.IsAny<ResendVerificationEmailRequest>()))
+            .ReturnsAsync(apiResponse);
+
+        var context = new Mock<FunctionContext>();
+        var httpRequestData = TestHelpers.CreateHttpRequestData(context.Object, request);
+
+        // Act
+        var result = await _functions.ResendVerification(httpRequestData);
+
+        // Assert
+        result.StatusCode.Should().Be(HttpStatusCode.TooManyRequests);
+        
+        var responseBody = await TestHelpers.ReadResponseBody(result);
+        var deserializedResponse = JsonSerializer.Deserialize<ApiResponse<ResendVerificationEmailResponse>>(
+            responseBody,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserializedResponse.Should().NotBeNull();
+        deserializedResponse!.Success.Should().BeFalse();
+        deserializedResponse.Message.Should().ContainEquivalentOf("Too many");
+    }
+
+    [Fact]
+    public async Task ResendVerification_AlreadyVerified_Returns400BadRequest()
+    {
+        // Arrange
+        var request = new ResendVerificationEmailRequest { Email = "verified@example.com" };
+
+        var apiResponse = ApiResponse<ResendVerificationEmailResponse>.ErrorResponse(
+            "This account is already verified. You can log in now.",
+            new List<string> { "Account already verified" }
+        );
+
+        _serviceMock
+            .Setup(s => s.ResendVerificationEmailAsync(It.IsAny<ResendVerificationEmailRequest>()))
+            .ReturnsAsync(apiResponse);
+
+        var context = new Mock<FunctionContext>();
+        var httpRequestData = TestHelpers.CreateHttpRequestData(context.Object, request);
+
+        // Act
+        var result = await _functions.ResendVerification(httpRequestData);
+
+        // Assert
+        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        
+        var responseBody = await TestHelpers.ReadResponseBody(result);
+        var deserializedResponse = JsonSerializer.Deserialize<ApiResponse<ResendVerificationEmailResponse>>(
+            responseBody,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserializedResponse.Should().NotBeNull();
+        deserializedResponse!.Success.Should().BeFalse();
+        deserializedResponse.Message.Should().ContainEquivalentOf("already verified");
+    }
+
+    [Fact]
+    public async Task ResendVerification_InvalidRequestBody_Returns400BadRequest()
+    {
+        // Arrange
+        var context = new Mock<FunctionContext>();
+        var httpRequestData = TestHelpers.CreateHttpRequestData(context.Object, "invalid json");
+
+        // Act
+        var result = await _functions.ResendVerification(httpRequestData);
+
+        // Assert
+        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        
+        var responseBody = await TestHelpers.ReadResponseBody(result);
+        var deserializedResponse = JsonSerializer.Deserialize<ApiResponse<ResendVerificationEmailResponse>>(
+            responseBody,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserializedResponse.Should().NotBeNull();
+        deserializedResponse!.Success.Should().BeFalse();
+        deserializedResponse.Message.Should().Contain("Invalid request body", because: "Invalid JSON should return error");
+    }
+
+    [Fact]
+    public async Task ResendVerification_NullRequestBody_Returns400BadRequest()
+    {
+        // Arrange
+        var context = new Mock<FunctionContext>();
+        var httpRequestData = TestHelpers.CreateHttpRequestData(context.Object, (object?)null);
+
+        // Act
+        var result = await _functions.ResendVerification(httpRequestData);
+
+        // Assert
+        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        
+        var responseBody = await TestHelpers.ReadResponseBody(result);
+        var deserializedResponse = JsonSerializer.Deserialize<ApiResponse<ResendVerificationEmailResponse>>(
+            responseBody,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserializedResponse.Should().NotBeNull();
+        deserializedResponse!.Success.Should().BeFalse();
+        deserializedResponse.Message.Should().Contain("Invalid request body", because: "Null body should return error");
+    }
+
+    [Fact]
+    public async Task ResendVerification_ServiceException_Returns500InternalServerError()
+    {
+        // Arrange
+        var request = new ResendVerificationEmailRequest { Email = "test@example.com" };
+
+        _serviceMock
+            .Setup(s => s.ResendVerificationEmailAsync(It.IsAny<ResendVerificationEmailRequest>()))
+            .ThrowsAsync(new Exception("Database connection failed"));
+
+        var context = new Mock<FunctionContext>();
+        var httpRequestData = TestHelpers.CreateHttpRequestData(context.Object, request);
+
+        // Act
+        var result = await _functions.ResendVerification(httpRequestData);
+
+        // Assert
+        result.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
+        
+        var responseBody = await TestHelpers.ReadResponseBody(result);
+        var deserializedResponse = JsonSerializer.Deserialize<ApiResponse<ResendVerificationEmailResponse>>(
+            responseBody,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserializedResponse.Should().NotBeNull();
+        deserializedResponse!.Success.Should().BeFalse();
+        deserializedResponse.Message.Should().Contain("unexpected error", because: "Exception should return error message");
+    }
+
+    [Fact]
+    public async Task ResendVerification_ResponseHasCorrectContentType()
+    {
+        // Arrange
+        var request = new ResendVerificationEmailRequest { Email = "test@example.com" };
+
+        var response = new ResendVerificationEmailResponse
+        {
+            Success = true,
+            Message = "A new verification email has been sent.",
+            Email = "test@example.com"
+        };
+
+        var apiResponse = ApiResponse<ResendVerificationEmailResponse>.SuccessResponse(response, "Verification email sent successfully.");
+
+        _serviceMock
+            .Setup(s => s.ResendVerificationEmailAsync(It.IsAny<ResendVerificationEmailRequest>()))
+            .ReturnsAsync(apiResponse);
+
+        var context = new Mock<FunctionContext>();
+        var httpRequestData = TestHelpers.CreateHttpRequestData(context.Object, request);
+
+        // Act
+        var result = await _functions.ResendVerification(httpRequestData);
+
+        // Assert
+        result.Headers.Should().ContainKey("Content-Type");
+        result.Headers.GetValues("Content-Type").Should().Contain("application/json; charset=utf-8");
+    }
+
+    [Fact]
+    public async Task ResendVerification_ResponseUsesCamelCase()
+    {
+        // Arrange
+        var request = new ResendVerificationEmailRequest { Email = "test@example.com" };
+
+        var response = new ResendVerificationEmailResponse
+        {
+            Success = true,
+            Message = "A new verification email has been sent.",
+            Email = "test@example.com"
+        };
+
+        var apiResponse = ApiResponse<ResendVerificationEmailResponse>.SuccessResponse(response, "Verification email sent successfully.");
+
+        _serviceMock
+            .Setup(s => s.ResendVerificationEmailAsync(It.IsAny<ResendVerificationEmailRequest>()))
+            .ReturnsAsync(apiResponse);
+
+        var context = new Mock<FunctionContext>();
+        var httpRequestData = TestHelpers.CreateHttpRequestData(context.Object, request);
+
+        // Act
+        var result = await _functions.ResendVerification(httpRequestData);
+
+        // Assert
+        var responseBody = await TestHelpers.ReadResponseBody(result);
+        responseBody.Should().Contain("success"); // camelCase property
+        responseBody.Should().Contain("data"); // camelCase property
+        responseBody.Should().NotContain("Success"); // Not PascalCase
+        responseBody.Should().NotContain("Data"); // Not PascalCase
+    }
+
+    [Fact]
+    public async Task ResendVerification_LogsInformation()
+    {
+        // Arrange
+        var request = new ResendVerificationEmailRequest { Email = "test@example.com" };
+
+        var response = new ResendVerificationEmailResponse
+        {
+            Success = true,
+            Message = "A new verification email has been sent.",
+            Email = "test@example.com"
+        };
+
+        var apiResponse = ApiResponse<ResendVerificationEmailResponse>.SuccessResponse(response, "Verification email sent successfully.");
+
+        _serviceMock
+            .Setup(s => s.ResendVerificationEmailAsync(It.IsAny<ResendVerificationEmailRequest>()))
+            .ReturnsAsync(apiResponse);
+
+        var context = new Mock<FunctionContext>();
+        var httpRequestData = TestHelpers.CreateHttpRequestData(context.Object, request);
+
+        // Act
+        await _functions.ResendVerification(httpRequestData);
+
+        // Assert
+        _loggerMock.Verify(
+            x => x.Log(
+                LogLevel.Information,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Resending verification email")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ResendVerification_ServiceException_LogsError()
+    {
+        // Arrange
+        var request = new ResendVerificationEmailRequest { Email = "test@example.com" };
+
+        var exception = new Exception("Database connection failed");
+
+        _serviceMock
+            .Setup(s => s.ResendVerificationEmailAsync(It.IsAny<ResendVerificationEmailRequest>()))
+            .ThrowsAsync(exception);
+
+        var context = new Mock<FunctionContext>();
+        var httpRequestData = TestHelpers.CreateHttpRequestData(context.Object, request);
+
+        // Act
+        await _functions.ResendVerification(httpRequestData);
+
+        // Assert
+        _loggerMock.Verify(
+            x => x.Log(
+                LogLevel.Error,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Error resending verification email")),
+                It.Is<Exception>(e => e == exception),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+    }
+
+    #endregion
 }

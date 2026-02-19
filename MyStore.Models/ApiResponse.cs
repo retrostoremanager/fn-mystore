@@ -20,13 +20,14 @@ public class ApiResponse<T>
         };
     }
 
-    public static ApiResponse<T> ErrorResponse(string message, List<string>? errors = null)
+    public static ApiResponse<T> ErrorResponse(string message, List<string>? errors = null, T? data = default)
     {
         return new ApiResponse<T>
         {
             Success = false,
             Message = message,
-            Errors = errors ?? new List<string>()
+            Errors = errors ?? new List<string>(),
+            Data = data
         };
     }
 

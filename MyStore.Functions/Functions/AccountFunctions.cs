@@ -138,6 +138,86 @@ public class AccountFunctions
         }
     }
 
+    /// <summary>
+    /// HTTP function to resend verification email for unverified accounts.
+    /// POST /api/accounts/resend-verification
+    /// </summary>
+    /// <param name="req">The HTTP request containing the email address in the request body.</param>
+    /// <returns>
+    /// HTTP response with status codes:
+    /// - 200 OK: Verification email sent successfully
+    /// - 400 Bad Request: Invalid request body or account already verified
+    /// - 429 Too Many Requests: Rate limit exceeded (max 3 per hour)
+    /// - 500 Internal Server Error: Unexpected error occurred
+    /// </returns>
+    /// <remarks>
+    /// Request body should be JSON: { "email": "user@example.com" }
+    /// Implements rate limiting to prevent abuse (max 3 requests per hour per email).
+    /// </remarks>
+    [Function("ResendVerification")]
+    public async Task<HttpResponseData> ResendVerification(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "accounts/resend-verification")] HttpRequestData req)
+    {
+        try
+        {
+            _logger.LogInformation("Resending verification email");
+
+            var requestBody = await new StreamReader(req.Body).ReadToEndAsync();
+            ResendVerificationEmailRequest? request;
+            
+            try
+            {
+                request = JsonSerializer.Deserialize<ResendVerificationEmailRequest>(requestBody, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+            }
+            catch (JsonException)
+            {
+                var errorResponse = ApiResponse<ResendVerificationEmailResponse>.ErrorResponse("Invalid request body");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+            }
+
+            if (request == null)
+            {
+                var errorResponse = ApiResponse<ResendVerificationEmailResponse>.ErrorResponse("Invalid request body");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+            }
+
+            var response = await _companyService.ResendVerificationEmailAsync(request);
+
+            // Determine appropriate HTTP status code based on response
+            HttpStatusCode statusCode;
+            if (response.Success)
+            {
+                statusCode = HttpStatusCode.OK;
+            }
+            else if (response.Errors?.Any(e => e.Contains("Rate limit", StringComparison.OrdinalIgnoreCase)) == true)
+            {
+                statusCode = HttpStatusCode.TooManyRequests; // 429 Too Many Requests for rate limiting
+            }
+            else if (response.Errors?.Any(e => e.Contains("already verified", StringComparison.OrdinalIgnoreCase)) == true)
+            {
+                statusCode = HttpStatusCode.BadRequest; // 400 Bad Request for already verified
+            }
+            else
+            {
+                statusCode = HttpStatusCode.BadRequest; // 400 Bad Request for other errors
+            }
+
+            return await CreateHttpResponse(req, response, statusCode);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error resending verification email");
+            var errorResponse = ApiResponse<ResendVerificationEmailResponse>.ErrorResponse(
+                "An unexpected error occurred while processing your request. Please try again later.",
+                new List<string> { ex.Message }
+            );
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
+        }
+    }
+
     private static async Task<HttpResponseData> CreateHttpResponse<T>(
         HttpRequestData req,
         ApiResponse<T> apiResponse,
