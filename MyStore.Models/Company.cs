@@ -13,7 +13,6 @@ public class Company
     public string? PasswordResetToken { get; set; }
     public DateTime? PasswordResetTokenExpires { get; set; }
     public string SubscriptionTier { get; set; } = "Trial"; // Trial, Basic, Premium, Enterprise
-    public string? StripeCustomerId { get; set; }
     public DateTime CreatedDate { get; set; }
     public DateTime? LastModifiedDate { get; set; }
 }
@@ -24,6 +23,11 @@ public class RegisterAccountRequest
     public string Password { get; set; } = string.Empty;
     public string CompanyName { get; set; } = string.Empty;
     public string SubscriptionTier { get; set; } = "Trial";
+    /// <summary>
+    /// Stripe payment method ID from Stripe Elements (pm_xxx). Required at sign-up.
+    /// Card is stored but not charged until trial ends.
+    /// </summary>
+    public string PaymentMethodId { get; set; } = string.Empty;
 }
 
 public class RegisterAccountResponse

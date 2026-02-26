@@ -14,6 +14,7 @@ public class CompanyServiceTests
 {
     private readonly Mock<ICompanyRepository> _repositoryMock;
     private readonly Mock<IEmailService> _emailServiceMock;
+    private readonly Mock<IPaymentService> _paymentServiceMock;
     private readonly Mock<IConfiguration> _configurationMock;
     private readonly Mock<ILogger<CompanyService>> _loggerMock;
     private readonly CompanyService _service;
@@ -22,22 +23,28 @@ public class CompanyServiceTests
     {
         _repositoryMock = new Mock<ICompanyRepository>();
         _emailServiceMock = new Mock<IEmailService>();
+        _paymentServiceMock = new Mock<IPaymentService>();
         _configurationMock = new Mock<IConfiguration>();
         _loggerMock = new Mock<ILogger<CompanyService>>();
-        _service = new CompanyService(_repositoryMock.Object, _emailServiceMock.Object, _configurationMock.Object, _loggerMock.Object);
+        _paymentServiceMock
+            .Setup(p => p.StorePaymentMethodAsync(It.IsAny<int>(), It.IsAny<StorePaymentMethodRequest>()))
+            .ReturnsAsync(ApiResponse<StorePaymentMethodResponse>.SuccessResponse(
+                new StorePaymentMethodResponse { Id = 1, Last4 = "4242", ExpirationMonth = 12, ExpirationYear = 34, IsDefault = true }));
+        _service = new CompanyService(_repositoryMock.Object, _emailServiceMock.Object, _paymentServiceMock.Object, _configurationMock.Object, _loggerMock.Object);
     }
 
     /// <summary>
     /// Helper method to create a valid RegisterAccountRequest for testing.
     /// </summary>
-    private static RegisterAccountRequest CreateValidRequest(string? email = null, string? password = null, string? companyName = null, string? subscriptionTier = null)
+    private static RegisterAccountRequest CreateValidRequest(string? email = null, string? password = null, string? companyName = null, string? subscriptionTier = null, string? paymentMethodId = null)
     {
         return new RegisterAccountRequest
         {
             Email = email ?? "test@example.com",
             Password = password ?? "ValidPass123",
             CompanyName = companyName ?? "Test Company",
-            SubscriptionTier = subscriptionTier ?? "Trial"
+            SubscriptionTier = subscriptionTier ?? "Trial",
+            PaymentMethodId = paymentMethodId ?? "pm_test_123"
         };
     }
 
@@ -260,7 +267,8 @@ public class CompanyServiceTests
         {
             Email = "test@example.com",
             Password = "ValidPass123",
-            CompanyName = "Test Company"
+            CompanyName = "Test Company",
+            PaymentMethodId = "pm_test_123"
             // SubscriptionTier not set, should default to "Trial"
         };
 

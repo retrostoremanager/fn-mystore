@@ -53,9 +53,11 @@ public class PaymentService : IPaymentService
             }
 
             string stripeCustomerId;
-            if (!string.IsNullOrWhiteSpace(company.StripeCustomerId))
+            var existingMethods = await _paymentRepository.GetByCompanyIdAsync(companyId);
+            var firstExisting = existingMethods.FirstOrDefault();
+            if (firstExisting != null && !string.IsNullOrWhiteSpace(firstExisting.StripeCustomerId))
             {
-                stripeCustomerId = company.StripeCustomerId;
+                stripeCustomerId = firstExisting.StripeCustomerId;
             }
             else
             {
@@ -66,7 +68,6 @@ public class PaymentService : IPaymentService
                     Metadata = new Dictionary<string, string> { { "company_id", companyId.ToString() } }
                 });
                 stripeCustomerId = customer.Id;
-                await _companyRepository.UpdateStripeCustomerIdAsync(companyId, stripeCustomerId);
                 _logger.LogInformation("Created Stripe customer {CustomerId} for company {CompanyId}", stripeCustomerId, companyId);
             }
 
@@ -82,7 +83,6 @@ public class PaymentService : IPaymentService
                 Customer = stripeCustomerId
             });
 
-            var existingMethods = await _paymentRepository.GetByCompanyIdAsync(companyId);
             var isFirst = !existingMethods.Any();
 
             var dbPaymentMethod = new Models.PaymentMethod
