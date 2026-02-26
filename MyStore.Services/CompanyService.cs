@@ -20,10 +20,12 @@ public class CompanyService : ICompanyService
     private readonly ILogger<CompanyService> _logger;
 
     // Rate limiting: Track resend attempts per email address
-    // Key: email (lowercase), Value: List of request timestamps
     private static readonly Dictionary<string, List<DateTime>> _resendAttempts = new();
+    // Rate limiting: Track forgot password attempts per email address
+    private static readonly Dictionary<string, List<DateTime>> _forgotPasswordAttempts = new();
     private static readonly object _rateLimitLock = new();
     private const int MaxResendAttemptsPerHour = 3;
+    private const int MaxForgotPasswordAttemptsPerHour = 3;
     private static readonly TimeSpan RateLimitWindow = TimeSpan.FromHours(1);
 
     public CompanyService(ICompanyRepository repository, IEmailService emailService, IConfiguration configuration, ILogger<CompanyService> logger)
@@ -678,6 +680,201 @@ public class CompanyService : ICompanyService
             _logger.LogError(ex, "Error resending verification email for email: {Email}", request.Email);
             return ApiResponse<ResendVerificationEmailResponse>.ErrorResponse(
                 "An unexpected error occurred while processing your request. Please try again later.",
+                new List<string> { ex.Message }
+            );
+        }
+    }
+
+    /// <summary>
+    /// Processes a forgot password request. Sends reset email if account exists.
+    /// Always returns generic success message (do not reveal if email exists).
+    /// Implements rate limiting (max 3 requests per hour per email).
+    /// </summary>
+    public async Task<ApiResponse<ForgotPasswordResponse>> ForgotPasswordAsync(ForgotPasswordRequest request)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(request.Email))
+            {
+                return ApiResponse<ForgotPasswordResponse>.ErrorResponse(
+                    "Email is required",
+                    new List<string> { "Email parameter is required" }
+                );
+            }
+
+            var email = request.Email.Trim().ToLowerInvariant();
+            if (!IsValidEmail(email))
+            {
+                return ApiResponse<ForgotPasswordResponse>.ErrorResponse(
+                    "Please enter a valid email address",
+                    new List<string> { "Invalid email format" }
+                );
+            }
+
+            var company = await _repository.GetByEmailAsync(email);
+            if (company == null)
+            {
+                _logger.LogWarning("Forgot password requested for non-existent email: {Email}", email);
+                return ApiResponse<ForgotPasswordResponse>.SuccessResponse(
+                    new ForgotPasswordResponse { Success = true, Message = "If an account exists with this email, a password reset link has been sent." },
+                    "If an account exists with this email, a password reset link has been sent."
+                );
+            }
+
+            if (string.IsNullOrEmpty(company.PasswordHash))
+            {
+                return ApiResponse<ForgotPasswordResponse>.SuccessResponse(
+                    new ForgotPasswordResponse { Success = true, Message = "If an account exists with this email, a password reset link has been sent." },
+                    "If an account exists with this email, a password reset link has been sent."
+                );
+            }
+
+            lock (_rateLimitLock)
+            {
+                var now = DateTime.UtcNow;
+                if (_forgotPasswordAttempts.ContainsKey(email))
+                {
+                    _forgotPasswordAttempts[email].RemoveAll(t => now - t > RateLimitWindow);
+                    if (_forgotPasswordAttempts[email].Count == 0)
+                        _forgotPasswordAttempts.Remove(email);
+                }
+
+                if (_forgotPasswordAttempts.ContainsKey(email) && _forgotPasswordAttempts[email].Count >= MaxForgotPasswordAttemptsPerHour)
+                {
+                    var oldest = _forgotPasswordAttempts[email].Min();
+                    var minutesUntilReset = (int)Math.Ceiling((RateLimitWindow - (now - oldest)).TotalMinutes);
+                    return ApiResponse<ForgotPasswordResponse>.ErrorResponse(
+                        $"Too many reset requests. Please wait {minutesUntilReset} minute(s) before trying again.",
+                        new List<string> { $"Rate limit exceeded. Maximum {MaxForgotPasswordAttemptsPerHour} requests per hour." }
+                    );
+                }
+
+                if (!_forgotPasswordAttempts.ContainsKey(email))
+                    _forgotPasswordAttempts[email] = new List<DateTime>();
+                _forgotPasswordAttempts[email].Add(now);
+            }
+
+            var resetToken = GenerateSecureToken();
+            var tokenExpires = DateTime.UtcNow.AddHours(1);
+
+            company.PasswordResetToken = resetToken;
+            company.PasswordResetTokenExpires = tokenExpires;
+            company.LastModifiedDate = DateTime.UtcNow;
+
+            var updated = await _repository.UpdateAsync(company.Id, company);
+            if (updated == null)
+            {
+                _logger.LogError("Failed to update company {AccountId} during forgot password", company.Id);
+                return ApiResponse<ForgotPasswordResponse>.ErrorResponse(
+                    "An error occurred. Please try again later.",
+                    new List<string> { "Update failed" }
+                );
+            }
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var emailResult = await _emailService.SendPasswordResetEmailAsync(updated.Email, resetToken);
+                    if (emailResult.Success)
+                        _logger.LogInformation("Password reset email sent for account {AccountId}, email {Email}", updated.Id, updated.Email);
+                    else
+                        _logger.LogWarning("Failed to send password reset email for {Email}: {Error}", updated.Email, emailResult.ErrorMessage);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Exception sending password reset email for {Email}", updated.Email);
+                }
+            });
+
+            return ApiResponse<ForgotPasswordResponse>.SuccessResponse(
+                new ForgotPasswordResponse { Success = true, Message = "If an account exists with this email, a password reset link has been sent." },
+                "If an account exists with this email, a password reset link has been sent."
+            );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing forgot password for {Email}", request.Email);
+            return ApiResponse<ForgotPasswordResponse>.ErrorResponse(
+                "An error occurred. Please try again later.",
+                new List<string> { ex.Message }
+            );
+        }
+    }
+
+    /// <summary>
+    /// Completes password reset with token and new password.
+    /// Token must be valid, not expired, and single-use.
+    /// </summary>
+    public async Task<ApiResponse<ResetPasswordResponse>> ResetPasswordAsync(ResetPasswordRequest request)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(request.Token))
+            {
+                return ApiResponse<ResetPasswordResponse>.ErrorResponse(
+                    "Invalid reset link. The token is missing.",
+                    new List<string> { "Token is required" }
+                );
+            }
+
+            var passwordErrors = ValidatePassword(request.NewPassword);
+            if (passwordErrors.Count > 0)
+            {
+                var fieldErrors = new Dictionary<string, List<string>> { ["newPassword"] = passwordErrors };
+                return ApiResponse<ResetPasswordResponse>.ValidationErrorResponse(
+                    "Please correct the errors below.",
+                    fieldErrors
+                );
+            }
+
+            var company = await _repository.GetByPasswordResetTokenAsync(request.Token);
+            if (company == null)
+            {
+                _logger.LogWarning("Reset password attempt with invalid token");
+                return ApiResponse<ResetPasswordResponse>.ErrorResponse(
+                    "Invalid or expired reset link. Please request a new password reset.",
+                    new List<string> { "Invalid token" }
+                );
+            }
+
+            if (!company.PasswordResetTokenExpires.HasValue || company.PasswordResetTokenExpires.Value < DateTime.UtcNow)
+            {
+                _logger.LogWarning("Reset password attempt with expired token for {Email}", company.Email);
+                return ApiResponse<ResetPasswordResponse>.ErrorResponse(
+                    "Your reset link has expired. Please request a new password reset.",
+                    new List<string> { "Token expired" },
+                    new ResetPasswordResponse { Success = false, Message = "Your reset link has expired. Please request a new password reset." }
+                );
+            }
+
+            var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword, BCrypt.Net.BCrypt.GenerateSalt(12));
+            company.PasswordHash = passwordHash;
+            company.PasswordResetToken = null;
+            company.PasswordResetTokenExpires = null;
+            company.LastModifiedDate = DateTime.UtcNow;
+
+            var updated = await _repository.UpdateAsync(company.Id, company);
+            if (updated == null)
+            {
+                _logger.LogError("Failed to update password for company {AccountId}", company.Id);
+                return ApiResponse<ResetPasswordResponse>.ErrorResponse(
+                    "An error occurred. Please try again later.",
+                    new List<string> { "Update failed" }
+                );
+            }
+
+            _logger.LogInformation("Password reset completed for account {AccountId}, email {Email}", company.Id, company.Email);
+            return ApiResponse<ResetPasswordResponse>.SuccessResponse(
+                new ResetPasswordResponse { Success = true, Message = "Your password has been reset successfully. You can now sign in." },
+                "Your password has been reset successfully. You can now sign in."
+            );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error resetting password");
+            return ApiResponse<ResetPasswordResponse>.ErrorResponse(
+                "An unexpected error occurred. Please try again later.",
                 new List<string> { ex.Message }
             );
         }

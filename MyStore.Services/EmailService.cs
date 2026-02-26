@@ -23,6 +23,7 @@ public class EmailService : IEmailService
     private readonly string _fromEmail;
     private readonly string _fromName;
     private readonly string _verificationBaseUrl;
+    private readonly string _passwordResetBaseUrl;
 
     /// <summary>
     /// Initializes a new instance of the EmailService.
@@ -43,6 +44,7 @@ public class EmailService : IEmailService
             _fromEmail = string.Empty;
             _fromName = "MyStore";
             _verificationBaseUrl = "https://app.mystore.com/verify";
+            _passwordResetBaseUrl = "https://app.mystore.com/reset-password";
             return;
         }
         
@@ -56,6 +58,102 @@ public class EmailService : IEmailService
         
         _verificationBaseUrl = Environment.GetEnvironmentVariable("VerificationBaseUrl")
             ?? "https://app.mystore.com/verify";
+
+        _passwordResetBaseUrl = Environment.GetEnvironmentVariable("PasswordResetBaseUrl")
+            ?? "https://app.mystore.com/reset-password";
+    }
+
+    /// <summary>
+    /// Sends a password reset email to the specified recipient with a reset token.
+    /// Reset links expire after 1 hour and are single-use.
+    /// </summary>
+    public async Task<EmailSendResult> SendPasswordResetEmailAsync(string toEmail, string resetToken)
+    {
+        if (_emailClient == null)
+        {
+            _logger.LogWarning("Email service not configured. Skipping password reset email for {Email}", toEmail);
+            return new EmailSendResult { Success = true, ErrorMessage = "Email service not configured" };
+        }
+
+        try
+        {
+            var resetUrl = $"{_passwordResetBaseUrl}?token={Uri.EscapeDataString(resetToken)}";
+            var emailContent = new EmailContent("Reset Your MyStore Password")
+            {
+                PlainText = GetPasswordResetPlainText(resetUrl),
+                Html = GetPasswordResetHtml(resetUrl)
+            };
+
+            var emailMessage = new EmailMessage(
+                senderAddress: _fromEmail,
+                recipientAddress: toEmail,
+                content: emailContent
+            );
+
+            var success = await SendWithRetryAsync(emailMessage);
+            if (success)
+            {
+                _logger.LogInformation("Password reset email sent successfully to {Email}", toEmail);
+                return new EmailSendResult { Success = true };
+            }
+
+            _logger.LogError("Failed to send password reset email to {Email} after retries", toEmail);
+            return new EmailSendResult { Success = false, ErrorMessage = "Failed to send email after retries" };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Exception occurred while sending password reset email to {Email}", toEmail);
+            return new EmailSendResult { Success = false, ErrorMessage = ex.Message };
+        }
+    }
+
+    private static string GetPasswordResetPlainText(string resetUrl)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("You requested a password reset for your MyStore account.");
+        sb.AppendLine();
+        sb.AppendLine("Click the link below to reset your password:");
+        sb.AppendLine();
+        sb.AppendLine(resetUrl);
+        sb.AppendLine();
+        sb.AppendLine("This link will expire in 1 hour and can only be used once.");
+        sb.AppendLine();
+        sb.AppendLine("If you did not request a password reset, please ignore this email.");
+        sb.AppendLine();
+        sb.AppendLine("Best regards,");
+        sb.AppendLine("The MyStore Team");
+        return sb.ToString();
+    }
+
+    private static string GetPasswordResetHtml(string resetUrl)
+    {
+        return $@"
+<!DOCTYPE html>
+<html lang=""en"">
+<head>
+    <meta charset=""UTF-8"">
+    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+    <title>Reset Your MyStore Password</title>
+    <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .container {{ background-color: #fff; border-radius: 8px; padding: 40px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+        .button {{ display: inline-block; padding: 14px 32px; background-color: #3498db; color: #fff !important; text-decoration: none; border-radius: 5px; font-weight: bold; }}
+        .warning {{ background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 12px; margin: 20px 0; border-radius: 4px; }}
+    </style>
+</head>
+<body>
+    <div class=""container"">
+        <h1>Reset Your Password</h1>
+        <p>You requested a password reset for your MyStore account.</p>
+        <p><a href=""{resetUrl}"" class=""button"">Reset Password</a></p>
+        <p>Or copy and paste this link: <a href=""{resetUrl}"">{resetUrl}</a></p>
+        <div class=""warning"">
+            <strong>Important:</strong> This link expires in 1 hour and can only be used once. If you did not request this, please ignore this email.
+        </div>
+        <p>Best regards,<br>The MyStore Team</p>
+    </div>
+</body>
+</html>";
     }
 
     /// <summary>

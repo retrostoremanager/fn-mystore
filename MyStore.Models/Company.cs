@@ -10,6 +10,8 @@ public class Company
     public DateTime TrialEndDate { get; set; }
     public string? VerificationToken { get; set; }
     public DateTime? VerificationTokenExpires { get; set; }
+    public string? PasswordResetToken { get; set; }
+    public DateTime? PasswordResetTokenExpires { get; set; }
     public string SubscriptionTier { get; set; } = "Trial"; // Trial, Basic, Premium, Enterprise
     public DateTime CreatedDate { get; set; }
     public DateTime? LastModifiedDate { get; set; }
@@ -95,4 +97,40 @@ public class ResendVerificationEmailResponse
     /// The email address the verification email was sent to (or requested for).
     /// </summary>
     public string Email { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Request model for forgot password (request reset email).
+/// </summary>
+public class ForgotPasswordRequest
+{
+    public string Email { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Response model for forgot password operation.
+/// Always returns generic success message (do not reveal if email exists).
+/// </summary>
+public class ForgotPasswordResponse
+{
+    public bool Success { get; set; }
+    public string Message { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Request model for reset password (complete reset with token).
+/// </summary>
+public class ResetPasswordRequest
+{
+    public string Token { get; set; } = string.Empty;
+    public string NewPassword { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Response model for reset password operation.
+/// </summary>
+public class ResetPasswordResponse
+{
+    public bool Success { get; set; }
+    public string Message { get; set; } = string.Empty;
 }

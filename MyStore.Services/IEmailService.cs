@@ -13,6 +13,14 @@ public interface IEmailService
     /// <param name="companyName">The name of the company/store for personalization.</param>
     /// <returns>An EmailSendResult indicating success or failure of the email send operation.</returns>
     Task<EmailSendResult> SendVerificationEmailAsync(string toEmail, string verificationToken, string companyName);
+
+    /// <summary>
+    /// Sends a password reset email to the specified recipient with a reset token.
+    /// </summary>
+    /// <param name="toEmail">The email address of the recipient.</param>
+    /// <param name="resetToken">The secure reset token to include in the email link.</param>
+    /// <returns>An EmailSendResult indicating success or failure of the email send operation.</returns>
+    Task<EmailSendResult> SendPasswordResetEmailAsync(string toEmail, string resetToken);
 }
 
 /// <summary>
