@@ -28,6 +28,15 @@ jobs:
     - name: Publish
       run: dotnet publish MyStore.Functions/MyStore.Functions.csproj --configuration Release --output ./publish --no-build
     
+    - name: Verify publish output
+      run: |
+        echo "Publish output contents:"
+        ls -la ./publish
+        echo "Checking for host.json:"
+        test -f ./publish/host.json && echo "host.json found" || echo "WARNING: host.json missing"
+        echo "Checking for worker:"
+        ls ./publish/*.dll 2>/dev/null | head -5 || echo "No DLLs found"
+    
     - name: Azure Login
       uses: azure/login@v1
       with:
@@ -38,6 +47,7 @@ jobs:
       with:
         app-name: mystore-func-dev
         package: ./publish
+        resource-group: mystore-rg-dev
     
     - name: Deployment Complete
       run: |
