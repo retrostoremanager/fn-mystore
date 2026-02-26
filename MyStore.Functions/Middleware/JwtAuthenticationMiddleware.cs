@@ -31,7 +31,9 @@ public class JwtAuthenticationMiddleware : IFunctionsWorkerMiddleware
         "RegisterAccount",
         "VerifyEmail",
         "ResendVerification",
-        "Login"
+        "Login",
+        "ForgotPassword",
+        "ResetPassword"
     };
 
     private readonly IConfiguration _configuration;
