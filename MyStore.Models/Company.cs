@@ -13,6 +13,7 @@ public class Company
     public string? PasswordResetToken { get; set; }
     public DateTime? PasswordResetTokenExpires { get; set; }
     public string SubscriptionTier { get; set; } = "Trial"; // Trial, Basic, Premium, Enterprise
+    public string? StripeCustomerId { get; set; }
     public DateTime CreatedDate { get; set; }
     public DateTime? LastModifiedDate { get; set; }
 }

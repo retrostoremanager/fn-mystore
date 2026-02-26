@@ -10,4 +10,5 @@ public interface ICompanyRepository
     Task<Company?> GetByPasswordResetTokenAsync(string token);
     Task<Company> CreateAsync(Company company);
     Task<Company?> UpdateAsync(int id, Company company);
+    Task UpdateStripeCustomerIdAsync(int companyId, string stripeCustomerId);
 }

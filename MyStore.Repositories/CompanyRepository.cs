@@ -107,4 +107,12 @@ public class CompanyRepository : ICompanyRepository
         company.Id = id;
         return company;
     }
+
+    public async Task UpdateStripeCustomerIdAsync(int companyId, string stripeCustomerId)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.ExecuteAsync(
+            "SELECT company_update_stripe_customer_id(@p_id, @p_stripe_customer_id)",
+            new { p_id = companyId, p_stripe_customer_id = stripeCustomerId });
+    }
 }

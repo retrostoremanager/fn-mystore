@@ -10,10 +10,18 @@ var host = new HostBuilder()
     {
         builder.UseMiddleware<JwtAuthenticationMiddleware>();
     })
-    .ConfigureServices(services =>
+    .ConfigureServices((context, services) =>
     {
         services.AddApplicationInsightsTelemetryWorkerService();
         services.ConfigureFunctionsApplicationInsights();
+
+        // Stripe configuration
+        services.Configure<StripeOptions>(context.Configuration.GetSection(StripeOptions.SectionName));
+        var stripeSecretKey = context.Configuration["Stripe:SecretKey"];
+        if (!string.IsNullOrWhiteSpace(stripeSecretKey))
+        {
+            Stripe.StripeConfiguration.ApiKey = stripeSecretKey;
+        }
         
         // Register repositories
         services.AddScoped<IInventoryRepository, InventoryRepository>();
@@ -21,6 +29,7 @@ var host = new HostBuilder()
         services.AddScoped<IEmployeeRepository, EmployeeRepository>();
         services.AddScoped<ISalesRepository, SalesRepository>();
         services.AddScoped<ICompanyRepository, CompanyRepository>();
+        services.AddScoped<IPaymentRepository, PaymentRepository>();
         
         // Register services
         services.AddScoped<IInventoryService, InventoryService>();
@@ -29,6 +38,7 @@ var host = new HostBuilder()
         services.AddScoped<ISalesService, SalesService>();
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<ICompanyService, CompanyService>();
+        services.AddScoped<IPaymentService, PaymentService>();
     })
     .Build();
 

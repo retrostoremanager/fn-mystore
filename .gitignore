@@ -49,3 +49,6 @@ artifacts/
 # Azure Functions
 .azurefunctions/
 
+# Publish output
+publish/
+
