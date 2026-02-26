@@ -1,8 +1,12 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Collections.Generic;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.IdentityModel.Tokens;
 using MyStore.Models;
 using MyStore.Repositories;
 
@@ -12,6 +16,7 @@ public class CompanyService : ICompanyService
 {
     private readonly ICompanyRepository _repository;
     private readonly IEmailService _emailService;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<CompanyService> _logger;
 
     // Rate limiting: Track resend attempts per email address
@@ -21,11 +26,86 @@ public class CompanyService : ICompanyService
     private const int MaxResendAttemptsPerHour = 3;
     private static readonly TimeSpan RateLimitWindow = TimeSpan.FromHours(1);
 
-    public CompanyService(ICompanyRepository repository, IEmailService emailService, ILogger<CompanyService> logger)
+    public CompanyService(ICompanyRepository repository, IEmailService emailService, IConfiguration configuration, ILogger<CompanyService> logger)
     {
         _repository = repository;
         _emailService = emailService;
+        _configuration = configuration;
         _logger = logger;
+    }
+
+    public async Task<ApiResponse<LoginResponse>> LoginAsync(LoginRequest request)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+            {
+                return ApiResponse<LoginResponse>.ErrorResponse("Email and password are required.");
+            }
+
+            var company = await _repository.GetByEmailAsync(request.Email.Trim().ToLowerInvariant());
+            if (company == null)
+            {
+                return ApiResponse<LoginResponse>.ErrorResponse("Invalid email or password.");
+            }
+
+            if (string.IsNullOrEmpty(company.PasswordHash))
+            {
+                return ApiResponse<LoginResponse>.ErrorResponse("Account was created before password sign-in was enabled. Please sign up again or use password reset.");
+            }
+
+            if (!BCrypt.Net.BCrypt.Verify(request.Password, company.PasswordHash))
+            {
+                return ApiResponse<LoginResponse>.ErrorResponse("Invalid email or password.");
+            }
+
+            if (!string.Equals(company.Status, "Active", StringComparison.OrdinalIgnoreCase))
+            {
+                return ApiResponse<LoginResponse>.ErrorResponse("Please verify your email before signing in.");
+            }
+
+            var token = GenerateJwtToken(company.Id, company.Email);
+            var response = new LoginResponse
+            {
+                Token = token,
+                CompanyId = company.Id,
+                Email = company.Email
+            };
+
+            return ApiResponse<LoginResponse>.SuccessResponse(response, "Login successful.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during login for email {Email}", request.Email);
+            return ApiResponse<LoginResponse>.ErrorResponse("An error occurred during sign-in. Please try again.");
+        }
+    }
+
+    private string GenerateJwtToken(int companyId, string email)
+    {
+        var secretKey = _configuration["JwtAuthentication__SecretKey"]
+            ?? _configuration["JwtSecret"]
+            ?? throw new InvalidOperationException("JwtAuthentication__SecretKey or JwtSecret must be configured for login.");
+
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var claims = new[]
+        {
+            new Claim("extension_CompanyId", companyId.ToString()),
+            new Claim(ClaimTypes.Email, email),
+            new Claim(JwtRegisteredClaimNames.Sub, email),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+        };
+
+        var token = new JwtSecurityToken(
+            issuer: "MyStore",
+            audience: "MyStore",
+            claims: claims,
+            expires: DateTime.UtcNow.AddDays(7),
+            signingCredentials: creds);
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
     public async Task<ApiResponse<RegisterAccountResponse>> RegisterAccountAsync(RegisterAccountRequest request)
@@ -122,10 +202,14 @@ public class CompanyService : ICompanyService
             var trialStartDate = DateTime.UtcNow;
             var trialEndDate = trialStartDate.AddDays(30);
 
+            // Hash password for storage
+            var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password, BCrypt.Net.BCrypt.GenerateSalt(12));
+
             // Create company record
             var company = new Company
             {
                 Email = request.Email.Trim().ToLowerInvariant(),
+                PasswordHash = passwordHash,
                 Status = "Pending",
                 TrialStartDate = trialStartDate,
                 TrialEndDate = trialEndDate,
@@ -135,8 +219,6 @@ public class CompanyService : ICompanyService
                 CreatedDate = DateTime.UtcNow,
                 LastModifiedDate = DateTime.UtcNow
             };
-
-            // Note: Password is not stored here - it will be handled by Azure AD B2C
             // CompanyName is not stored in Company table yet (may need to be added in future)
 
             // Use transaction for data consistency (repository handles this)

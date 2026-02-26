@@ -3,6 +3,7 @@ using System.Linq;
 using System.Net;
 using System.Reflection;
 using System.Security.Claims;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Azure.Functions.Worker;
@@ -29,7 +30,8 @@ public class JwtAuthenticationMiddleware : IFunctionsWorkerMiddleware
     {
         "RegisterAccount",
         "VerifyEmail",
-        "ResendVerification"
+        "ResendVerification",
+        "Login"
     };
 
     private readonly IConfiguration _configuration;
@@ -71,6 +73,20 @@ public class JwtAuthenticationMiddleware : IFunctionsWorkerMiddleware
             return;
         }
 
+        // Custom JWT (MyStore) - check first for MVP
+        var customSecretKey = _configuration["JwtAuthentication__SecretKey"] ?? _configuration["JwtSecret"];
+        if (!string.IsNullOrEmpty(customSecretKey) && !string.IsNullOrEmpty(token))
+        {
+            if (TryValidateCustomJwt(context, token!, customSecretKey))
+            {
+                await next(context);
+                return;
+            }
+            await ReturnUnauthorized(context, httpRequest, "Invalid or expired token.");
+            return;
+        }
+
+        // Entra External ID validation (when custom JWT not configured)
         var authority = _configuration["EntraExternalId__Authority"]
             ?? _configuration["AuthenticationAuthority"];
         var audience = _configuration["EntraExternalId__ClientId"]
@@ -79,7 +95,7 @@ public class JwtAuthenticationMiddleware : IFunctionsWorkerMiddleware
 
         if (string.IsNullOrEmpty(authority) || string.IsNullOrEmpty(audience))
         {
-            _logger.LogWarning("JWT authentication not configured (Authority or ClientId missing). Skipping validation for development.");
+            _logger.LogWarning("JWT authentication not configured. Skipping validation for development.");
             await next(context);
             return;
         }
@@ -117,6 +133,36 @@ public class JwtAuthenticationMiddleware : IFunctionsWorkerMiddleware
         {
             _logger.LogWarning(ex, "Token validation failed for function {FunctionName}", functionName);
             await ReturnUnauthorized(context, httpRequest, "Invalid or expired token.");
+        }
+    }
+
+    private bool TryValidateCustomJwt(FunctionContext context, string token, string secretKey)
+    {
+        try
+        {
+            var key = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
+            var validationParameters = new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = key,
+                ValidIssuer = "MyStore",
+                ValidAudience = "MyStore",
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.FromMinutes(2)
+            };
+
+            var principal = _tokenHandler.ValidateToken(token, validationParameters, out _);
+            var companyIdClaim = _configuration["EntraExternalId__CompanyIdClaim"] ?? "extension_CompanyId";
+            var companyId = ExtractCompanyId(principal, companyIdClaim);
+
+            context.Features.Set(new JwtPrincipalFeature(principal, companyId));
+            return true;
+        }
+        catch
+        {
+            return false;
         }
     }
 
