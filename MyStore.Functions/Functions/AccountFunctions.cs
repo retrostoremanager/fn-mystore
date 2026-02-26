@@ -83,6 +83,52 @@ public class AccountFunctions
         }
     }
 
+    [Function("Login")]
+    public async Task<HttpResponseData> Login(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "accounts/login")] HttpRequestData req)
+    {
+        try
+        {
+            _logger.LogInformation("Processing login request");
+
+            var requestBody = await new StreamReader(req.Body).ReadToEndAsync();
+            LoginRequest? request;
+
+            try
+            {
+                request = JsonSerializer.Deserialize<LoginRequest>(requestBody, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+            }
+            catch (JsonException)
+            {
+                var errorResponse = ApiResponse<LoginResponse>.ErrorResponse("Invalid request body");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+            }
+
+            if (request == null)
+            {
+                var errorResponse = ApiResponse<LoginResponse>.ErrorResponse("Invalid request body");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+            }
+
+            var response = await _companyService.LoginAsync(request);
+
+            var statusCode = response.Success ? HttpStatusCode.OK : HttpStatusCode.Unauthorized;
+            return await CreateHttpResponse(req, response, statusCode);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing login");
+            var errorResponse = ApiResponse<LoginResponse>.ErrorResponse(
+                "An error occurred during sign-in. Please try again.",
+                new List<string> { ex.Message }
+            );
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
+        }
+    }
+
     [Function("VerifyEmail")]
     public async Task<HttpResponseData> VerifyEmail(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "accounts/verify-email")] HttpRequestData req)

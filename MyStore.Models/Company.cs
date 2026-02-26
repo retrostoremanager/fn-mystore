@@ -4,6 +4,7 @@ public class Company
 {
     public int Id { get; set; }
     public string Email { get; set; } = string.Empty;
+    public string? PasswordHash { get; set; }
     public string Status { get; set; } = "Pending"; // Pending, Active, Suspended, Cancelled
     public DateTime TrialStartDate { get; set; }
     public DateTime TrialEndDate { get; set; }
@@ -53,6 +54,25 @@ public class ResendVerificationEmailRequest
     /// <summary>
     /// The email address of the account requesting verification email resend.
     /// </summary>
+    public string Email { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Request model for login (custom auth).
+/// </summary>
+public class LoginRequest
+{
+    public string Email { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Response model for login operation.
+/// </summary>
+public class LoginResponse
+{
+    public string Token { get; set; } = string.Empty;
+    public int CompanyId { get; set; }
     public string Email { get; set; } = string.Empty;
 }
 
