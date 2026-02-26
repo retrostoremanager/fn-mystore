@@ -84,6 +84,7 @@ public class CompanyService : ICompanyService
     private string GenerateJwtToken(int companyId, string email)
     {
         var secretKey = _configuration["JwtAuthentication__SecretKey"]
+            ?? _configuration["JwtAuthentication:SecretKey"]
             ?? _configuration["JwtSecret"]
             ?? throw new InvalidOperationException("JwtAuthentication__SecretKey or JwtSecret must be configured for login.");
 
