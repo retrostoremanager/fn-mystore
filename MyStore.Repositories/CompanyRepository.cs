@@ -108,11 +108,12 @@ public class CompanyRepository : ICompanyRepository
         return company;
     }
 
-    public async Task UpdateStripeCustomerIdAsync(int companyId, string stripeCustomerId)
+    public async Task<bool> DeleteAsync(int id)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
-        await connection.ExecuteAsync(
-            "SELECT company_update_stripe_customer_id(@p_id, @p_stripe_customer_id)",
-            new { p_id = companyId, p_stripe_customer_id = stripeCustomerId });
+        var rowsDeleted = await connection.QuerySingleAsync<int>(
+            "SELECT company_delete(@p_id)",
+            new { p_id = id });
+        return rowsDeleted > 0;
     }
 }

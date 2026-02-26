@@ -16,6 +16,7 @@ public class CompanyService : ICompanyService
 {
     private readonly ICompanyRepository _repository;
     private readonly IEmailService _emailService;
+    private readonly IPaymentService _paymentService;
     private readonly IConfiguration _configuration;
     private readonly ILogger<CompanyService> _logger;
 
@@ -28,10 +29,11 @@ public class CompanyService : ICompanyService
     private const int MaxForgotPasswordAttemptsPerHour = 3;
     private static readonly TimeSpan RateLimitWindow = TimeSpan.FromHours(1);
 
-    public CompanyService(ICompanyRepository repository, IEmailService emailService, IConfiguration configuration, ILogger<CompanyService> logger)
+    public CompanyService(ICompanyRepository repository, IEmailService emailService, IPaymentService paymentService, IConfiguration configuration, ILogger<CompanyService> logger)
     {
         _repository = repository;
         _emailService = emailService;
+        _paymentService = paymentService;
         _configuration = configuration;
         _logger = logger;
     }
@@ -181,6 +183,12 @@ public class CompanyService : ICompanyService
                 AddFieldError(fieldErrors, "subscriptionTier", "Please select a subscription tier");
             }
 
+            // Validate Payment Method (required at sign-up)
+            if (string.IsNullOrWhiteSpace(request.PaymentMethodId))
+            {
+                AddFieldError(fieldErrors, "paymentMethod", "Payment method is required. Please enter your card details.");
+            }
+
             // If there are validation errors, return them
             if (fieldErrors.Count > 0)
             {
@@ -233,6 +241,30 @@ public class CompanyService : ICompanyService
 
             // Use transaction for data consistency (repository handles this)
             var created = await _repository.CreateAsync(company);
+
+            // Store payment method with Stripe (card required at sign-up, not charged until trial ends)
+            var paymentResult = await _paymentService.StorePaymentMethodAsync(created.Id, new StorePaymentMethodRequest
+            {
+                PaymentMethodId = request.PaymentMethodId!
+            });
+            if (!paymentResult.Success)
+            {
+                _logger.LogWarning("Payment method storage failed for new account {AccountId}: {Error}. Rolling back account creation.", created.Id, paymentResult.Message);
+                // Attempt to delete the created company (best-effort rollback)
+                try
+                {
+                    await _repository.DeleteAsync(created.Id);
+                }
+                catch (Exception rollbackEx)
+                {
+                    _logger.LogError(rollbackEx, "Failed to rollback account creation for {AccountId}", created.Id);
+                }
+                AddFieldError(fieldErrors, "paymentMethod", paymentResult.Message ?? "Payment method could not be processed. Please check your card details and try again.");
+                return ApiResponse<RegisterAccountResponse>.ValidationErrorResponse(
+                    paymentResult.Message ?? "Payment method could not be processed. Please check your card details and try again.",
+                    fieldErrors
+                );
+            }
 
             // Send verification email asynchronously (fire-and-forget pattern with error handling)
             // Note: Email sending failure does not fail account creation - email can be resent later
