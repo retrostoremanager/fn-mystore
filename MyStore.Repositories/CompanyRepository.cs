@@ -47,6 +47,14 @@ public class CompanyRepository : ICompanyRepository
             new { p_token = token });
     }
 
+    public async Task<Company?> GetByPasswordResetTokenAsync(string token)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        return await connection.QueryFirstOrDefaultAsync<Company>(
+            "SELECT * FROM company_get_by_password_reset_token(@p_token)",
+            new { p_token = token });
+    }
+
     public async Task<Company> CreateAsync(Company company)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
@@ -74,7 +82,7 @@ public class CompanyRepository : ICompanyRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         var rowsAffected = await connection.QuerySingleAsync<int>(
-            "SELECT company_update(@p_id, @p_email, @p_status, @p_trial_start_date, @p_trial_end_date, @p_subscription_tier, @p_verification_token, @p_verification_token_expires::timestamptz, @p_last_modified_date::timestamptz)",
+            "SELECT company_update(@p_id, @p_email, @p_status, @p_trial_start_date, @p_trial_end_date, @p_subscription_tier, @p_verification_token, @p_verification_token_expires::timestamptz, @p_password_hash, @p_password_reset_token, @p_password_reset_token_expires::timestamptz, @p_last_modified_date::timestamptz)",
             new
             {
                 p_id = id,
@@ -84,6 +92,9 @@ public class CompanyRepository : ICompanyRepository
                 p_trial_end_date = company.TrialEndDate,
                 p_verification_token = company.VerificationToken,
                 p_verification_token_expires = company.VerificationTokenExpires,
+                p_password_hash = company.PasswordHash,
+                p_password_reset_token = company.PasswordResetToken,
+                p_password_reset_token_expires = company.PasswordResetTokenExpires,
                 p_subscription_tier = company.SubscriptionTier,
                 p_last_modified_date = company.LastModifiedDate
             });

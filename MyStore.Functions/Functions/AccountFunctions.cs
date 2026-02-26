@@ -264,6 +264,123 @@ public class AccountFunctions
         }
     }
 
+    /// <summary>
+    /// POST /api/accounts/forgot-password - Request password reset email.
+    /// Always returns generic success (do not reveal if email exists).
+    /// </summary>
+    [Function("ForgotPassword")]
+    public async Task<HttpResponseData> ForgotPassword(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "accounts/forgot-password")] HttpRequestData req)
+    {
+        try
+        {
+            _logger.LogInformation("Processing forgot password request");
+
+            var requestBody = await new StreamReader(req.Body).ReadToEndAsync();
+            ForgotPasswordRequest? request;
+            try
+            {
+                request = JsonSerializer.Deserialize<ForgotPasswordRequest>(requestBody, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            }
+            catch (JsonException)
+            {
+                var errorResponse = ApiResponse<ForgotPasswordResponse>.ErrorResponse("Invalid request body");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+            }
+
+            if (request == null)
+            {
+                var errorResponse = ApiResponse<ForgotPasswordResponse>.ErrorResponse("Invalid request body");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+            }
+
+            var response = await _companyService.ForgotPasswordAsync(request);
+
+            HttpStatusCode statusCode = response.Success
+                ? HttpStatusCode.OK
+                : (response.Errors?.Any(e => e.Contains("Rate limit", StringComparison.OrdinalIgnoreCase)) == true
+                    ? HttpStatusCode.TooManyRequests
+                    : HttpStatusCode.BadRequest);
+
+            return await CreateHttpResponse(req, response, statusCode);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing forgot password");
+            var errorResponse = ApiResponse<ForgotPasswordResponse>.ErrorResponse(
+                "An unexpected error occurred. Please try again later.",
+                new List<string> { ex.Message }
+            );
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
+        }
+    }
+
+    /// <summary>
+    /// POST /api/accounts/reset-password - Complete password reset with token.
+    /// </summary>
+    [Function("ResetPassword")]
+    public async Task<HttpResponseData> ResetPassword(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "accounts/reset-password")] HttpRequestData req)
+    {
+        try
+        {
+            _logger.LogInformation("Processing reset password request");
+
+            var requestBody = await new StreamReader(req.Body).ReadToEndAsync();
+            ResetPasswordRequest? request;
+            try
+            {
+                request = JsonSerializer.Deserialize<ResetPasswordRequest>(requestBody, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            }
+            catch (JsonException)
+            {
+                var errorResponse = ApiResponse<ResetPasswordResponse>.ErrorResponse("Invalid request body");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+            }
+
+            if (request == null)
+            {
+                var errorResponse = ApiResponse<ResetPasswordResponse>.ErrorResponse("Invalid request body");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+            }
+
+            var response = await _companyService.ResetPasswordAsync(request);
+
+            HttpStatusCode statusCode;
+            if (response.Success)
+            {
+                statusCode = HttpStatusCode.OK;
+            }
+            else if (response.Errors?.Any(e => e.Contains("expired", StringComparison.OrdinalIgnoreCase)) == true)
+            {
+                statusCode = HttpStatusCode.Gone;
+            }
+            else if (response.Errors?.Any(e => e.Contains("Invalid", StringComparison.OrdinalIgnoreCase)) == true)
+            {
+                statusCode = HttpStatusCode.BadRequest;
+            }
+            else if (response.FieldErrors != null && response.FieldErrors.Count > 0)
+            {
+                statusCode = HttpStatusCode.BadRequest;
+            }
+            else
+            {
+                statusCode = HttpStatusCode.BadRequest;
+            }
+
+            return await CreateHttpResponse(req, response, statusCode);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing reset password");
+            var errorResponse = ApiResponse<ResetPasswordResponse>.ErrorResponse(
+                "An unexpected error occurred. Please try again later.",
+                new List<string> { ex.Message }
+            );
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
+        }
+    }
+
     private static async Task<HttpResponseData> CreateHttpResponse<T>(
         HttpRequestData req,
         ApiResponse<T> apiResponse,
