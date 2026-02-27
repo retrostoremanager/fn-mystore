@@ -41,6 +41,21 @@ public class RegisterAccountResponse
 }
 
 /// <summary>
+/// Company data for trial-to-paid conversion (EPIC-0-006-004).
+/// </summary>
+public class TrialConversionCandidate
+{
+    public int Id { get; set; }
+    public string Email { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public DateTime TrialStartDate { get; set; }
+    public DateTime TrialEndDate { get; set; }
+    public string SubscriptionTier { get; set; } = string.Empty;
+    public string StripeCustomerId { get; set; } = string.Empty;
+    public string DefaultPaymentMethodId { get; set; } = string.Empty;
+}
+
+/// <summary>
 /// Response for trial status API. Used when displaying trial info on dashboard.
 /// </summary>
 public class TrialStatusResponse
