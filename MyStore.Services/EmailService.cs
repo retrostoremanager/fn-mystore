@@ -24,6 +24,7 @@ public class EmailService : IEmailService
     private readonly string _fromName;
     private readonly string _verificationBaseUrl;
     private readonly string _passwordResetBaseUrl;
+    private readonly string _billingBaseUrl;
 
     /// <summary>
     /// Initializes a new instance of the EmailService.
@@ -45,6 +46,7 @@ public class EmailService : IEmailService
             _fromName = "MyStore";
             _verificationBaseUrl = "https://app.mystore.com/verify";
             _passwordResetBaseUrl = "https://app.mystore.com/reset-password";
+            _billingBaseUrl = "https://app.mystore.com/dashboard/billing";
             return;
         }
         
@@ -61,6 +63,9 @@ public class EmailService : IEmailService
 
         _passwordResetBaseUrl = Environment.GetEnvironmentVariable("PasswordResetBaseUrl")
             ?? "https://app.mystore.com/reset-password";
+
+        _billingBaseUrl = Environment.GetEnvironmentVariable("BillingBaseUrl")
+            ?? "https://app.mystore.com/dashboard/billing";
     }
 
     /// <summary>
@@ -105,6 +110,112 @@ public class EmailService : IEmailService
             _logger.LogError(ex, "Exception occurred while sending password reset email to {Email}", toEmail);
             return new EmailSendResult { Success = false, ErrorMessage = ex.Message };
         }
+    }
+
+    /// <summary>
+    /// Sends a trial expiration reminder email (7, 3, or 1 day before trial ends).
+    /// </summary>
+    public async Task<EmailSendResult> SendTrialExpirationEmailAsync(string toEmail, int daysRemaining)
+    {
+        if (_emailClient == null)
+        {
+            _logger.LogWarning("Email service not configured. Skipping trial expiration email for {Email}", toEmail);
+            return new EmailSendResult { Success = true, ErrorMessage = "Email service not configured" };
+        }
+
+        if (daysRemaining is not 7 and not 3 and not 1)
+        {
+            _logger.LogWarning("Invalid daysRemaining {Days} for trial expiration email. Must be 7, 3, or 1.", daysRemaining);
+            return new EmailSendResult { Success = false, ErrorMessage = "daysRemaining must be 7, 3, or 1" };
+        }
+
+        try
+        {
+            var emailContent = new EmailContent(GetTrialExpirationSubject(daysRemaining))
+            {
+                PlainText = GetTrialExpirationPlainText(daysRemaining),
+                Html = GetTrialExpirationHtml(daysRemaining)
+            };
+
+            var emailMessage = new EmailMessage(
+                senderAddress: _fromEmail,
+                recipientAddress: toEmail,
+                content: emailContent
+            );
+
+            var success = await SendWithRetryAsync(emailMessage);
+            if (success)
+            {
+                _logger.LogInformation("Trial expiration ({Days}d) email sent successfully to {Email}", daysRemaining, toEmail);
+                return new EmailSendResult { Success = true };
+            }
+
+            _logger.LogError("Failed to send trial expiration email to {Email} after retries", toEmail);
+            return new EmailSendResult { Success = false, ErrorMessage = "Failed to send email after retries" };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Exception occurred while sending trial expiration email to {Email}", toEmail);
+            return new EmailSendResult { Success = false, ErrorMessage = ex.Message };
+        }
+    }
+
+    private static string GetTrialExpirationSubject(int daysRemaining) =>
+        daysRemaining switch
+        {
+            7 => "Your MyStore trial expires in 7 days",
+            3 => "Your MyStore trial expires in 3 days",
+            1 => "Your MyStore trial expires tomorrow",
+            _ => "Your MyStore trial is ending soon"
+        };
+
+    private string GetTrialExpirationPlainText(int daysRemaining)
+    {
+        var daysText = daysRemaining == 1 ? "tomorrow" : $"{daysRemaining} days";
+        var sb = new StringBuilder();
+        sb.AppendLine($"Your MyStore free trial will expire in {daysText}.");
+        sb.AppendLine();
+        sb.AppendLine("To continue using MyStore without interruption, please add a payment method before your trial ends.");
+        sb.AppendLine();
+        sb.AppendLine($"Add payment method: {_billingBaseUrl}");
+        sb.AppendLine();
+        sb.AppendLine("If you have any questions, please contact our support team.");
+        sb.AppendLine();
+        sb.AppendLine("Best regards,");
+        sb.AppendLine("The MyStore Team");
+        return sb.ToString();
+    }
+
+    private string GetTrialExpirationHtml(int daysRemaining)
+    {
+        var daysText = daysRemaining == 1 ? "tomorrow" : $"{daysRemaining} days";
+        return $@"
+<!DOCTYPE html>
+<html lang=""en"">
+<head>
+    <meta charset=""UTF-8"">
+    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+    <title>Trial Expiring Soon</title>
+    <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .container {{ background-color: #fff; border-radius: 8px; padding: 40px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+        .button {{ display: inline-block; padding: 14px 32px; background-color: #3498db; color: #fff !important; text-decoration: none; border-radius: 5px; font-weight: bold; }}
+        .warning {{ background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 12px; margin: 20px 0; border-radius: 4px; }}
+    </style>
+</head>
+<body>
+    <div class=""container"">
+        <h1>Your Trial Is Ending Soon</h1>
+        <p>Your MyStore free trial will expire in {daysText}.</p>
+        <p>To continue using MyStore without interruption, please add a payment method before your trial ends.</p>
+        <p><a href=""{_billingBaseUrl}"" class=""button"">Add Payment Method</a></p>
+        <div class=""warning"">
+            <strong>Important:</strong> Without a payment method on file, your access will be restricted when the trial ends.
+        </div>
+        <p>Best regards,<br>The MyStore Team</p>
+    </div>
+</body>
+</html>";
     }
 
     private static string GetPasswordResetPlainText(string resetUrl)

@@ -39,6 +39,22 @@ public class CompanyRepository : ICompanyRepository
             new { p_email = email });
     }
 
+    public async Task<IEnumerable<Company>> GetExpiringTrialsAsync(int daysRemaining)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        return await connection.QueryAsync<Company>(
+            "SELECT * FROM company_get_expiring_trials(@p_days)",
+            new { p_days = daysRemaining });
+    }
+
+    public async Task MarkTrialNotificationSentAsync(int companyId, int daysRemaining)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.ExecuteAsync(
+            "SELECT company_mark_trial_notification_sent(@p_id, @p_days)",
+            new { p_id = companyId, p_days = daysRemaining });
+    }
+
     public async Task<Company?> GetByVerificationTokenAsync(string token)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
