@@ -118,13 +118,13 @@ public class PaymentService : IPaymentService
         {
             _logger.LogError(ex, "Stripe error storing payment method for company {CompanyId}", companyId);
             return ApiResponse<StorePaymentMethodResponse>.ErrorResponse(
-                ex.Message ?? "Payment method could not be processed.");
+                StripeErrorMapper.ToUserFriendlyMessage(ex));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error storing payment method for company {CompanyId}", companyId);
             return ApiResponse<StorePaymentMethodResponse>.ErrorResponse(
-                "An error occurred while storing the payment method.");
+                "An error occurred while storing the payment method. Please try again.");
         }
     }
 
@@ -197,13 +197,13 @@ public class PaymentService : IPaymentService
         {
             _logger.LogError(ex, "Stripe error setting default payment method for company {CompanyId}", companyId);
             return ApiResponse<StorePaymentMethodResponse>.ErrorResponse(
-                ex.Message ?? "Could not update default payment method.");
+                StripeErrorMapper.ToUserFriendlyMessage(ex));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error setting default payment method for company {CompanyId}", companyId);
             return ApiResponse<StorePaymentMethodResponse>.ErrorResponse(
-                "An error occurred while updating the default payment method.");
+                "An error occurred while updating the default payment method. Please try again.");
         }
     }
 
@@ -265,13 +265,13 @@ public class PaymentService : IPaymentService
         {
             _logger.LogError(ex, "Stripe error deleting payment method for company {CompanyId}", companyId);
             return ApiResponse<object>.ErrorResponse(
-                ex.Message ?? "Could not remove payment method.");
+                StripeErrorMapper.ToUserFriendlyMessage(ex));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error deleting payment method for company {CompanyId}", companyId);
             return ApiResponse<object>.ErrorResponse(
-                "An error occurred while removing the payment method.");
+                "An error occurred while removing the payment method. Please try again.");
         }
     }
 }
