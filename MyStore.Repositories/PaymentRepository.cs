@@ -67,6 +67,15 @@ public class PaymentRepository : IPaymentRepository
             new { company_id = companyId, id = paymentMethodId });
     }
 
+    public async Task<bool> DeleteAsync(int id, int companyId)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        var rowsAffected = await connection.ExecuteAsync(
+            "DELETE FROM payment_method WHERE id = @id AND company_id = @company_id",
+            new { id, company_id = companyId });
+        return rowsAffected > 0;
+    }
+
     public async Task<int?> GetCompanyIdByStripeCustomerIdAsync(string stripeCustomerId)
     {
         await using var connection = new NpgsqlConnection(_connectionString);

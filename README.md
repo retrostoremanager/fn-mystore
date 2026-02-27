@@ -65,6 +65,8 @@ fn-mystore/
 - `POST /api/webhooks/stripe` - Stripe webhook (subscription events; no auth, signature validated)
 - `POST /api/billing/payment-methods` - Store payment method
 - `GET /api/billing/payment-methods` - Get payment methods
+- `PATCH /api/billing/payment-methods/{id}/default` - Set default payment method
+- `DELETE /api/billing/payment-methods/{id}` - Delete payment method
 
 ### Sales
 - `GET /api/sales` - Get all sales

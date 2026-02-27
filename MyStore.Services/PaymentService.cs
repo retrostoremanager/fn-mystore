@@ -150,4 +150,128 @@ public class PaymentService : IPaymentService
                 "An error occurred while retrieving payment methods.");
         }
     }
+
+    public async Task<ApiResponse<StorePaymentMethodResponse>> SetDefaultPaymentMethodAsync(int companyId, int paymentMethodId)
+    {
+        if (string.IsNullOrWhiteSpace(_stripeSecretKey))
+        {
+            return ApiResponse<StorePaymentMethodResponse>.ErrorResponse(
+                "Payment processing is not configured.");
+        }
+
+        try
+        {
+            var paymentMethod = await _paymentRepository.GetByIdAsync(paymentMethodId, companyId);
+            if (paymentMethod == null)
+            {
+                return ApiResponse<StorePaymentMethodResponse>.ErrorResponse("Payment method not found.");
+            }
+
+            await _paymentRepository.SetDefaultAsync(companyId, paymentMethodId);
+
+            var customerService = new Stripe.CustomerService();
+            await customerService.UpdateAsync(paymentMethod.StripeCustomerId, new CustomerUpdateOptions
+            {
+                InvoiceSettings = new CustomerInvoiceSettingsOptions
+                {
+                    DefaultPaymentMethod = paymentMethod.StripePaymentMethodId
+                }
+            });
+
+            _logger.LogInformation("Set default payment method {PaymentMethodId} for company {CompanyId}",
+                paymentMethodId, companyId);
+
+            var updated = await _paymentRepository.GetByIdAsync(paymentMethodId, companyId);
+            return ApiResponse<StorePaymentMethodResponse>.SuccessResponse(
+                new StorePaymentMethodResponse
+                {
+                    Id = updated!.Id,
+                    Last4 = updated.Last4,
+                    ExpirationMonth = updated.ExpirationMonth,
+                    ExpirationYear = updated.ExpirationYear,
+                    IsDefault = updated.IsDefault
+                },
+                "Default payment method updated successfully.");
+        }
+        catch (StripeException ex)
+        {
+            _logger.LogError(ex, "Stripe error setting default payment method for company {CompanyId}", companyId);
+            return ApiResponse<StorePaymentMethodResponse>.ErrorResponse(
+                ex.Message ?? "Could not update default payment method.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error setting default payment method for company {CompanyId}", companyId);
+            return ApiResponse<StorePaymentMethodResponse>.ErrorResponse(
+                "An error occurred while updating the default payment method.");
+        }
+    }
+
+    public async Task<ApiResponse<object>> DeletePaymentMethodAsync(int companyId, int paymentMethodId)
+    {
+        if (string.IsNullOrWhiteSpace(_stripeSecretKey))
+        {
+            return ApiResponse<object>.ErrorResponse(
+                "Payment processing is not configured.");
+        }
+
+        try
+        {
+            var paymentMethod = await _paymentRepository.GetByIdAsync(paymentMethodId, companyId);
+            if (paymentMethod == null)
+            {
+                return ApiResponse<object>.ErrorResponse("Payment method not found.");
+            }
+
+            var allMethods = await _paymentRepository.GetByCompanyIdAsync(companyId);
+            if (allMethods.Count() <= 1)
+            {
+                return ApiResponse<object>.ErrorResponse(
+                    "Cannot delete your last payment method. Add another payment method first.");
+            }
+
+            var deleted = await _paymentRepository.DeleteAsync(paymentMethodId, companyId);
+            if (!deleted)
+            {
+                return ApiResponse<object>.ErrorResponse("Failed to delete payment method.");
+            }
+
+            var paymentMethodService = new Stripe.PaymentMethodService();
+            await paymentMethodService.DetachAsync(paymentMethod.StripePaymentMethodId);
+
+            if (paymentMethod.IsDefault)
+            {
+                var newDefault = allMethods.FirstOrDefault(m => m.Id != paymentMethodId);
+                if (newDefault != null)
+                {
+                    await _paymentRepository.SetDefaultAsync(companyId, newDefault.Id);
+                    var customerService = new Stripe.CustomerService();
+                    await customerService.UpdateAsync(paymentMethod.StripeCustomerId, new CustomerUpdateOptions
+                    {
+                        InvoiceSettings = new CustomerInvoiceSettingsOptions
+                        {
+                            DefaultPaymentMethod = newDefault.StripePaymentMethodId
+                        }
+                    });
+                }
+            }
+
+            _logger.LogInformation("Deleted payment method {PaymentMethodId} for company {CompanyId}",
+                paymentMethodId, companyId);
+
+            return ApiResponse<object>.SuccessResponse(new { }, "Payment method removed successfully.");
+        }
+        catch (StripeException ex)
+        {
+            _logger.LogError(ex, "Stripe error deleting payment method for company {CompanyId}", companyId);
+            return ApiResponse<object>.ErrorResponse(
+                ex.Message ?? "Could not remove payment method.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting payment method for company {CompanyId}", companyId);
+            return ApiResponse<object>.ErrorResponse(
+                "An error occurred while removing the payment method.");
+        }
+    }
 }
