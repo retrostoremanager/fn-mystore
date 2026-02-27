@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MyStore.Functions.Helpers;
 using MyStore.Models;
+using MyStore.Repositories;
 using MyStore.Services;
 using Stripe;
 
@@ -16,17 +17,23 @@ public class BillingFunctions
 {
     private readonly IPaymentService _paymentService;
     private readonly ISubscriptionService _subscriptionService;
+    private readonly ICompanyRepository _companyRepository;
+    private readonly IPaymentRepository _paymentRepository;
     private readonly StripeOptions _stripeOptions;
     private readonly ILogger _logger;
 
     public BillingFunctions(
         IPaymentService paymentService,
         ISubscriptionService subscriptionService,
+        ICompanyRepository companyRepository,
+        IPaymentRepository paymentRepository,
         IOptions<StripeOptions> stripeOptions,
         ILoggerFactory loggerFactory)
     {
         _paymentService = paymentService;
         _subscriptionService = subscriptionService;
+        _companyRepository = companyRepository;
+        _paymentRepository = paymentRepository;
         _stripeOptions = stripeOptions.Value;
         _logger = loggerFactory.CreateLogger<BillingFunctions>();
     }
@@ -149,6 +156,57 @@ public class BillingFunctions
             _logger.LogError(ex, "Error storing payment method");
             var errorResponse = ApiResponse<StorePaymentMethodResponse>.ErrorResponse(
                 "An error occurred while storing the payment method.");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
+        }
+    }
+
+    [Function("GetTrialStatus")]
+    public async Task<HttpResponseData> GetTrialStatus(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "billing/trial-status")] HttpRequestData req)
+    {
+        try
+        {
+            var companyId = CompanyHelper.GetCompanyIdRequired(req);
+
+            var company = await _companyRepository.GetByIdAsync(companyId);
+            if (company == null)
+            {
+                var errorResponse = ApiResponse<TrialStatusResponse>.ErrorResponse("Company not found.");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.NotFound);
+            }
+
+            var paymentMethods = await _paymentRepository.GetByCompanyIdAsync(companyId);
+            var hasPaymentMethod = paymentMethods.Any();
+
+            var now = DateTime.UtcNow;
+            var isInTrial = company.TrialEndDate > now && string.Equals(company.SubscriptionTier, "Trial", StringComparison.OrdinalIgnoreCase);
+            var daysRemaining = isInTrial
+                ? Math.Max(0, (int)(company.TrialEndDate - now).TotalDays)
+                : 0;
+
+            var response = ApiResponse<TrialStatusResponse>.SuccessResponse(new TrialStatusResponse
+            {
+                IsInTrial = isInTrial,
+                TrialStartDate = company.TrialStartDate,
+                TrialEndDate = company.TrialEndDate,
+                DaysRemaining = daysRemaining,
+                HasPaymentMethod = hasPaymentMethod,
+                SubscriptionTier = company.SubscriptionTier ?? "Trial"
+            });
+
+            return await CreateHttpResponse(req, response, HttpStatusCode.OK);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized trial status retrieval attempt");
+            var errorResponse = ApiResponse<TrialStatusResponse>.ErrorResponse(ex.Message);
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving trial status");
+            var errorResponse = ApiResponse<TrialStatusResponse>.ErrorResponse(
+                "An error occurred while retrieving trial status.");
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
         }
     }
