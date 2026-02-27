@@ -38,7 +38,7 @@ public class LocationRepository : ILocationRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         return await connection.QuerySingleAsync<int>(
-            "SELECT location_create(@p_company_id, @p_name, @p_address, @p_city, @p_state, @p_zip_code, @p_phone, @p_is_primary)",
+            "SELECT location_create(@p_company_id, @p_name, @p_address, @p_city, @p_state, @p_zip_code, @p_phone, @p_timezone, @p_is_primary)",
             new
             {
                 p_company_id = location.CompanyId,
@@ -48,6 +48,7 @@ public class LocationRepository : ILocationRepository
                 p_state = location.State,
                 p_zip_code = location.ZipCode,
                 p_phone = location.Phone,
+                p_timezone = location.Timezone,
                 p_is_primary = location.IsPrimary
             });
     }
@@ -56,7 +57,7 @@ public class LocationRepository : ILocationRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         var rowsAffected = await connection.QuerySingleAsync<int>(
-            "SELECT location_update(@p_id, @p_company_id, @p_name, @p_address, @p_city, @p_state, @p_zip_code, @p_phone, @p_is_primary)",
+            "SELECT location_update(@p_id, @p_company_id, @p_name, @p_address, @p_city, @p_state, @p_zip_code, @p_phone, @p_timezone, @p_is_primary)",
             new
             {
                 p_id = location.Id,
@@ -67,6 +68,7 @@ public class LocationRepository : ILocationRepository
                 p_state = location.State,
                 p_zip_code = location.ZipCode,
                 p_phone = location.Phone,
+                p_timezone = location.Timezone,
                 p_is_primary = location.IsPrimary
             });
         return rowsAffected > 0;

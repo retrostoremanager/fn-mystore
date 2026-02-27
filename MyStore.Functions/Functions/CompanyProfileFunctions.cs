@@ -167,6 +167,7 @@ public class CompanyProfileFunctions
                 State = request.State?.Trim(),
                 ZipCode = request.ZipCode?.Trim(),
                 Phone = request.Phone?.Trim(),
+                Timezone = request.Timezone?.Trim(),
                 IsPrimary = request.IsPrimary
             };
 
@@ -226,6 +227,7 @@ public class CompanyProfileFunctions
             existing.State = request.State?.Trim();
             existing.ZipCode = request.ZipCode?.Trim();
             existing.Phone = request.Phone?.Trim();
+            existing.Timezone = request.Timezone?.Trim();
             existing.IsPrimary = request.IsPrimary;
 
             await _locationRepository.UpdateAsync(existing);

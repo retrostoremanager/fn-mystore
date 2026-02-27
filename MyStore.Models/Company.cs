@@ -19,20 +19,17 @@ public class Company
 }
 
 /// <summary>
-/// Company profile/store info for display and edit (EPIC-0-007).
+/// Company profile for display and edit. Company has name, address, phone; locations have their own.
 /// </summary>
 public class CompanyProfile
 {
     public int Id { get; set; }
     public string? CompanyName { get; set; }
-    public string? StoreName { get; set; }
-    public string? StoreType { get; set; } // retro_game_store, card_store, both
-    public string? StoreAddress { get; set; }
-    public string? StoreCity { get; set; }
-    public string? StoreState { get; set; }
-    public string? StoreZipCode { get; set; }
-    public string? StorePhone { get; set; }
-    public string? Timezone { get; set; }
+    public string? CompanyAddress { get; set; }
+    public string? CompanyCity { get; set; }
+    public string? CompanyState { get; set; }
+    public string? CompanyZipCode { get; set; }
+    public string? CompanyPhone { get; set; }
     public string? Locale { get; set; }
     public string? LogoUrl { get; set; }
 }
@@ -43,14 +40,11 @@ public class CompanyProfile
 public class CompanyProfileUpdateRequest
 {
     public string? CompanyName { get; set; }
-    public string? StoreName { get; set; }
-    public string? StoreType { get; set; }
-    public string? StoreAddress { get; set; }
-    public string? StoreCity { get; set; }
-    public string? StoreState { get; set; }
-    public string? StoreZipCode { get; set; }
-    public string? StorePhone { get; set; }
-    public string? Timezone { get; set; }
+    public string? CompanyAddress { get; set; }
+    public string? CompanyCity { get; set; }
+    public string? CompanyState { get; set; }
+    public string? CompanyZipCode { get; set; }
+    public string? CompanyPhone { get; set; }
     public string? Locale { get; set; }
     public string? LogoUrl { get; set; }
 }
@@ -75,6 +69,7 @@ public class LocationCreateRequest
     public string? State { get; set; }
     public string? ZipCode { get; set; }
     public string? Phone { get; set; }
+    public string? Timezone { get; set; }
     public bool IsPrimary { get; set; }
 }
 
@@ -89,6 +84,7 @@ public class LocationUpdateRequest
     public string? State { get; set; }
     public string? ZipCode { get; set; }
     public string? Phone { get; set; }
+    public string? Timezone { get; set; }
     public bool IsPrimary { get; set; }
 }
 
@@ -105,6 +101,7 @@ public class Location
     public string? State { get; set; }
     public string? ZipCode { get; set; }
     public string? Phone { get; set; }
+    public string? Timezone { get; set; }
     public bool IsPrimary { get; set; }
     public DateTime CreatedDate { get; set; }
     public DateTime? LastModifiedDate { get; set; }
