@@ -40,6 +40,19 @@ public class RegisterAccountResponse
     public string SubscriptionTier { get; set; } = string.Empty;
 }
 
+/// <summary>
+/// Response for trial status API. Used when displaying trial info on dashboard.
+/// </summary>
+public class TrialStatusResponse
+{
+    public bool IsInTrial { get; set; }
+    public DateTime TrialStartDate { get; set; }
+    public DateTime TrialEndDate { get; set; }
+    public int DaysRemaining { get; set; }
+    public bool HasPaymentMethod { get; set; }
+    public string SubscriptionTier { get; set; } = string.Empty;
+}
+
 public class VerifyEmailRequest
 {
     public string Token { get; set; } = string.Empty;
