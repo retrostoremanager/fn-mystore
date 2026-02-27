@@ -70,6 +70,21 @@ public class CompanyRepository : ICompanyRepository
             new { p_id = companyId, p_subscription_tier = subscriptionTier });
     }
 
+    public async Task<IEnumerable<Company>> GetExpiredTrialsForSuspensionAsync()
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        return await connection.QueryAsync<Company>(
+            "SELECT * FROM company_get_expired_trials_for_suspension()");
+    }
+
+    public async Task UpdateStatusAsync(int companyId, string status)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.ExecuteAsync(
+            "SELECT company_update_status(@p_id, @p_status)",
+            new { p_id = companyId, p_status = status });
+    }
+
     public async Task<Company?> GetByVerificationTokenAsync(string token)
     {
         await using var connection = new NpgsqlConnection(_connectionString);

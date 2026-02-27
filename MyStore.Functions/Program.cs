@@ -9,6 +9,7 @@ var host = new HostBuilder()
     .ConfigureFunctionsWorkerDefaults(builder =>
     {
         builder.UseMiddleware<JwtAuthenticationMiddleware>();
+        builder.UseMiddleware<CompanyAccessMiddleware>();
     })
     .ConfigureServices((context, services) =>
     {
@@ -42,6 +43,7 @@ var host = new HostBuilder()
         services.AddScoped<ISubscriptionService, SubscriptionService>();
         services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
         services.AddScoped<ITrialConversionService, TrialConversionService>();
+        services.AddScoped<ITrialSuspensionService, TrialSuspensionService>();
     })
     .Build();
 

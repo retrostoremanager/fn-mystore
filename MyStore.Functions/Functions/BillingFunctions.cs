@@ -184,6 +184,11 @@ public class BillingFunctions
                 ? Math.Max(0, (int)(company.TrialEndDate - now).TotalDays)
                 : 0;
 
+            var isSuspended = string.Equals(company.Status, "Suspended", StringComparison.OrdinalIgnoreCase);
+            var trialExpired = company.TrialEndDate <= now && string.Equals(company.SubscriptionTier, "Trial", StringComparison.OrdinalIgnoreCase);
+            var accessRestricted = !isSuspended && trialExpired && !hasPaymentMethod;
+            var accessSuspended = isSuspended;
+
             var response = ApiResponse<TrialStatusResponse>.SuccessResponse(new TrialStatusResponse
             {
                 IsInTrial = isInTrial,
@@ -191,7 +196,9 @@ public class BillingFunctions
                 TrialEndDate = company.TrialEndDate,
                 DaysRemaining = daysRemaining,
                 HasPaymentMethod = hasPaymentMethod,
-                SubscriptionTier = company.SubscriptionTier ?? "Trial"
+                SubscriptionTier = company.SubscriptionTier ?? "Trial",
+                AccessRestricted = accessRestricted,
+                AccessSuspended = accessSuspended
             });
 
             return await CreateHttpResponse(req, response, HttpStatusCode.OK);
