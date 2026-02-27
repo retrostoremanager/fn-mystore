@@ -23,6 +23,14 @@ public interface ICompanyRepository
     /// Updates company subscription tier (e.g., Trial to Basic after conversion).
     /// </summary>
     Task UpdateSubscriptionTierAsync(int companyId, string subscriptionTier);
+    /// <summary>
+    /// Gets companies with trial expired 7+ days ago, no payment method, not suspended (EPIC-0-006-005).
+    /// </summary>
+    Task<IEnumerable<Company>> GetExpiredTrialsForSuspensionAsync();
+    /// <summary>
+    /// Updates company status (e.g., Active to Suspended).
+    /// </summary>
+    Task UpdateStatusAsync(int companyId, string status);
     Task<Company?> GetByVerificationTokenAsync(string token);
     Task<Company?> GetByPasswordResetTokenAsync(string token);
     Task<Company> CreateAsync(Company company);

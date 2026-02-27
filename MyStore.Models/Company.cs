@@ -66,6 +66,14 @@ public class TrialStatusResponse
     public int DaysRemaining { get; set; }
     public bool HasPaymentMethod { get; set; }
     public string SubscriptionTier { get; set; } = string.Empty;
+    /// <summary>
+    /// True when trial expired, no payment method, and account not suspended. User must add payment to continue (EPIC-0-006-005).
+    /// </summary>
+    public bool AccessRestricted { get; set; }
+    /// <summary>
+    /// True when account is suspended (trial expired 7+ days ago with no payment). All access blocked (EPIC-0-006-005).
+    /// </summary>
+    public bool AccessSuspended { get; set; }
 }
 
 public class VerifyEmailRequest

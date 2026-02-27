@@ -287,5 +287,37 @@ public class BillingFunctionsTests
         var data = parsed.GetProperty("data");
         data.GetProperty("isInTrial").GetBoolean().Should().BeFalse();
         data.GetProperty("daysRemaining").GetInt32().Should().Be(0);
+        data.GetProperty("accessRestricted").GetBoolean().Should().BeTrue();
+        data.GetProperty("accessSuspended").GetBoolean().Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetTrialStatus_Suspended_ReturnsAccessSuspendedTrue()
+    {
+        var companyId = 1;
+        var company = new Company
+        {
+            Id = companyId,
+            Status = "Suspended",
+            TrialStartDate = DateTime.UtcNow.AddDays(-40),
+            TrialEndDate = DateTime.UtcNow.AddDays(-10),
+            SubscriptionTier = "Trial"
+        };
+        var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+
+        _companyRepositoryMock.Setup(r => r.GetByIdAsync(companyId)).ReturnsAsync(company);
+        _paymentRepositoryMock.Setup(p => p.GetByCompanyIdAsync(companyId))
+            .ReturnsAsync(Array.Empty<Models.PaymentMethod>());
+
+        var result = await _functions.GetTrialStatus(request);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await TestHelpers.ReadResponseBody(result);
+        var parsed = JsonSerializer.Deserialize<JsonElement>(body);
+        parsed.GetProperty("success").GetBoolean().Should().BeTrue();
+        var data = parsed.GetProperty("data");
+        data.GetProperty("accessRestricted").GetBoolean().Should().BeFalse();
+        data.GetProperty("accessSuspended").GetBoolean().Should().BeTrue();
     }
 }
