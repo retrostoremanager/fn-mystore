@@ -17,6 +17,7 @@ public class BillingFunctions
 {
     private readonly IPaymentService _paymentService;
     private readonly ISubscriptionService _subscriptionService;
+    private readonly ISubscriptionChangeService _subscriptionChangeService;
     private readonly ICompanyRepository _companyRepository;
     private readonly IPaymentRepository _paymentRepository;
     private readonly StripeOptions _stripeOptions;
@@ -25,6 +26,7 @@ public class BillingFunctions
     public BillingFunctions(
         IPaymentService paymentService,
         ISubscriptionService subscriptionService,
+        ISubscriptionChangeService subscriptionChangeService,
         ICompanyRepository companyRepository,
         IPaymentRepository paymentRepository,
         IOptions<StripeOptions> stripeOptions,
@@ -32,6 +34,7 @@ public class BillingFunctions
     {
         _paymentService = paymentService;
         _subscriptionService = subscriptionService;
+        _subscriptionChangeService = subscriptionChangeService;
         _companyRepository = companyRepository;
         _paymentRepository = paymentRepository;
         _stripeOptions = stripeOptions.Value;
@@ -160,6 +163,58 @@ public class BillingFunctions
         }
     }
 
+    [Function("ChangeSubscriptionTier")]
+    public async Task<HttpResponseData> ChangeSubscriptionTier(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "billing/subscription/tier")] HttpRequestData req)
+    {
+        try
+        {
+            var companyId = CompanyHelper.GetCompanyIdRequired(req);
+
+            var requestBody = await new StreamReader(req.Body).ReadToEndAsync();
+            ChangeSubscriptionTierRequest? request;
+            try
+            {
+                request = JsonSerializer.Deserialize<ChangeSubscriptionTierRequest>(requestBody, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+            }
+            catch (JsonException)
+            {
+                var errorResponse = ApiResponse<SubscriptionChangeResult>.ErrorResponse("Invalid request body");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+            }
+
+            if (request == null || string.IsNullOrWhiteSpace(request.Tier))
+            {
+                var errorResponse = ApiResponse<SubscriptionChangeResult>.ErrorResponse("Tier is required");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+            }
+
+            var result = await _subscriptionChangeService.ChangeTierAsync(companyId, request.Tier, request.LocationCount);
+
+            var statusCode = result.Success ? HttpStatusCode.OK : HttpStatusCode.BadRequest;
+            var apiResponse = result.Success
+                ? ApiResponse<SubscriptionChangeResult>.SuccessResponse(result, result.Message)
+                : ApiResponse<SubscriptionChangeResult>.ErrorResponse(result.Message ?? "Failed to change tier");
+            return await CreateHttpResponse(req, apiResponse, statusCode);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized subscription tier change attempt");
+            var errorResponse = ApiResponse<SubscriptionChangeResult>.ErrorResponse(ex.Message);
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error changing subscription tier");
+            var errorResponse = ApiResponse<SubscriptionChangeResult>.ErrorResponse(
+                "An error occurred while changing the subscription tier.");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
+        }
+    }
+
     [Function("GetTrialStatus")]
     public async Task<HttpResponseData> GetTrialStatus(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "billing/trial-status")] HttpRequestData req)
@@ -179,13 +234,14 @@ public class BillingFunctions
             var hasPaymentMethod = paymentMethods.Any();
 
             var now = DateTime.UtcNow;
-            var isInTrial = company.TrialEndDate > now && string.Equals(company.SubscriptionTier, "Trial", StringComparison.OrdinalIgnoreCase);
+            // Trial status based on TrialEndDate only - user may have selected Basic/Premium at signup but is still in 30-day trial
+            var isInTrial = company.TrialEndDate > now;
             var daysRemaining = isInTrial
                 ? Math.Max(0, (int)(company.TrialEndDate - now).TotalDays)
                 : 0;
 
             var isSuspended = string.Equals(company.Status, "Suspended", StringComparison.OrdinalIgnoreCase);
-            var trialExpired = company.TrialEndDate <= now && string.Equals(company.SubscriptionTier, "Trial", StringComparison.OrdinalIgnoreCase);
+            var trialExpired = company.TrialEndDate <= now && !hasPaymentMethod;
             var accessRestricted = !isSuspended && trialExpired && !hasPaymentMethod;
             var accessSuspended = isSuspended;
 
