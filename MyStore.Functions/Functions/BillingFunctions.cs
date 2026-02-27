@@ -180,6 +180,64 @@ public class BillingFunctions
         }
     }
 
+    [Function("SetDefaultPaymentMethod")]
+    public async Task<HttpResponseData> SetDefaultPaymentMethod(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "patch", Route = "billing/payment-methods/{id}/default")] HttpRequestData req,
+        int id)
+    {
+        try
+        {
+            var companyId = CompanyHelper.GetCompanyIdRequired(req);
+
+            var response = await _paymentService.SetDefaultPaymentMethodAsync(companyId, id);
+
+            var statusCode = response.Success ? HttpStatusCode.OK : HttpStatusCode.BadRequest;
+            return await CreateHttpResponse(req, response, statusCode);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized set default payment method attempt");
+            var errorResponse = ApiResponse<StorePaymentMethodResponse>.ErrorResponse(ex.Message);
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error setting default payment method");
+            var errorResponse = ApiResponse<StorePaymentMethodResponse>.ErrorResponse(
+                "An error occurred while updating the default payment method.");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
+        }
+    }
+
+    [Function("DeletePaymentMethod")]
+    public async Task<HttpResponseData> DeletePaymentMethod(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "delete", Route = "billing/payment-methods/{id}")] HttpRequestData req,
+        int id)
+    {
+        try
+        {
+            var companyId = CompanyHelper.GetCompanyIdRequired(req);
+
+            var response = await _paymentService.DeletePaymentMethodAsync(companyId, id);
+
+            var statusCode = response.Success ? HttpStatusCode.OK : HttpStatusCode.BadRequest;
+            return await CreateHttpResponse(req, response, statusCode);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized delete payment method attempt");
+            var errorResponse = ApiResponse<object>.ErrorResponse(ex.Message);
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting payment method");
+            var errorResponse = ApiResponse<object>.ErrorResponse(
+                "An error occurred while removing the payment method.");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
+        }
+    }
+
     private static async Task<HttpResponseData> CreateHttpResponse<T>(HttpRequestData req, ApiResponse<T> apiResponse, HttpStatusCode statusCode)
     {
         var response = req.CreateResponse(statusCode);
