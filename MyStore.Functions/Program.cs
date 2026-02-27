@@ -39,6 +39,8 @@ var host = new HostBuilder()
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<ICompanyService, CompanyService>();
         services.AddScoped<IPaymentService, PaymentService>();
+        services.AddScoped<ISubscriptionService, SubscriptionService>();
+        services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
     })
     .Build();
 

@@ -66,4 +66,12 @@ public class PaymentRepository : IPaymentRepository
               UPDATE payment_method SET is_default = true, last_modified_date = NOW() WHERE id = @id AND company_id = @company_id",
             new { company_id = companyId, id = paymentMethodId });
     }
+
+    public async Task<int?> GetCompanyIdByStripeCustomerIdAsync(string stripeCustomerId)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        return await connection.QuerySingleOrDefaultAsync<int?>(
+            "SELECT company_id FROM payment_method WHERE stripe_customer_id = @stripe_customer_id LIMIT 1",
+            new { stripe_customer_id = stripeCustomerId });
+    }
 }
