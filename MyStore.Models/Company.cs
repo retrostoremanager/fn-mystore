@@ -3,6 +3,7 @@ namespace MyStore.Models;
 public class Company
 {
     public int Id { get; set; }
+    public string? CompanyName { get; set; }
     public string Email { get; set; } = string.Empty;
     public string? PasswordHash { get; set; }
     public string Status { get; set; } = "Pending"; // Pending, Active, Suspended, Cancelled
@@ -23,6 +24,7 @@ public class Company
 public class CompanyProfile
 {
     public int Id { get; set; }
+    public string? CompanyName { get; set; }
     public string? StoreName { get; set; }
     public string? StoreType { get; set; } // retro_game_store, card_store, both
     public string? StoreAddress { get; set; }
@@ -40,6 +42,7 @@ public class CompanyProfile
 /// </summary>
 public class CompanyProfileUpdateRequest
 {
+    public string? CompanyName { get; set; }
     public string? StoreName { get; set; }
     public string? StoreType { get; set; }
     public string? StoreAddress { get; set; }

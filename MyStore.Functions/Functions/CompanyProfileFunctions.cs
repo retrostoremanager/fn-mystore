@@ -15,6 +15,11 @@ namespace MyStore.Functions;
 /// </summary>
 public class CompanyProfileFunctions
 {
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
     private readonly ICompanyRepository _companyRepository;
     private readonly ILocationRepository _locationRepository;
     private readonly ILogger _logger;
@@ -80,7 +85,7 @@ public class CompanyProfileFunctions
                 body = await reader.ReadToEndAsync();
             }
 
-            var request = JsonSerializer.Deserialize<CompanyProfileUpdateRequest>(body);
+            var request = JsonSerializer.Deserialize<CompanyProfileUpdateRequest>(body, JsonOptions);
             if (request == null)
             {
                 var errorResponse = ApiResponse<CompanyProfile>.ErrorResponse("Invalid request body.");
@@ -146,7 +151,7 @@ public class CompanyProfileFunctions
                 body = await reader.ReadToEndAsync();
             }
 
-            var request = JsonSerializer.Deserialize<LocationCreateRequest>(body);
+            var request = JsonSerializer.Deserialize<LocationCreateRequest>(body, JsonOptions);
             if (request == null || string.IsNullOrWhiteSpace(request.Name))
             {
                 var errorResponse = ApiResponse<Location>.ErrorResponse("Location name is required.");
@@ -208,7 +213,7 @@ public class CompanyProfileFunctions
                 body = await reader.ReadToEndAsync();
             }
 
-            var request = JsonSerializer.Deserialize<LocationUpdateRequest>(body);
+            var request = JsonSerializer.Deserialize<LocationUpdateRequest>(body, JsonOptions);
             if (request == null || string.IsNullOrWhiteSpace(request.Name))
             {
                 var errorResponse = ApiResponse<Location>.ErrorResponse("Location name is required.");
