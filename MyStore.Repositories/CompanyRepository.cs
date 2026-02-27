@@ -162,4 +162,33 @@ public class CompanyRepository : ICompanyRepository
             new { p_id = id });
         return rowsDeleted > 0;
     }
+
+    public async Task<CompanyProfile?> GetProfileAsync(int companyId)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        return await connection.QueryFirstOrDefaultAsync<CompanyProfile>(
+            "SELECT * FROM company_get_profile(@p_id)",
+            new { p_id = companyId });
+    }
+
+    public async Task UpdateProfileAsync(int companyId, CompanyProfileUpdateRequest request)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.ExecuteAsync(
+            "SELECT company_update_profile(@p_id, @p_store_name, @p_store_type, @p_store_address, @p_store_city, @p_store_state, @p_store_zip_code, @p_store_phone, @p_timezone, @p_locale, @p_logo_url)",
+            new
+            {
+                p_id = companyId,
+                p_store_name = request.StoreName,
+                p_store_type = request.StoreType,
+                p_store_address = request.StoreAddress,
+                p_store_city = request.StoreCity,
+                p_store_state = request.StoreState,
+                p_store_zip_code = request.StoreZipCode,
+                p_store_phone = request.StorePhone,
+                p_timezone = request.Timezone,
+                p_locale = request.Locale,
+                p_logo_url = request.LogoUrl
+            });
+    }
 }
