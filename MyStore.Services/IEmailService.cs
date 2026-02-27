@@ -21,6 +21,14 @@ public interface IEmailService
     /// <param name="resetToken">The secure reset token to include in the email link.</param>
     /// <returns>An EmailSendResult indicating success or failure of the email send operation.</returns>
     Task<EmailSendResult> SendPasswordResetEmailAsync(string toEmail, string resetToken);
+
+    /// <summary>
+    /// Sends a trial expiration reminder email (7, 3, or 1 day before trial ends).
+    /// </summary>
+    /// <param name="toEmail">The email address of the recipient.</param>
+    /// <param name="daysRemaining">Days remaining in trial (7, 3, or 1).</param>
+    /// <returns>An EmailSendResult indicating success or failure of the email send operation.</returns>
+    Task<EmailSendResult> SendTrialExpirationEmailAsync(string toEmail, int daysRemaining);
 }
 
 /// <summary>
