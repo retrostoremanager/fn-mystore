@@ -33,7 +33,8 @@ public class JwtAuthenticationMiddleware : IFunctionsWorkerMiddleware
         "ResendVerification",
         "Login",
         "ForgotPassword",
-        "ResetPassword"
+        "ResetPassword",
+        "StripeWebhook"
     };
 
     private readonly IConfiguration _configuration;

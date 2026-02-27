@@ -48,6 +48,22 @@ public static class TestHelpers
         return request;
     }
 
+    /// <summary>
+    /// Creates HttpRequestData with raw body string and optional headers.
+    /// Use for webhooks where the body is not JSON-serialized from an object.
+    /// </summary>
+    public static HttpRequestData CreateHttpRequestDataWithRawBody(
+        string rawBody,
+        IReadOnlyDictionary<string, string>? headers = null,
+        FunctionContext? context = null)
+    {
+        var functionContext = context ?? CreateMockFunctionContext();
+        var request = new MockHttpRequestData(functionContext, headers, null);
+        var bytes = Encoding.UTF8.GetBytes(rawBody);
+        request.SetBody(bytes);
+        return request;
+    }
+
     public static FunctionContext CreateMockFunctionContext()
     {
         var mock = new Mock<FunctionContext>();

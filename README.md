@@ -61,6 +61,11 @@ fn-mystore/
 - `DELETE /api/employees/{id}` - Delete employee
 - `GET /api/employees/search?q={query}` - Search employees
 
+### Billing
+- `POST /api/webhooks/stripe` - Stripe webhook (subscription events; no auth, signature validated)
+- `POST /api/billing/payment-methods` - Store payment method
+- `GET /api/billing/payment-methods` - Get payment methods
+
 ### Sales
 - `GET /api/sales` - Get all sales
 - `GET /api/sales/{id}` - Get sale by ID

@@ -1,23 +1,107 @@
 using System.Net;
+using System.Text;
 using System.Text.Json;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MyStore.Functions.Helpers;
 using MyStore.Models;
 using MyStore.Services;
+using Stripe;
 
 namespace MyStore.Functions;
 
 public class BillingFunctions
 {
     private readonly IPaymentService _paymentService;
+    private readonly ISubscriptionService _subscriptionService;
+    private readonly StripeOptions _stripeOptions;
     private readonly ILogger _logger;
 
-    public BillingFunctions(IPaymentService paymentService, ILoggerFactory loggerFactory)
+    public BillingFunctions(
+        IPaymentService paymentService,
+        ISubscriptionService subscriptionService,
+        IOptions<StripeOptions> stripeOptions,
+        ILoggerFactory loggerFactory)
     {
         _paymentService = paymentService;
+        _subscriptionService = subscriptionService;
+        _stripeOptions = stripeOptions.Value;
         _logger = loggerFactory.CreateLogger<BillingFunctions>();
+    }
+
+    [Function("StripeWebhook")]
+    public async Task<HttpResponseData> StripeWebhook(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "webhooks/stripe")] HttpRequestData req)
+    {
+        var webhookSecret = _stripeOptions.WebhookSecret ?? Environment.GetEnvironmentVariable("Stripe__WebhookSecret");
+        if (string.IsNullOrWhiteSpace(webhookSecret))
+        {
+            _logger.LogWarning("Stripe webhook secret not configured");
+            var err = req.CreateResponse(HttpStatusCode.InternalServerError);
+            await err.WriteStringAsync("{\"error\":\"Webhook not configured\"}");
+            err.Headers.Add("Content-Type", "application/json");
+            return err;
+        }
+
+        string payload;
+        using (var reader = new StreamReader(req.Body, Encoding.UTF8))
+        {
+            payload = await reader.ReadToEndAsync();
+        }
+
+        if (string.IsNullOrEmpty(payload))
+        {
+            var badReq = req.CreateResponse(HttpStatusCode.BadRequest);
+            await badReq.WriteStringAsync("{\"error\":\"Empty payload\"}");
+            badReq.Headers.Add("Content-Type", "application/json");
+            return badReq;
+        }
+
+        string? sigHeader = null;
+        if (req.Headers.TryGetValues("Stripe-Signature", out var values))
+            sigHeader = values.FirstOrDefault();
+
+        if (string.IsNullOrEmpty(sigHeader))
+        {
+            _logger.LogWarning("Stripe webhook received without Stripe-Signature header");
+            var badReq = req.CreateResponse(HttpStatusCode.BadRequest);
+            await badReq.WriteStringAsync("{\"error\":\"Missing Stripe-Signature\"}");
+            badReq.Headers.Add("Content-Type", "application/json");
+            return badReq;
+        }
+
+        Event? stripeEvent;
+        try
+        {
+            stripeEvent = EventUtility.ConstructEvent(payload, sigHeader, webhookSecret, throwOnApiVersionMismatch: false);
+        }
+        catch (StripeException ex)
+        {
+            _logger.LogWarning(ex, "Stripe webhook signature verification failed");
+            var badReq = req.CreateResponse(HttpStatusCode.BadRequest);
+            await badReq.WriteStringAsync($"{{\"error\":\"{ex.Message}\"}}");
+            badReq.Headers.Add("Content-Type", "application/json");
+            return badReq;
+        }
+
+        try
+        {
+            await _subscriptionService.ProcessStripeEventAsync(stripeEvent);
+            var ok = req.CreateResponse(HttpStatusCode.OK);
+            await ok.WriteStringAsync("{\"received\":true}");
+            ok.Headers.Add("Content-Type", "application/json");
+            return ok;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing Stripe webhook event {EventId}", stripeEvent.Id);
+            var err = req.CreateResponse(HttpStatusCode.InternalServerError);
+            await err.WriteStringAsync("{\"error\":\"Processing failed\"}");
+            err.Headers.Add("Content-Type", "application/json");
+            return err;
+        }
     }
 
     [Function("StorePaymentMethod")]
