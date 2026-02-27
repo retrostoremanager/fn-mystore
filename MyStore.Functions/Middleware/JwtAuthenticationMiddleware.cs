@@ -64,7 +64,7 @@ public class JwtAuthenticationMiddleware : IFunctionsWorkerMiddleware
             return;
         }
 
-        if (!TryGetTokenFromRequest(context, out var token))
+        if (!TryGetTokenFromRequest(httpRequest, out var token))
         {
             await ReturnUnauthorized(context, httpRequest, "Authorization header with Bearer token is required.");
             return;
@@ -211,20 +211,17 @@ public class JwtAuthenticationMiddleware : IFunctionsWorkerMiddleware
         }
     }
 
-    private static bool TryGetTokenFromRequest(FunctionContext context, out string? token)
+    private static bool TryGetTokenFromRequest(Microsoft.Azure.Functions.Worker.Http.HttpRequestData? request, out string? token)
     {
         token = null;
-        if (!context.BindingContext.BindingData.TryGetValue("Headers", out var headersObj) ||
-            headersObj is not string headersStr)
+        if (request?.Headers == null)
             return false;
 
-        var headers = JsonSerializer.Deserialize<Dictionary<string, string>>(headersStr);
-        if (headers == null)
+        if (!request.Headers.TryGetValues("Authorization", out var authValues) || authValues == null)
             return false;
 
-        var normalized = headers.ToDictionary(h => h.Key.ToLowerInvariant(), h => h.Value);
-        if (!normalized.TryGetValue("authorization", out var authHeader) ||
-            string.IsNullOrEmpty(authHeader))
+        var authHeader = authValues.FirstOrDefault();
+        if (string.IsNullOrEmpty(authHeader))
             return false;
 
         const string bearerPrefix = "bearer ";
