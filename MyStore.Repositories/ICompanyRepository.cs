@@ -31,6 +31,14 @@ public interface ICompanyRepository
     /// Updates company status (e.g., Active to Suspended).
     /// </summary>
     Task UpdateStatusAsync(int companyId, string status);
+    /// <summary>
+    /// Gets company profile (store info) for display/edit (EPIC-0-007).
+    /// </summary>
+    Task<CompanyProfile?> GetProfileAsync(int companyId);
+    /// <summary>
+    /// Updates company profile fields (EPIC-0-007).
+    /// </summary>
+    Task UpdateProfileAsync(int companyId, CompanyProfileUpdateRequest request);
     Task<Company?> GetByVerificationTokenAsync(string token);
     Task<Company?> GetByPasswordResetTokenAsync(string token);
     Task<Company> CreateAsync(Company company);

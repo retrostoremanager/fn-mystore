@@ -30,6 +30,7 @@ var host = new HostBuilder()
         services.AddScoped<IEmployeeRepository, EmployeeRepository>();
         services.AddScoped<ISalesRepository, SalesRepository>();
         services.AddScoped<ICompanyRepository, CompanyRepository>();
+        services.AddScoped<ILocationRepository, LocationRepository>();
         services.AddScoped<IPaymentRepository, PaymentRepository>();
         
         // Register services

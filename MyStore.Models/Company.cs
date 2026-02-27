@@ -17,6 +17,96 @@ public class Company
     public DateTime? LastModifiedDate { get; set; }
 }
 
+/// <summary>
+/// Company profile/store info for display and edit (EPIC-0-007).
+/// </summary>
+public class CompanyProfile
+{
+    public int Id { get; set; }
+    public string? StoreName { get; set; }
+    public string? StoreType { get; set; } // retro_game_store, card_store, both
+    public string? StoreAddress { get; set; }
+    public string? StoreCity { get; set; }
+    public string? StoreState { get; set; }
+    public string? StoreZipCode { get; set; }
+    public string? StorePhone { get; set; }
+    public string? Timezone { get; set; }
+    public string? Locale { get; set; }
+    public string? LogoUrl { get; set; }
+}
+
+/// <summary>
+/// Request to update company profile. All fields optional for partial update.
+/// </summary>
+public class CompanyProfileUpdateRequest
+{
+    public string? StoreName { get; set; }
+    public string? StoreType { get; set; }
+    public string? StoreAddress { get; set; }
+    public string? StoreCity { get; set; }
+    public string? StoreState { get; set; }
+    public string? StoreZipCode { get; set; }
+    public string? StorePhone { get; set; }
+    public string? Timezone { get; set; }
+    public string? Locale { get; set; }
+    public string? LogoUrl { get; set; }
+}
+
+/// <summary>
+/// Response for GET company/profile - profile plus locations.
+/// </summary>
+public class CompanyProfileResponse
+{
+    public CompanyProfile Profile { get; set; } = null!;
+    public IEnumerable<Location> Locations { get; set; } = Array.Empty<Location>();
+}
+
+/// <summary>
+/// Request to create a location.
+/// </summary>
+public class LocationCreateRequest
+{
+    public string Name { get; set; } = string.Empty;
+    public string? Address { get; set; }
+    public string? City { get; set; }
+    public string? State { get; set; }
+    public string? ZipCode { get; set; }
+    public string? Phone { get; set; }
+    public bool IsPrimary { get; set; }
+}
+
+/// <summary>
+/// Request to update a location.
+/// </summary>
+public class LocationUpdateRequest
+{
+    public string Name { get; set; } = string.Empty;
+    public string? Address { get; set; }
+    public string? City { get; set; }
+    public string? State { get; set; }
+    public string? ZipCode { get; set; }
+    public string? Phone { get; set; }
+    public bool IsPrimary { get; set; }
+}
+
+/// <summary>
+/// Location for multi-location support (EPIC-0-007).
+/// </summary>
+public class Location
+{
+    public int Id { get; set; }
+    public int CompanyId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Address { get; set; }
+    public string? City { get; set; }
+    public string? State { get; set; }
+    public string? ZipCode { get; set; }
+    public string? Phone { get; set; }
+    public bool IsPrimary { get; set; }
+    public DateTime CreatedDate { get; set; }
+    public DateTime? LastModifiedDate { get; set; }
+}
+
 public class RegisterAccountRequest
 {
     public string Email { get; set; } = string.Empty;
