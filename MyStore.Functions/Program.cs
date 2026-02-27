@@ -2,6 +2,7 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using MyStore.Functions.Middleware;
+using MyStore.Functions.Services;
 using MyStore.Repositories;
 using MyStore.Services;
 
@@ -45,6 +46,7 @@ var host = new HostBuilder()
         services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
         services.AddScoped<ITrialConversionService, TrialConversionService>();
         services.AddScoped<ITrialSuspensionService, TrialSuspensionService>();
+        services.AddScoped<LogoStorageService>();
     })
     .Build();
 

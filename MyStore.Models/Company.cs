@@ -50,6 +50,16 @@ public class CompanyProfileUpdateRequest
 }
 
 /// <summary>
+/// Request to upload company logo (base64-encoded file). EPIC-0-007-004.
+/// </summary>
+public class LogoUploadRequest
+{
+    public string File { get; set; } = string.Empty; // base64
+    public string FileName { get; set; } = string.Empty;
+    public string ContentType { get; set; } = string.Empty;
+}
+
+/// <summary>
 /// Response for GET company/profile - profile plus locations.
 /// </summary>
 public class CompanyProfileResponse

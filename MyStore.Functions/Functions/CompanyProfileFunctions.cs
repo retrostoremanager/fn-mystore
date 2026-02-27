@@ -5,6 +5,7 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
 using MyStore.Functions.Helpers;
+using MyStore.Functions.Services;
 using MyStore.Models;
 using MyStore.Repositories;
 
@@ -22,15 +23,18 @@ public class CompanyProfileFunctions
 
     private readonly ICompanyRepository _companyRepository;
     private readonly ILocationRepository _locationRepository;
+    private readonly LogoStorageService _logoStorage;
     private readonly ILogger _logger;
 
     public CompanyProfileFunctions(
         ICompanyRepository companyRepository,
         ILocationRepository locationRepository,
+        LogoStorageService logoStorage,
         ILoggerFactory loggerFactory)
     {
         _companyRepository = companyRepository;
         _locationRepository = locationRepository;
+        _logoStorage = logoStorage;
         _logger = loggerFactory.CreateLogger<CompanyProfileFunctions>();
     }
 
@@ -108,6 +112,98 @@ public class CompanyProfileFunctions
         {
             _logger.LogError(ex, "Error updating company profile");
             var errorResponse = ApiResponse<CompanyProfile>.ErrorResponse("An error occurred while updating the profile.");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
+        }
+    }
+
+    [Function("UploadCompanyLogo")]
+    public async Task<HttpResponseData> UploadLogo(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "company/profile/logo")] HttpRequestData req)
+    {
+        try
+        {
+            var companyId = CompanyHelper.GetCompanyIdRequired(req);
+
+            string body;
+            using (var reader = new StreamReader(req.Body, Encoding.UTF8))
+            {
+                body = await reader.ReadToEndAsync();
+            }
+
+            var request = JsonSerializer.Deserialize<LogoUploadRequest>(body, JsonOptions);
+            if (request == null || string.IsNullOrWhiteSpace(request.File) || string.IsNullOrWhiteSpace(request.FileName))
+            {
+                var errorResponse = ApiResponse<CompanyProfile>.ErrorResponse("File and FileName are required.");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+            }
+
+            byte[] fileBytes;
+            try
+            {
+                fileBytes = Convert.FromBase64String(request.File);
+            }
+            catch (FormatException)
+            {
+                var errorResponse = ApiResponse<CompanyProfile>.ErrorResponse("Invalid base64 file data.");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+            }
+
+            string logoUrl;
+            try
+            {
+                logoUrl = await _logoStorage.UploadAsync(companyId, fileBytes, request.FileName, request.ContentType ?? "image/png");
+            }
+            catch (ArgumentException ex)
+            {
+                var errorResponse = ApiResponse<CompanyProfile>.ErrorResponse(ex.Message);
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+            }
+
+            await _companyRepository.UpdateProfileAsync(companyId, new CompanyProfileUpdateRequest { LogoUrl = logoUrl });
+
+            var profile = await _companyRepository.GetProfileAsync(companyId);
+            var response = ApiResponse<CompanyProfile>.SuccessResponse(profile!, "Logo uploaded successfully.");
+            return await CreateHttpResponse(req, response, HttpStatusCode.OK);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized logo upload");
+            var errorResponse = ApiResponse<CompanyProfile>.ErrorResponse(ex.Message);
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error uploading company logo");
+            var errorResponse = ApiResponse<CompanyProfile>.ErrorResponse("An error occurred while uploading the logo.");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
+        }
+    }
+
+    [Function("DeleteCompanyLogo")]
+    public async Task<HttpResponseData> DeleteLogo(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "delete", Route = "company/profile/logo")] HttpRequestData req)
+    {
+        try
+        {
+            var companyId = CompanyHelper.GetCompanyIdRequired(req);
+
+            await _logoStorage.DeleteAsync(companyId);
+            await _companyRepository.UpdateProfileAsync(companyId, new CompanyProfileUpdateRequest { LogoUrl = string.Empty });
+
+            var profile = await _companyRepository.GetProfileAsync(companyId);
+            var response = ApiResponse<CompanyProfile>.SuccessResponse(profile!, "Logo removed successfully.");
+            return await CreateHttpResponse(req, response, HttpStatusCode.OK);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized logo delete");
+            var errorResponse = ApiResponse<CompanyProfile>.ErrorResponse(ex.Message);
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting company logo");
+            var errorResponse = ApiResponse<CompanyProfile>.ErrorResponse("An error occurred while removing the logo.");
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
         }
     }
