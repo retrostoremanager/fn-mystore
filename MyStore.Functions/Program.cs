@@ -46,6 +46,7 @@ var host = new HostBuilder()
         services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
         services.AddScoped<ITrialConversionService, TrialConversionService>();
         services.AddScoped<ITrialSuspensionService, TrialSuspensionService>();
+        services.AddScoped<ISubscriptionChangeService, SubscriptionChangeService>();
         services.AddScoped<LogoStorageService>();
     })
     .Build();

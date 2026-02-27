@@ -46,7 +46,7 @@ public class StripeOptions
         var normalized = (tier ?? "").Trim().ToLowerInvariant();
         return normalized switch
         {
-            "pro" => PriceIdPro ?? PriceIdBasic ?? "",
+            "pro" or "premium" => PriceIdPro ?? PriceIdBasic ?? "",
             "enterprise" => PriceIdEnterprise ?? PriceIdBasic ?? "",
             _ => PriceIdBasic ?? ""
         };

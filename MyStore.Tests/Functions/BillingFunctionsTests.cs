@@ -18,6 +18,7 @@ public class BillingFunctionsTests
 {
     private readonly Mock<IPaymentService> _paymentServiceMock;
     private readonly Mock<ISubscriptionService> _subscriptionServiceMock;
+    private readonly Mock<ISubscriptionChangeService> _subscriptionChangeServiceMock;
     private readonly Mock<ICompanyRepository> _companyRepositoryMock;
     private readonly Mock<IPaymentRepository> _paymentRepositoryMock;
     private readonly Mock<ILoggerFactory> _loggerFactoryMock;
@@ -28,6 +29,7 @@ public class BillingFunctionsTests
     {
         _paymentServiceMock = new Mock<IPaymentService>();
         _subscriptionServiceMock = new Mock<ISubscriptionService>();
+        _subscriptionChangeServiceMock = new Mock<ISubscriptionChangeService>();
         _companyRepositoryMock = new Mock<ICompanyRepository>();
         _paymentRepositoryMock = new Mock<IPaymentRepository>();
         _loggerMock = new Mock<ILogger<BillingFunctions>>();
@@ -43,6 +45,7 @@ public class BillingFunctionsTests
         _functions = new BillingFunctions(
             _paymentServiceMock.Object,
             _subscriptionServiceMock.Object,
+            _subscriptionChangeServiceMock.Object,
             _companyRepositoryMock.Object,
             _paymentRepositoryMock.Object,
             stripeOptions,
@@ -108,6 +111,7 @@ public class BillingFunctionsTests
         var functionsNoSecret = new BillingFunctions(
             _paymentServiceMock.Object,
             _subscriptionServiceMock.Object,
+            _subscriptionChangeServiceMock.Object,
             _companyRepositoryMock.Object,
             _paymentRepositoryMock.Object,
             stripeOptions,
