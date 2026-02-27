@@ -227,6 +227,7 @@ public class CompanyService : ICompanyService
             var company = new Company
             {
                 Email = request.Email.Trim().ToLowerInvariant(),
+                CompanyName = request.CompanyName?.Trim(),
                 PasswordHash = passwordHash,
                 Status = "Pending",
                 TrialStartDate = trialStartDate,
@@ -237,7 +238,6 @@ public class CompanyService : ICompanyService
                 CreatedDate = DateTime.UtcNow,
                 LastModifiedDate = DateTime.UtcNow
             };
-            // CompanyName is not stored in Company table yet (may need to be added in future)
 
             // Use transaction for data consistency (repository handles this)
             var created = await _repository.CreateAsync(company);

@@ -105,7 +105,7 @@ public class CompanyRepository : ICompanyRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         var id = await connection.QuerySingleAsync<int>(
-            "SELECT company_create(@p_email, @p_status, @p_trial_start_date, @p_trial_end_date, @p_subscription_tier, @p_created_date, @p_verification_token, @p_verification_token_expires::timestamptz, @p_last_modified_date::timestamptz, @p_password_hash)",
+            "SELECT company_create(@p_email, @p_status, @p_trial_start_date, @p_trial_end_date, @p_subscription_tier, @p_created_date, @p_verification_token, @p_verification_token_expires::timestamptz, @p_last_modified_date::timestamptz, @p_password_hash, @p_company_name)",
             new
             {
                 p_email = company.Email,
@@ -117,7 +117,8 @@ public class CompanyRepository : ICompanyRepository
                 p_verification_token = company.VerificationToken,
                 p_verification_token_expires = company.VerificationTokenExpires,
                 p_last_modified_date = company.LastModifiedDate,
-                p_password_hash = company.PasswordHash
+                p_password_hash = company.PasswordHash,
+                p_company_name = company.CompanyName
             });
 
         company.Id = id;
@@ -175,10 +176,11 @@ public class CompanyRepository : ICompanyRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.ExecuteAsync(
-            "SELECT company_update_profile(@p_id, @p_store_name, @p_store_type, @p_store_address, @p_store_city, @p_store_state, @p_store_zip_code, @p_store_phone, @p_timezone, @p_locale, @p_logo_url)",
+            "SELECT company_update_profile(@p_id, @p_company_name, @p_store_name, @p_store_type, @p_store_address, @p_store_city, @p_store_state, @p_store_zip_code, @p_store_phone, @p_timezone, @p_locale, @p_logo_url)",
             new
             {
                 p_id = companyId,
+                p_company_name = request.CompanyName,
                 p_store_name = request.StoreName,
                 p_store_type = request.StoreType,
                 p_store_address = request.StoreAddress,
