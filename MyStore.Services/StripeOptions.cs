@@ -30,4 +30,25 @@ public class StripeOptions
     /// Whether Stripe is configured and available.
     /// </summary>
     public bool IsConfigured => !string.IsNullOrWhiteSpace(SecretKey);
+
+    /// <summary>
+    /// Stripe Price IDs for subscription tiers (price_xxx). Used for trial-to-paid conversion.
+    /// </summary>
+    public string? PriceIdBasic { get; set; }
+    public string? PriceIdPro { get; set; }
+    public string? PriceIdEnterprise { get; set; }
+
+    /// <summary>
+    /// Gets the Stripe Price ID for the given tier. Falls back to Basic if tier not configured.
+    /// </summary>
+    public string GetPriceIdForTier(string tier)
+    {
+        var normalized = (tier ?? "").Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "pro" => PriceIdPro ?? PriceIdBasic ?? "",
+            "enterprise" => PriceIdEnterprise ?? PriceIdBasic ?? "",
+            _ => PriceIdBasic ?? ""
+        };
+    }
 }

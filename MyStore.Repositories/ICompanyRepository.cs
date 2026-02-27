@@ -15,6 +15,14 @@ public interface ICompanyRepository
     /// Marks that a trial expiration notification was sent for the company.
     /// </summary>
     Task MarkTrialNotificationSentAsync(int companyId, int daysRemaining);
+    /// <summary>
+    /// Gets companies with expired trial who have payment method and no active subscription (EPIC-0-006-004).
+    /// </summary>
+    Task<IEnumerable<TrialConversionCandidate>> GetExpiredTrialsForConversionAsync();
+    /// <summary>
+    /// Updates company subscription tier (e.g., Trial to Basic after conversion).
+    /// </summary>
+    Task UpdateSubscriptionTierAsync(int companyId, string subscriptionTier);
     Task<Company?> GetByVerificationTokenAsync(string token);
     Task<Company?> GetByPasswordResetTokenAsync(string token);
     Task<Company> CreateAsync(Company company);
