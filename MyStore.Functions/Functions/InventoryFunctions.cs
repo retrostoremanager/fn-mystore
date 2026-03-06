@@ -29,9 +29,13 @@ public class InventoryFunctions
         try
         {
             var companyId = CompanyHelper.GetCompanyIdRequired(req);
-            _logger.LogInformation("Getting all inventory items for company {CompanyId}", companyId);
+            int? locationId = null;
+            if (int.TryParse(req.Query["locationId"], out var locId) && locId > 0)
+                locationId = locId;
 
-            var response = await _inventoryService.GetAllInventoryAsync(companyId);
+            _logger.LogInformation("Getting all inventory items for company {CompanyId}, location {LocationId}", companyId, locationId ?? 0);
+
+            var response = await _inventoryService.GetAllInventoryAsync(companyId, locationId);
             return await CreateHttpResponse(req, response);
         }
         catch (UnauthorizedAccessException ex)
@@ -57,6 +61,26 @@ public class InventoryFunctions
         catch (UnauthorizedAccessException ex)
         {
             var errorResponse = ApiResponse<InventoryItem>.ErrorResponse(ex.Message);
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
+        }
+    }
+
+    [Function("GetInventoryItemLocations")]
+    public async Task<HttpResponseData> GetInventoryItemLocations(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "inventory/{id}/locations")] HttpRequestData req,
+        int id)
+    {
+        try
+        {
+            var companyId = CompanyHelper.GetCompanyIdRequired(req);
+            _logger.LogInformation("Getting locations for inventory item {Id} for company {CompanyId}", id, companyId);
+
+            var response = await _inventoryService.GetLocationsForItemAsync(id, companyId);
+            return await CreateHttpResponse(req, response);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            var errorResponse = ApiResponse<List<ItemLocationInfo>>.ErrorResponse(ex.Message);
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
         }
     }
@@ -157,16 +181,14 @@ public class InventoryFunctions
         try
         {
             var companyId = CompanyHelper.GetCompanyIdRequired(req);
-            var query = req.Query["q"];
-            if (string.IsNullOrEmpty(query))
-            {
-                var errorResponse = ApiResponse<List<InventoryItem>>.ErrorResponse("Search query parameter 'q' is required");
-                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
-            }
+            var query = req.Query["q"] ?? "";
+            int? locationId = null;
+            if (int.TryParse(req.Query["locationId"], out var locId) && locId > 0)
+                locationId = locId;
 
-            _logger.LogInformation("Searching inventory with query: {Query} for company {CompanyId}", query, companyId);
+            _logger.LogInformation("Searching inventory with query: {Query} for company {CompanyId}, location {LocationId}", query, companyId, locationId ?? 0);
 
-            var response = await _inventoryService.SearchInventoryAsync(query, companyId);
+            var response = await _inventoryService.SearchInventoryAsync(query, companyId, locationId);
             return await CreateHttpResponse(req, response);
         }
         catch (UnauthorizedAccessException ex)

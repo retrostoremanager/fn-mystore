@@ -12,11 +12,11 @@ public class InventoryService : IInventoryService
         _repository = repository;
     }
 
-    public async Task<ApiResponse<List<InventoryItem>>> GetAllInventoryAsync(int companyId)
+    public async Task<ApiResponse<List<InventoryItem>>> GetAllInventoryAsync(int companyId, int? locationId = null)
     {
         try
         {
-            var items = await _repository.GetAllAsync(companyId);
+            var items = await _repository.GetAllAsync(companyId, locationId);
             return ApiResponse<List<InventoryItem>>.SuccessResponse(items);
         }
         catch (Exception ex)
@@ -205,22 +205,38 @@ public class InventoryService : IInventoryService
         }
     }
 
-    public async Task<ApiResponse<List<InventoryItem>>> SearchInventoryAsync(string searchTerm, int companyId)
+    public async Task<ApiResponse<List<InventoryItem>>> SearchInventoryAsync(string searchTerm, int companyId, int? locationId = null)
     {
         try
         {
             if (string.IsNullOrWhiteSpace(searchTerm))
             {
-                return await GetAllInventoryAsync(companyId);
+                return await GetAllInventoryAsync(companyId, locationId);
             }
 
-            var results = await _repository.SearchAsync(searchTerm, companyId);
+            var results = await _repository.SearchAsync(searchTerm, companyId, locationId);
             return ApiResponse<List<InventoryItem>>.SuccessResponse(results);
         }
         catch (Exception ex)
         {
             return ApiResponse<List<InventoryItem>>.ErrorResponse(
                 "Failed to search inventory",
+                new List<string> { ex.Message }
+            );
+        }
+    }
+
+    public async Task<ApiResponse<List<ItemLocationInfo>>> GetLocationsForItemAsync(int id, int companyId)
+    {
+        try
+        {
+            var locations = await _repository.GetLocationsForItemAsync(id, companyId);
+            return ApiResponse<List<ItemLocationInfo>>.SuccessResponse(locations);
+        }
+        catch (Exception ex)
+        {
+            return ApiResponse<List<ItemLocationInfo>>.ErrorResponse(
+                "Failed to get locations for item",
                 new List<string> { ex.Message }
             );
         }

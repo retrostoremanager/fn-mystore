@@ -5,6 +5,8 @@ public class InventoryItem
     public int Id { get; set; }
     public int CompanyId { get; set; }
     public int LocationId { get; set; }
+    /// <summary>Location name for display. Populated when joining with location table.</summary>
+    public string? LocationName { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Category { get; set; } = string.Empty;
     public int Quantity { get; set; }
@@ -39,6 +41,15 @@ public class CreateInventoryItemRequest
     public string? GameId { get; set; }
     public Completeness Completeness { get; set; } = new();
     public string? Notes { get; set; }
+}
+
+/// <summary>Summary of an inventory item at a specific location (for cross-location visibility).</summary>
+public class ItemLocationInfo
+{
+    public int LocationId { get; set; }
+    public string LocationName { get; set; } = string.Empty;
+    public int Quantity { get; set; }
+    public string Condition { get; set; } = string.Empty;
 }
 
 public class UpdateInventoryItemRequest
