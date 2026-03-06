@@ -99,6 +99,16 @@ public class LocationUpdateRequest
 }
 
 /// <summary>
+/// Response for location deletion info (EPIC-1-003).
+/// </summary>
+public class LocationDeletionInfoResponse
+{
+    public bool HasInventory { get; set; }
+    public int InventoryCount { get; set; }
+    public List<Location> OtherLocations { get; set; } = new();
+}
+
+/// <summary>
 /// Location for multi-location support (EPIC-0-007).
 /// </summary>
 public class Location

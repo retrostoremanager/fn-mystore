@@ -23,19 +23,29 @@ public class CompanyProfileFunctions
         PropertyNameCaseInsensitive = true
     };
 
+    private static readonly Dictionary<string, int?> TierLocationLimits = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Basic"] = 1,
+        ["Premium"] = 3,
+        ["Enterprise"] = null
+    };
+
     private readonly ICompanyRepository _companyRepository;
     private readonly ILocationRepository _locationRepository;
+    private readonly IInventoryRepository _inventoryRepository;
     private readonly LogoStorageService _logoStorage;
     private readonly ILogger _logger;
 
     public CompanyProfileFunctions(
         ICompanyRepository companyRepository,
         ILocationRepository locationRepository,
+        IInventoryRepository inventoryRepository,
         LogoStorageService logoStorage,
         ILoggerFactory loggerFactory)
     {
         _companyRepository = companyRepository;
         _locationRepository = locationRepository;
+        _inventoryRepository = inventoryRepository;
         _logoStorage = logoStorage;
         _logger = loggerFactory.CreateLogger<CompanyProfileFunctions>();
     }
@@ -243,6 +253,23 @@ public class CompanyProfileFunctions
         {
             var companyId = CompanyHelper.GetCompanyIdRequired(req);
 
+            var company = await _companyRepository.GetByIdAsync(companyId);
+            if (company == null)
+            {
+                var errorResponse = ApiResponse<Location>.ErrorResponse("Company not found.");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.NotFound);
+            }
+
+            var tier = NormalizeTier(company.SubscriptionTier);
+            var limit = TierLocationLimits.GetValueOrDefault(tier);
+            var locations = (await _locationRepository.GetByCompanyIdAsync(companyId)).ToList();
+            if (limit.HasValue && locations.Count >= limit.Value)
+            {
+                var errorResponse = ApiResponse<Location>.ErrorResponse(
+                    $"Your {tier} plan allows {limit.Value} location(s). Upgrade to Premium or Enterprise to add more.");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+            }
+
             string body;
             using (var reader = new StreamReader(req.Body, Encoding.UTF8))
             {
@@ -347,6 +374,48 @@ public class CompanyProfileFunctions
         }
     }
 
+    [Function("GetLocationDeletionInfo")]
+    public async Task<HttpResponseData> GetLocationDeletionInfo(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "company/locations/{id}/deletion-info")] HttpRequestData req,
+        int id)
+    {
+        try
+        {
+            var companyId = CompanyHelper.GetCompanyIdRequired(req);
+
+            var location = await _locationRepository.GetByIdAsync(id, companyId);
+            if (location == null)
+            {
+                var errorResponse = ApiResponse<LocationDeletionInfoResponse>.ErrorResponse("Location not found.");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.NotFound);
+            }
+
+            var inventoryCount = await _inventoryRepository.GetCountByLocationIdAsync(id, companyId);
+            var allLocations = (await _locationRepository.GetByCompanyIdAsync(companyId)).ToList();
+            var otherLocations = allLocations.Where(l => l.Id != id).ToList();
+
+            var response = ApiResponse<LocationDeletionInfoResponse>.SuccessResponse(new LocationDeletionInfoResponse
+            {
+                HasInventory = inventoryCount > 0,
+                InventoryCount = inventoryCount,
+                OtherLocations = otherLocations
+            });
+            return await CreateHttpResponse(req, response, HttpStatusCode.OK);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized location deletion info");
+            var errorResponse = ApiResponse<LocationDeletionInfoResponse>.ErrorResponse(ex.Message);
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving location deletion info");
+            var errorResponse = ApiResponse<LocationDeletionInfoResponse>.ErrorResponse("An error occurred.");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
+        }
+    }
+
     [Function("DeleteLocation")]
     public async Task<HttpResponseData> DeleteLocation(
         [HttpTrigger(AuthorizationLevel.Anonymous, "delete", Route = "company/locations/{id}")] HttpRequestData req,
@@ -355,6 +424,42 @@ public class CompanyProfileFunctions
         try
         {
             var companyId = CompanyHelper.GetCompanyIdRequired(req);
+
+            var location = await _locationRepository.GetByIdAsync(id, companyId);
+            if (location == null)
+            {
+                var errorResponse = ApiResponse<object>.ErrorResponse("Location not found.");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.NotFound);
+            }
+
+            var inventoryCount = await _inventoryRepository.GetCountByLocationIdAsync(id, companyId);
+            if (inventoryCount > 0)
+            {
+                var queryParams = ParseQueryString(req.Url.Query);
+                var action = queryParams.GetValueOrDefault("action", "");
+                var targetLocationIdStr = queryParams.GetValueOrDefault("targetLocationId", "");
+
+                if (string.Equals(action, "delete_inventory", StringComparison.OrdinalIgnoreCase))
+                {
+                    await _inventoryRepository.DeleteByLocationIdAsync(id, companyId);
+                }
+                else if (string.Equals(action, "reassign", StringComparison.OrdinalIgnoreCase) && int.TryParse(targetLocationIdStr, out var targetId))
+                {
+                    var allLocations = (await _locationRepository.GetByCompanyIdAsync(companyId)).ToList();
+                    if (allLocations.All(l => l.Id != targetId) || targetId == id)
+                    {
+                        var errorResponse = ApiResponse<object>.ErrorResponse("Invalid target location. Choose another location to move inventory to.");
+                        return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+                    }
+                    await _inventoryRepository.ReassignToLocationAsync(id, targetId, companyId);
+                }
+                else
+                {
+                    var errorResponse = ApiResponse<object>.ErrorResponse(
+                        "This location has inventory. Add ?action=delete_inventory to delete inventory, or ?action=reassign&targetLocationId=<id> to move inventory to another location.");
+                    return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+                }
+            }
 
             var deleted = await _locationRepository.DeleteAsync(id, companyId);
             if (!deleted)
@@ -378,6 +483,34 @@ public class CompanyProfileFunctions
             var errorResponse = ApiResponse<object>.ErrorResponse("An error occurred while deleting the location.");
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
         }
+    }
+
+    private static Dictionary<string, string> ParseQueryString(string query)
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrEmpty(query)) return result;
+        var q = query.TrimStart('?');
+        foreach (var part in q.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var idx = part.IndexOf('=');
+            if (idx >= 0)
+                result[part[..idx].Trim()] = Uri.UnescapeDataString(part[(idx + 1)..].Trim());
+        }
+        return result;
+    }
+
+    private static string NormalizeTier(string? tier)
+    {
+        var t = (tier ?? "").Trim();
+        if (string.IsNullOrEmpty(t) || string.Equals(t, "Trial", StringComparison.OrdinalIgnoreCase))
+            return "Basic";
+        return t.ToLowerInvariant() switch
+        {
+            "basic" => "Basic",
+            "premium" or "pro" => "Premium",
+            "enterprise" => "Enterprise",
+            _ => t
+        };
     }
 
     private static async Task<HttpResponseData> CreateHttpResponse<T>(HttpRequestData req, ApiResponse<T> apiResponse, HttpStatusCode statusCode)
