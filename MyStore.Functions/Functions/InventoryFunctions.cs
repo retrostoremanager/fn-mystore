@@ -33,9 +33,13 @@ public class InventoryFunctions
             if (int.TryParse(req.Query["locationId"], out var locId) && locId > 0)
                 locationId = locId;
 
-            _logger.LogInformation("Getting all inventory items for company {CompanyId}, location {LocationId}", companyId, locationId ?? 0);
+            var searchQuery = req.Query["q"] ?? "";
 
-            var response = await _inventoryService.GetAllInventoryAsync(companyId, locationId);
+            _logger.LogInformation("Getting inventory for company {CompanyId}, location {LocationId}, search {Query}", companyId, locationId ?? 0, searchQuery);
+
+            var response = string.IsNullOrWhiteSpace(searchQuery)
+                ? await _inventoryService.GetAllInventoryAsync(companyId, locationId)
+                : await _inventoryService.SearchInventoryAsync(searchQuery, companyId, locationId);
             return await CreateHttpResponse(req, response);
         }
         catch (UnauthorizedAccessException ex)
@@ -170,30 +174,6 @@ public class InventoryFunctions
         catch (UnauthorizedAccessException ex)
         {
             var errorResponse = ApiResponse<bool>.ErrorResponse(ex.Message);
-            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
-        }
-    }
-
-    [Function("SearchInventory")]
-    public async Task<HttpResponseData> SearchInventory(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "inventory/search")] HttpRequestData req)
-    {
-        try
-        {
-            var companyId = CompanyHelper.GetCompanyIdRequired(req);
-            var query = req.Query["q"] ?? "";
-            int? locationId = null;
-            if (int.TryParse(req.Query["locationId"], out var locId) && locId > 0)
-                locationId = locId;
-
-            _logger.LogInformation("Searching inventory with query: {Query} for company {CompanyId}, location {LocationId}", query, companyId, locationId ?? 0);
-
-            var response = await _inventoryService.SearchInventoryAsync(query, companyId, locationId);
-            return await CreateHttpResponse(req, response);
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            var errorResponse = ApiResponse<List<InventoryItem>>.ErrorResponse(ex.Message);
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
         }
     }
