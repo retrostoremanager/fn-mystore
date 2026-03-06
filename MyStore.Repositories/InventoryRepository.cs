@@ -38,6 +38,7 @@ public class InventoryRepository : IInventoryRepository
         }
 
         existing.Name = item.Name;
+        existing.LocationId = item.LocationId;
         existing.Category = item.Category;
         existing.Quantity = item.Quantity;
         existing.SellPrice = item.SellPrice;
