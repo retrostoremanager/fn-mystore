@@ -69,9 +69,15 @@ public class InventoryService : IInventoryService
                 return ApiResponse<InventoryItem>.ErrorResponse("Sell price cannot be negative");
             }
 
+            if (request.LocationId <= 0)
+            {
+                return ApiResponse<InventoryItem>.ErrorResponse("Location is required");
+            }
+
             var item = new InventoryItem
             {
                 CompanyId = companyId,
+                LocationId = request.LocationId,
                 Name = request.Name,
                 Category = request.Category,
                 Quantity = request.Quantity,
@@ -154,6 +160,11 @@ public class InventoryService : IInventoryService
             if (request.Notes != null)
             {
                 existing.Notes = request.Notes;
+            }
+
+            if (request.LocationId.HasValue && request.LocationId.Value > 0)
+            {
+                existing.LocationId = request.LocationId.Value;
             }
 
             var updated = await _repository.UpdateAsync(id, existing, companyId);

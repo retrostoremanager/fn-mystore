@@ -4,6 +4,7 @@ public class InventoryItem
 {
     public int Id { get; set; }
     public int CompanyId { get; set; }
+    public int LocationId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Category { get; set; } = string.Empty;
     public int Quantity { get; set; }
@@ -28,6 +29,7 @@ public class Completeness
 
 public class CreateInventoryItemRequest
 {
+    public int LocationId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Category { get; set; } = string.Empty;
     public int Quantity { get; set; }
@@ -41,6 +43,7 @@ public class CreateInventoryItemRequest
 
 public class UpdateInventoryItemRequest
 {
+    public int? LocationId { get; set; }
     public string? Name { get; set; }
     public string? Category { get; set; }
     public int? Quantity { get; set; }
