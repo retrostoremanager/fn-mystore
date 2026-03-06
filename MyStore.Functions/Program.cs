@@ -11,6 +11,7 @@ var host = new HostBuilder()
     {
         builder.UseMiddleware<JwtAuthenticationMiddleware>();
         builder.UseMiddleware<CompanyAccessMiddleware>();
+        builder.UseMiddleware<RbacMiddleware>();
     })
     .ConfigureServices((context, services) =>
     {
@@ -28,7 +29,8 @@ var host = new HostBuilder()
         // Register repositories
         services.AddScoped<IInventoryRepository, InventoryRepository>();
         services.AddScoped<ICustomerRepository, CustomerRepository>();
-        services.AddScoped<IEmployeeRepository, EmployeeRepository>();
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<ISalesRepository, SalesRepository>();
         services.AddScoped<ICompanyRepository, CompanyRepository>();
         services.AddScoped<ILocationRepository, LocationRepository>();
@@ -37,7 +39,7 @@ var host = new HostBuilder()
         // Register services
         services.AddScoped<IInventoryService, InventoryService>();
         services.AddScoped<ICustomerService, CustomerService>();
-        services.AddScoped<IEmployeeService, EmployeeService>();
+        services.AddScoped<IUserService, UserService>();
         services.AddScoped<ISalesService, SalesService>();
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<ICompanyService, CompanyService>();
@@ -47,6 +49,7 @@ var host = new HostBuilder()
         services.AddScoped<ITrialConversionService, TrialConversionService>();
         services.AddScoped<ITrialSuspensionService, TrialSuspensionService>();
         services.AddScoped<ISubscriptionChangeService, SubscriptionChangeService>();
+        services.AddScoped<IPermissionService, PermissionService>();
         services.AddScoped<LogoStorageService>();
     })
     .Build();

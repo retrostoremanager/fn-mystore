@@ -25,9 +25,9 @@ public class SalesRepository : ISalesRepository
         return Task.FromResult(results);
     }
 
-    public Task<List<Sale>> GetByEmployeeIdAsync(int employeeId, int companyId)
+    public Task<List<Sale>> GetByUserIdAsync(int userId, int companyId)
     {
-        var results = _sales.Where(s => s.EmployeeId == employeeId && s.CompanyId == companyId).ToList();
+        var results = _sales.Where(s => s.UserId == userId && s.CompanyId == companyId).ToList();
         return Task.FromResult(results);
     }
 

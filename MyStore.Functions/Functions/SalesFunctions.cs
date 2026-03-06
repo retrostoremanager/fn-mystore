@@ -3,12 +3,14 @@ using System.Text.Json;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
+using MyStore.Functions.Attributes;
 using MyStore.Functions.Helpers;
 using MyStore.Models;
 using MyStore.Services;
 
 namespace MyStore.Functions;
 
+[RequirePermission("sales.view")]
 public class SalesFunctions
 {
     private readonly ISalesService _salesService;
@@ -114,6 +116,7 @@ public class SalesFunctions
     }
 
     [Function("CreateSale")]
+    [RequirePermission("sales.create")]
     public async Task<HttpResponseData> CreateSale(
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "sales")] HttpRequestData req)
     {
@@ -146,6 +149,7 @@ public class SalesFunctions
     }
 
     [Function("DeleteSale")]
+    [RequirePermission("sales.refund")]
     public async Task<HttpResponseData> DeleteSale(
         [HttpTrigger(AuthorizationLevel.Anonymous, "delete", Route = "sales/{id}")] HttpRequestData req,
         int id)

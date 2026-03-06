@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using MyStore.Functions.Middleware;
@@ -63,6 +64,25 @@ public static class CompanyHelper
         }
 
         return companyId.Value;
+    }
+
+    /// <summary>
+    /// Gets the user email from JWT claims (set by JwtAuthenticationMiddleware).
+    /// Checks ClaimTypes.Email, "email", and "sub" claims.
+    /// </summary>
+    public static string? GetEmailFromJwt(HttpRequestData request)
+    {
+        var context = request.FunctionContext;
+        if (context?.Features == null)
+            return null;
+        var feature = context.Features.Get<JwtPrincipalFeature>();
+        var principal = feature?.Principal;
+        if (principal == null)
+            return null;
+        var email = principal.FindFirst(ClaimTypes.Email)?.Value
+            ?? principal.FindFirst("email")?.Value
+            ?? principal.FindFirst("sub")?.Value;
+        return string.IsNullOrEmpty(email) ? null : email;
     }
 }
 
