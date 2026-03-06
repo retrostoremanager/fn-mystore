@@ -47,7 +47,7 @@ public class InventoryFunctions
 
     [Function("GetInventoryById")]
     public async Task<HttpResponseData> GetInventoryById(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "inventory/{id}")] HttpRequestData req,
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "inventory/{id:int}")] HttpRequestData req,
         int id)
     {
         try
@@ -67,7 +67,7 @@ public class InventoryFunctions
 
     [Function("GetInventoryItemLocations")]
     public async Task<HttpResponseData> GetInventoryItemLocations(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "inventory/{id}/locations")] HttpRequestData req,
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "inventory/{id:int}/locations")] HttpRequestData req,
         int id)
     {
         try
@@ -121,7 +121,7 @@ public class InventoryFunctions
     [Function("UpdateInventoryItem")]
     [RequirePermission("inventory.edit")]
     public async Task<HttpResponseData> UpdateInventoryItem(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "inventory/{id}")] HttpRequestData req,
+        [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "inventory/{id:int}")] HttpRequestData req,
         int id)
     {
         try
@@ -155,7 +155,7 @@ public class InventoryFunctions
     [Function("DeleteInventoryItem")]
     [RequirePermission("inventory.delete")]
     public async Task<HttpResponseData> DeleteInventoryItem(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "delete", Route = "inventory/{id}")] HttpRequestData req,
+        [HttpTrigger(AuthorizationLevel.Anonymous, "delete", Route = "inventory/{id:int}")] HttpRequestData req,
         int id)
     {
         try
