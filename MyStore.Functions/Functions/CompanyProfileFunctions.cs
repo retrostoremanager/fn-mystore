@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
+using MyStore.Functions.Attributes;
 using MyStore.Functions.Helpers;
 using MyStore.Functions.Services;
 using MyStore.Models;
@@ -14,6 +15,7 @@ namespace MyStore.Functions;
 /// <summary>
 /// API for company/store profile (EPIC-0-007).
 /// </summary>
+[RequirePermission("settings.manage")]
 public class CompanyProfileFunctions
 {
     private static readonly JsonSerializerOptions JsonOptions = new()

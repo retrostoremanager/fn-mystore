@@ -6,8 +6,8 @@ public class Sale
     public int CompanyId { get; set; }
     public int CustomerId { get; set; }
     public Customer? Customer { get; set; }
-    public int? EmployeeId { get; set; }
-    public Employee? Employee { get; set; }
+    public int? UserId { get; set; }
+    public User? User { get; set; }
     public List<SaleItem> Items { get; set; } = new();
     public decimal Subtotal { get; set; }
     public decimal Tax { get; set; }
@@ -31,7 +31,7 @@ public class SaleItem
 public class CreateSaleRequest
 {
     public int CustomerId { get; set; }
-    public int? EmployeeId { get; set; }
+    public int? UserId { get; set; }
     public List<CreateSaleItemRequest> Items { get; set; } = new();
     public decimal Tax { get; set; }
     public string PaymentMethod { get; set; } = string.Empty;

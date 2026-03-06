@@ -7,18 +7,18 @@ public class SalesService : ISalesService
 {
     private readonly ISalesRepository _salesRepository;
     private readonly ICustomerRepository _customerRepository;
-    private readonly IEmployeeRepository _employeeRepository;
+    private readonly IUserRepository _userRepository;
     private readonly IInventoryRepository _inventoryRepository;
 
     public SalesService(
         ISalesRepository salesRepository,
         ICustomerRepository customerRepository,
-        IEmployeeRepository employeeRepository,
+        IUserRepository userRepository,
         IInventoryRepository inventoryRepository)
     {
         _salesRepository = salesRepository;
         _customerRepository = customerRepository;
-        _employeeRepository = employeeRepository;
+        _userRepository = userRepository;
         _inventoryRepository = inventoryRepository;
     }
 
@@ -112,13 +112,13 @@ public class SalesService : ISalesService
                 return ApiResponse<Sale>.ErrorResponse($"Customer with ID {request.CustomerId} not found");
             }
 
-            // Verify employee exists if provided and belongs to company
-            if (request.EmployeeId.HasValue)
+            // Verify user exists if provided and belongs to company
+            if (request.UserId.HasValue)
             {
-                var employee = await _employeeRepository.GetByIdAsync(request.EmployeeId.Value, companyId);
-                if (employee == null)
+                var user = await _userRepository.GetByIdAsync(request.UserId.Value, companyId);
+                if (user == null)
                 {
-                    return ApiResponse<Sale>.ErrorResponse($"Employee with ID {request.EmployeeId.Value} not found");
+                    return ApiResponse<Sale>.ErrorResponse($"User with ID {request.UserId.Value} not found");
                 }
             }
 
@@ -126,7 +126,7 @@ public class SalesService : ISalesService
             {
                 CompanyId = companyId,
                 CustomerId = request.CustomerId,
-                EmployeeId = request.EmployeeId,
+                UserId = request.UserId,
                 PaymentMethod = request.PaymentMethod,
                 Notes = request.Notes,
                 Tax = request.Tax
@@ -214,10 +214,10 @@ public class SalesService : ISalesService
                 sale.Customer = await _customerRepository.GetByIdAsync(sale.CustomerId, companyId);
             }
 
-            // Load employee (must belong to same company)
-            if (sale.EmployeeId.HasValue && sale.EmployeeId.Value > 0)
+            // Load user (must belong to same company)
+            if (sale.UserId.HasValue && sale.UserId.Value > 0)
             {
-                sale.Employee = await _employeeRepository.GetByIdAsync(sale.EmployeeId.Value, companyId);
+                sale.User = await _userRepository.GetByIdAsync(sale.UserId.Value, companyId);
             }
 
             // Load inventory items for sale items (must belong to same company)

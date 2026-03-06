@@ -5,6 +5,7 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using MyStore.Functions.Attributes;
 using MyStore.Functions.Helpers;
 using MyStore.Models;
 using MyStore.Repositories;
@@ -115,6 +116,7 @@ public class BillingFunctions
     }
 
     [Function("StorePaymentMethod")]
+    [RequirePermission("billing.manage")]
     public async Task<HttpResponseData> StorePaymentMethod(
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "billing/payment-methods")] HttpRequestData req)
     {
@@ -164,6 +166,7 @@ public class BillingFunctions
     }
 
     [Function("ChangeSubscriptionTier")]
+    [RequirePermission("billing.manage")]
     public async Task<HttpResponseData> ChangeSubscriptionTier(
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "billing/subscription/tier")] HttpRequestData req)
     {
@@ -216,6 +219,7 @@ public class BillingFunctions
     }
 
     [Function("GetTrialStatus")]
+    [RequirePermission("billing.view")]
     public async Task<HttpResponseData> GetTrialStatus(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "billing/trial-status")] HttpRequestData req)
     {
@@ -275,6 +279,7 @@ public class BillingFunctions
     }
 
     [Function("GetPaymentMethods")]
+    [RequirePermission("billing.view")]
     public async Task<HttpResponseData> GetPaymentMethods(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "billing/payment-methods")] HttpRequestData req)
     {
@@ -302,6 +307,7 @@ public class BillingFunctions
     }
 
     [Function("SetDefaultPaymentMethod")]
+    [RequirePermission("billing.manage")]
     public async Task<HttpResponseData> SetDefaultPaymentMethod(
         [HttpTrigger(AuthorizationLevel.Anonymous, "patch", Route = "billing/payment-methods/{id}/default")] HttpRequestData req,
         int id)
@@ -331,6 +337,7 @@ public class BillingFunctions
     }
 
     [Function("DeletePaymentMethod")]
+    [RequirePermission("billing.manage")]
     public async Task<HttpResponseData> DeletePaymentMethod(
         [HttpTrigger(AuthorizationLevel.Anonymous, "delete", Route = "billing/payment-methods/{id}")] HttpRequestData req,
         int id)

@@ -3,12 +3,14 @@ using System.Text.Json;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
+using MyStore.Functions.Attributes;
 using MyStore.Functions.Helpers;
 using MyStore.Models;
 using MyStore.Services;
 
 namespace MyStore.Functions;
 
+[RequirePermission("inventory.view")] // Minimum for GET; create/edit/delete require more - use method-level for those
 public class InventoryFunctions
 {
     private readonly IInventoryService _inventoryService;
@@ -60,6 +62,7 @@ public class InventoryFunctions
     }
 
     [Function("CreateInventoryItem")]
+    [RequirePermission("inventory.create")]
     public async Task<HttpResponseData> CreateInventoryItem(
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "inventory")] HttpRequestData req)
     {
@@ -92,6 +95,7 @@ public class InventoryFunctions
     }
 
     [Function("UpdateInventoryItem")]
+    [RequirePermission("inventory.edit")]
     public async Task<HttpResponseData> UpdateInventoryItem(
         [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "inventory/{id}")] HttpRequestData req,
         int id)
@@ -125,6 +129,7 @@ public class InventoryFunctions
     }
 
     [Function("DeleteInventoryItem")]
+    [RequirePermission("inventory.delete")]
     public async Task<HttpResponseData> DeleteInventoryItem(
         [HttpTrigger(AuthorizationLevel.Anonymous, "delete", Route = "inventory/{id}")] HttpRequestData req,
         int id)
