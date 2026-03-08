@@ -10,12 +10,14 @@ namespace MyStore.Tests.Services;
 public class InventoryServiceTests
 {
     private readonly Mock<IInventoryRepository> _repositoryMock;
+    private readonly Mock<IGameRepository> _gameRepositoryMock;
     private readonly InventoryService _service;
 
     public InventoryServiceTests()
     {
         _repositoryMock = new Mock<IInventoryRepository>();
-        _service = new InventoryService(_repositoryMock.Object);
+        _gameRepositoryMock = new Mock<IGameRepository>();
+        _service = new InventoryService(_repositoryMock.Object, _gameRepositoryMock.Object);
     }
 
     [Fact]

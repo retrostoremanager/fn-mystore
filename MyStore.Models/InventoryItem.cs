@@ -39,6 +39,8 @@ public class CreateInventoryItemRequest
     public decimal? BuyPrice { get; set; }
     public string Condition { get; set; } = string.Empty;
     public string? GameId { get; set; }
+    /// <summary>Full game details. When provided with GameId (e.g. from external search), the game is upserted so the inventory item FK succeeds.</summary>
+    public Game? Game { get; set; }
     public Completeness Completeness { get; set; } = new();
     public string? Notes { get; set; }
 }

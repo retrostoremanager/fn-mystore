@@ -6,10 +6,12 @@ namespace MyStore.Services;
 public class InventoryService : IInventoryService
 {
     private readonly IInventoryRepository _repository;
+    private readonly IGameRepository _gameRepository;
 
-    public InventoryService(IInventoryRepository repository)
+    public InventoryService(IInventoryRepository repository, IGameRepository gameRepository)
     {
         _repository = repository;
+        _gameRepository = gameRepository;
     }
 
     public async Task<ApiResponse<List<InventoryItem>>> GetAllInventoryAsync(int companyId, int? locationId = null)
@@ -74,6 +76,15 @@ public class InventoryService : IInventoryService
                 return ApiResponse<InventoryItem>.ErrorResponse("Location is required");
             }
 
+            // When GameId is from external search (e.g. PriceCharting), the game may not exist in our DB.
+            // Upsert the game first so the inventory_item FK constraint succeeds.
+            if (!string.IsNullOrEmpty(request.GameId) && request.Game != null
+                && !string.IsNullOrWhiteSpace(request.Game.Title) && !string.IsNullOrWhiteSpace(request.Game.Console))
+            {
+                request.Game.Id = request.GameId;
+                await _gameRepository.UpsertAsync(request.Game);
+            }
+
             var item = new InventoryItem
             {
                 CompanyId = companyId,
@@ -84,12 +95,10 @@ public class InventoryService : IInventoryService
                 SellPrice = request.SellPrice,
                 BuyPrice = request.BuyPrice,
                 Condition = request.Condition,
+                Game = !string.IsNullOrEmpty(request.GameId) ? new Game { Id = request.GameId } : null,
                 Completeness = request.Completeness,
                 Notes = request.Notes
             };
-
-            // TODO: If GameId is provided, fetch game details from game API
-            // For now, we'll leave Game as null
 
             var created = await _repository.CreateAsync(item);
             return ApiResponse<InventoryItem>.SuccessResponse(created, "Inventory item created successfully");
