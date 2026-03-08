@@ -23,9 +23,9 @@ public class InventoryRepository : IInventoryRepository
     public async Task<List<InventoryItem>> GetAllAsync(int companyId, int? locationId = null)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
-        var sql = @"SELECT ii.id, ii.company_id, ii.location_id, ii.name, ii.category, ii.quantity, ii.sell_price, ii.buy_price,
-                     ii.condition, ii.game_id, ii.has_box, ii.has_instructions, ii.has_game, ii.has_inserts, ii.has_other,
-                     ii.notes, ii.added_date, ii.last_modified_date,
+        var sql = @"SELECT ii.id, ii.company_id, ii.location_id, ii.quantity, ii.price as sell_price, ii.cost as buy_price,
+                     ii.condition, ii.game_id, ii.notes, ii.created_date as added_date, ii.last_modified_date,
+                     COALESCE(g.title, '') as name, COALESCE(g.genre, '') as category,
                      l.name as location_name,
                      g.id as game_id_val, g.title as game_title, g.console as game_console, g.release_date as game_release_date,
                      g.publisher as game_publisher, g.genre as game_genre
@@ -34,7 +34,7 @@ public class InventoryRepository : IInventoryRepository
               LEFT JOIN game g ON ii.game_id = g.id
               WHERE ii.company_id = @p_company_id
                 AND (@p_location_id IS NULL OR ii.location_id = @p_location_id)
-              ORDER BY ii.name";
+              ORDER BY COALESCE(g.title, '')";
         var rows = await connection.QueryAsync<InventoryItemRow>(sql,
             new { p_company_id = companyId, p_location_id = locationId });
         return rows.Select(MapToInventoryItem).ToList();
@@ -44,9 +44,9 @@ public class InventoryRepository : IInventoryRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         var row = await connection.QueryFirstOrDefaultAsync<InventoryItemRow>(
-            @"SELECT ii.id, ii.company_id, ii.location_id, ii.name, ii.category, ii.quantity, ii.sell_price, ii.buy_price,
-                     ii.condition, ii.game_id, ii.has_box, ii.has_instructions, ii.has_game, ii.has_inserts, ii.has_other,
-                     ii.notes, ii.added_date, ii.last_modified_date,
+            @"SELECT ii.id, ii.company_id, ii.location_id, ii.quantity, ii.price as sell_price, ii.cost as buy_price,
+                     ii.condition, ii.game_id, ii.notes, ii.created_date as added_date, ii.last_modified_date,
+                     COALESCE(g.title, '') as name, COALESCE(g.genre, '') as category,
                      l.name as location_name,
                      g.id as game_id_val, g.title as game_title, g.console as game_console, g.release_date as game_release_date,
                      g.publisher as game_publisher, g.genre as game_genre
@@ -62,27 +62,19 @@ public class InventoryRepository : IInventoryRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         var id = await connection.QuerySingleAsync<int>(
-            @"INSERT INTO inventory_item (company_id, location_id, name, category, quantity, sell_price, buy_price, condition,
-                  game_id, has_box, has_instructions, has_game, has_inserts, has_other, notes, added_date, last_modified_date)
-              VALUES (@p_company_id, @p_location_id, @p_name, @p_category, @p_quantity, @p_sell_price, @p_buy_price, @p_condition,
-                  @p_game_id, @p_has_box, @p_has_instructions, @p_has_game, @p_has_inserts, @p_has_other, @p_notes, NOW(), NOW())
+            @"INSERT INTO inventory_item (company_id, location_id, quantity, price, cost, condition, game_id, notes, created_date, last_modified_date)
+              VALUES (@p_company_id, @p_location_id, @p_quantity, @p_sell_price, @p_buy_price, @p_condition,
+                  @p_game_id, @p_notes, NOW(), NOW())
               RETURNING id",
             new
             {
                 p_company_id = item.CompanyId,
                 p_location_id = item.LocationId,
-                p_name = item.Name,
-                p_category = item.Category,
                 p_quantity = item.Quantity,
                 p_sell_price = item.SellPrice,
                 p_buy_price = item.BuyPrice,
                 p_condition = item.Condition,
                 p_game_id = item.Game?.Id,
-                p_has_box = item.Completeness.Box,
-                p_has_instructions = item.Completeness.Instructions,
-                p_has_game = item.Completeness.Game,
-                p_has_inserts = item.Completeness.Inserts,
-                p_has_other = item.Completeness.Other,
                 p_notes = item.Notes
             });
         item.Id = id;
@@ -96,19 +88,12 @@ public class InventoryRepository : IInventoryRepository
         await using var connection = new NpgsqlConnection(_connectionString);
         var rowsAffected = await connection.ExecuteAsync(
             @"UPDATE inventory_item SET
-                name = @p_name,
                 location_id = @p_location_id,
-                category = @p_category,
                 quantity = @p_quantity,
-                sell_price = @p_sell_price,
-                buy_price = @p_buy_price,
+                price = @p_sell_price,
+                cost = @p_buy_price,
                 condition = @p_condition,
                 game_id = @p_game_id,
-                has_box = @p_has_box,
-                has_instructions = @p_has_instructions,
-                has_game = @p_has_game,
-                has_inserts = @p_has_inserts,
-                has_other = @p_has_other,
                 notes = @p_notes,
                 last_modified_date = NOW()
               WHERE id = @p_id AND company_id = @p_company_id",
@@ -116,19 +101,12 @@ public class InventoryRepository : IInventoryRepository
             {
                 p_id = id,
                 p_company_id = companyId,
-                p_name = item.Name,
                 p_location_id = item.LocationId,
-                p_category = item.Category,
                 p_quantity = item.Quantity,
                 p_sell_price = item.SellPrice,
                 p_buy_price = item.BuyPrice,
                 p_condition = item.Condition,
                 p_game_id = item.Game?.Id,
-                p_has_box = item.Completeness.Box,
-                p_has_instructions = item.Completeness.Instructions,
-                p_has_game = item.Completeness.Game,
-                p_has_inserts = item.Completeness.Inserts,
-                p_has_other = item.Completeness.Other,
                 p_notes = item.Notes
             });
         if (rowsAffected == 0) return null;
@@ -149,9 +127,9 @@ public class InventoryRepository : IInventoryRepository
         await using var connection = new NpgsqlConnection(_connectionString);
         var term = $"%{searchTerm.ToLowerInvariant()}%";
         var rows = await connection.QueryAsync<InventoryItemRow>(
-            @"SELECT ii.id, ii.company_id, ii.location_id, ii.name, ii.category, ii.quantity, ii.sell_price, ii.buy_price,
-                     ii.condition, ii.game_id, ii.has_box, ii.has_instructions, ii.has_game, ii.has_inserts, ii.has_other,
-                     ii.notes, ii.added_date, ii.last_modified_date,
+            @"SELECT ii.id, ii.company_id, ii.location_id, ii.quantity, ii.price as sell_price, ii.cost as buy_price,
+                     ii.condition, ii.game_id, ii.notes, ii.created_date as added_date, ii.last_modified_date,
+                     COALESCE(g.title, '') as name, COALESCE(g.genre, '') as category,
                      l.name as location_name,
                      g.id as game_id_val, g.title as game_title, g.console as game_console, g.release_date as game_release_date,
                      g.publisher as game_publisher, g.genre as game_genre
@@ -160,9 +138,9 @@ public class InventoryRepository : IInventoryRepository
               LEFT JOIN game g ON ii.game_id = g.id
               WHERE ii.company_id = @p_company_id
                 AND (@p_location_id IS NULL OR ii.location_id = @p_location_id)
-                AND (LOWER(ii.name) LIKE @p_term OR LOWER(ii.category) LIKE @p_term
+                AND (LOWER(COALESCE(g.title, '')) LIKE @p_term OR LOWER(COALESCE(g.genre, '')) LIKE @p_term
                      OR (g.id IS NOT NULL AND (LOWER(g.title) LIKE @p_term OR LOWER(g.console) LIKE @p_term)))
-              ORDER BY ii.name",
+              ORDER BY COALESCE(g.title, '')",
             new { p_company_id = companyId, p_location_id = locationId, p_term = term });
         return rows.Select(MapToInventoryItem).ToList();
     }
@@ -249,8 +227,9 @@ public class InventoryRepository : IInventoryRepository
             @"SELECT ii.location_id, COALESCE(l.name, '') as location_name, ii.quantity, COALESCE(ii.condition, '') as condition
               FROM inventory_item ii
               LEFT JOIN location l ON ii.location_id = l.id
+              LEFT JOIN game g ON ii.game_id = g.id
               WHERE ii.company_id = @p_company_id
-                AND ii.name = @p_name
+                AND COALESCE(g.title, '') = @p_name
                 AND ((ii.game_id IS NULL AND @p_game_id IS NULL) OR ii.game_id = @p_game_id)
               ORDER BY l.name",
             new { p_company_id = companyId, p_name = item.Name, p_game_id = item.Game?.Id });
