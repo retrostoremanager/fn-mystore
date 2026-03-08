@@ -27,6 +27,7 @@ var host = new HostBuilder()
         }
         
         // Register repositories
+        services.AddScoped<IGameRepository, GameRepository>();
         services.AddScoped<IInventoryRepository, InventoryRepository>();
         services.AddScoped<ICustomerRepository, CustomerRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
