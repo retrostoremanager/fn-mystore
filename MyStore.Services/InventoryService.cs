@@ -76,13 +76,23 @@ public class InventoryService : IInventoryService
                 return ApiResponse<InventoryItem>.ErrorResponse("Location is required");
             }
 
-            // When GameId is from external search (e.g. PriceCharting), the game may not exist in our DB.
-            // Upsert the game first so the inventory_item FK constraint succeeds.
-            if (!string.IsNullOrEmpty(request.GameId) && request.Game != null
-                && !string.IsNullOrWhiteSpace(request.Game.Title) && !string.IsNullOrWhiteSpace(request.Game.Console))
+            // When GameId is provided, the game may not exist in our DB (e.g. from client-side mock or external API).
+            // Always upsert the game first so the inventory_item FK constraint succeeds.
+            if (!string.IsNullOrEmpty(request.GameId))
             {
-                request.Game.Id = request.GameId;
-                await _gameRepository.UpsertAsync(request.Game);
+                var gameId = request.GameId!;
+                var gameToUpsert = request.Game != null
+                    && !string.IsNullOrWhiteSpace(request.Game.Title)
+                    && !string.IsNullOrWhiteSpace(request.Game.Console)
+                    ? request.Game
+                    : new Game
+                    {
+                        Id = gameId,
+                        Title = request.Name ?? "Unknown",
+                        Console = request.Category ?? "Unknown"
+                    };
+                gameToUpsert.Id = gameId;
+                await _gameRepository.UpsertAsync(gameToUpsert);
             }
 
             var item = new InventoryItem
