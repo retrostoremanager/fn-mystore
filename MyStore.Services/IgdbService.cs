@@ -113,12 +113,22 @@ public class IgdbService : IIgdbService
             });
 
             var response = await _httpClient.PostAsync(TokenUrl, content);
-            response.EnsureSuccessStatusCode();
-
             var json = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning(
+                    "Twitch OAuth failed: HTTP {StatusCode}. Response: {Response}. Check IGDB_CLIENT_ID and IGDB_CLIENT_SECRET in local.settings.json.",
+                    response.StatusCode, json.Length > 300 ? json[..300] + "..." : json);
+                return null;
+            }
+
             var tokenResponse = JsonSerializer.Deserialize<TokenResponse>(json);
             if (tokenResponse?.AccessToken == null)
+            {
+                _logger.LogWarning("Twitch OAuth returned no access_token. Response: {Response}", json);
                 return null;
+            }
 
             _cachedToken = tokenResponse.AccessToken;
             _tokenExpiry = DateTime.UtcNow.AddSeconds(Math.Max(0, tokenResponse.ExpiresIn - 60));
@@ -126,7 +136,7 @@ public class IgdbService : IIgdbService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to get IGDB/Twitch access token");
+            _logger.LogWarning(ex, "Failed to get IGDB/Twitch access token. Ensure IGDB_CLIENT_ID and IGDB_CLIENT_SECRET are set in local.settings.json.");
             return null;
         }
     }
@@ -156,7 +166,9 @@ public class IgdbService : IIgdbService
 
     private sealed class TokenResponse
     {
+        [System.Text.Json.Serialization.JsonPropertyName("access_token")]
         public string? AccessToken { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("expires_in")]
         public int ExpiresIn { get; set; }
     }
 
