@@ -7,7 +7,9 @@
     "ConnectionStrings__DefaultConnection": "Host=your-postgres-host;Port=5432;Database=mystore-db;Username=user;Password=pass;SSL Mode=Require",
     "Stripe__SecretKey": "sk_test_your_stripe_secret_key",
     "Stripe__PublishableKey": "pk_test_your_stripe_publishable_key",
-    "Stripe__WebhookSecret": "whsec_your_webhook_signing_secret"
+    "Stripe__WebhookSecret": "whsec_your_webhook_signing_secret",
+    "Cors__AllowedOrigins": "http://localhost:5173,http://localhost:3000",
+    "CORS": "*"
   },
   "Host": {
     "CORS": "*"
