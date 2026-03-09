@@ -52,12 +52,12 @@ public class IgdbService : IIgdbService
                 return [];
 
             var searchQuery = query.Trim().Replace("\"", "\\\"");
+            // No category filter - IGDB search can miss games (e.g. Silent Hill) when filter is too restrictive
             var body = $"""
                 search "{searchQuery}";
                 fields id,name,first_release_date,genres.name,platforms.name,involved_companies.company.name,cover.url;
                 limit {limit};
-                where category = (0,8,9);
-                """; // 0=main game, 8=expansion, 9=standalone expansion
+                """;
 
             using var request = new HttpRequestMessage(HttpMethod.Post, IgdbUrl);
             request.Headers.Add("Client-ID", _clientId);
