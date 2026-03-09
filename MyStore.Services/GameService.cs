@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using MyStore.Models;
 using MyStore.Repositories;
 
@@ -7,11 +8,13 @@ public class GameService : IGameService
 {
     private readonly IGameRepository _gameRepository;
     private readonly IIgdbService _igdbService;
+    private readonly ILogger<GameService> _logger;
 
-    public GameService(IGameRepository gameRepository, IIgdbService igdbService)
+    public GameService(IGameRepository gameRepository, IIgdbService igdbService, ILogger<GameService> logger)
     {
         _gameRepository = gameRepository;
         _igdbService = igdbService;
+        _logger = logger;
     }
 
     public async Task<ApiResponse<List<Game>>> SearchGamesAsync(string query)
@@ -33,6 +36,9 @@ public class GameService : IGameService
                     localIds.Add(g.Id);
                 }
             }
+            _logger.LogInformation(
+                "Game search \"{Query}\": local={LocalCount}, igdb={IgdbCount}, merged={MergedCount}",
+                searchTerm, localGames.Count, igdbGames.Count, merged.Count);
             return ApiResponse<List<Game>>.SuccessResponse(merged);
         }
         catch (Exception ex)
