@@ -37,6 +37,9 @@ fn-mystore/
 ### Accounts
 - `POST /api/accounts/register` - Register a new account (company)
 
+### Games
+- `GET /api/games/search?q={query}` - Search games (local encyclopedia; falls back to IGDB if not configured or no local matches)
+
 ### Inventory
 - `GET /api/inventory` - Get all inventory items
 - `GET /api/inventory/{id}` - Get inventory item by ID
@@ -110,6 +113,9 @@ fn-mystore/
 ### Configuration
 
 The `local.settings.json` file contains local development settings. This file is excluded from source control.
+
+**Optional - IGDB integration** (game search when not in encyclopedia):
+Add `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET` from [Twitch Developer Console](https://dev.twitch.tv/console/apps) (IGDB uses Twitch OAuth). Without these, game search only returns results from the local encyclopedia.
 
 **Required local.settings.json configuration:**
 ```json
