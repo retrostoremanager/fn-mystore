@@ -9,12 +9,14 @@ using MyStore.Services;
 var host = new HostBuilder()
     .ConfigureFunctionsWorkerDefaults(builder =>
     {
+        builder.UseMiddleware<CorsMiddleware>();
         builder.UseMiddleware<JwtAuthenticationMiddleware>();
         builder.UseMiddleware<CompanyAccessMiddleware>();
         builder.UseMiddleware<RbacMiddleware>();
     })
     .ConfigureServices((context, services) =>
     {
+        services.AddSingleton<CorsMiddleware>();
         services.AddApplicationInsightsTelemetryWorkerService();
         services.ConfigureFunctionsApplicationInsights();
 
