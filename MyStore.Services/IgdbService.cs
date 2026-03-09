@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MyStore.Models;
 
@@ -19,13 +20,18 @@ public class IgdbService : IIgdbService
     private const string TokenUrl = "https://id.twitch.tv/oauth2/token";
     private const string IgdbUrl = "https://api.igdb.com/v4/games";
 
-    public IgdbService(HttpClient httpClient, ILogger<IgdbService> logger)
+    public IgdbService(HttpClient httpClient, ILogger<IgdbService> logger, IConfiguration configuration)
     {
         _httpClient = httpClient;
         _logger = logger;
-        _clientId = Environment.GetEnvironmentVariable("IGDB_CLIENT_ID")
+        // Prefer IConfiguration (Azure app settings) then env vars (local.settings.json)
+        _clientId = configuration["IGDB_CLIENT_ID"]
+            ?? Environment.GetEnvironmentVariable("IGDB_CLIENT_ID")
+            ?? configuration["Twitch:ClientId"]
             ?? Environment.GetEnvironmentVariable("Twitch__ClientId");
-        _clientSecret = Environment.GetEnvironmentVariable("IGDB_CLIENT_SECRET")
+        _clientSecret = configuration["IGDB_CLIENT_SECRET"]
+            ?? Environment.GetEnvironmentVariable("IGDB_CLIENT_SECRET")
+            ?? configuration["Twitch:SecretKey"]
             ?? Environment.GetEnvironmentVariable("Twitch__ClientSecret");
     }
 
@@ -38,7 +44,7 @@ public class IgdbService : IIgdbService
     {
         if (!IsConfigured())
         {
-            _logger.LogDebug("IGDB not configured (missing or placeholder IGDB_CLIENT_ID/IGDB_CLIENT_SECRET)");
+            _logger.LogWarning("IGDB not configured (missing or placeholder IGDB_CLIENT_ID/IGDB_CLIENT_SECRET). Game search will use encyclopedia only.");
             return [];
         }
 
@@ -88,7 +94,9 @@ public class IgdbService : IIgdbService
             }
 
             var mapped = igdbGames.Select(MapToGame).Where(g => !string.IsNullOrEmpty(g.Title)).ToList();
-            _logger.LogInformation("IGDB search \"{Query}\" returned {Count} results", query, mapped.Count);
+            _logger.LogInformation(
+                "IGDB search \"{Query}\": raw {RawCount} items, mapped {MappedCount} results",
+                query, igdbGames.Count, mapped.Count);
             return mapped;
         }
         catch (Exception ex)
