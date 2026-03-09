@@ -22,7 +22,7 @@ public class GameRepository : IGameRepository
 
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.ExecuteAsync(
-            @"INSERT INTO game (id, title, console, release_date, publisher, genre, image_url)
+            @"INSERT INTO game_encyclopedia (id, title, console, release_date, publisher, genre, image_url)
               VALUES (@p_id, @p_title, @p_console, @p_release_date, @p_publisher, @p_genre, @p_image_url)
               ON CONFLICT (id) DO UPDATE SET
                 title = EXCLUDED.title,
@@ -41,5 +41,43 @@ public class GameRepository : IGameRepository
                 p_genre = game.Genre,
                 p_image_url = game.ImageUrl
             });
+    }
+
+    public async Task<List<Game>> SearchAsync(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return [];
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        var term = $"%{query.ToLowerInvariant()}%";
+        var sql = @"SELECT id, title, console, release_date, publisher, genre, image_url
+                    FROM game_encyclopedia
+                    WHERE LOWER(title) LIKE @p_term
+                       OR LOWER(console) LIKE @p_term
+                       OR LOWER(COALESCE(publisher,'')) LIKE @p_term
+                       OR LOWER(COALESCE(genre,'')) LIKE @p_term
+                    ORDER BY title";
+        var rows = await connection.QueryAsync<GameRow>(sql, new { p_term = term });
+        return rows.Select(r => new Game
+        {
+            Id = r.Id,
+            Title = r.Title ?? "",
+            Console = r.Console ?? "",
+            ReleaseDate = r.ReleaseDate,
+            Publisher = r.Publisher,
+            Genre = r.Genre,
+            ImageUrl = r.ImageUrl
+        }).ToList();
+    }
+
+    private sealed class GameRow
+    {
+        public string Id { get; init; } = "";
+        public string? Title { get; init; }
+        public string? Console { get; init; }
+        public DateTime? ReleaseDate { get; init; }
+        public string? Publisher { get; init; }
+        public string? Genre { get; init; }
+        public string? ImageUrl { get; init; }
     }
 }

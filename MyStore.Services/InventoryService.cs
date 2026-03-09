@@ -77,7 +77,7 @@ public class InventoryService : IInventoryService
             }
 
             // When GameId is provided, the game may not exist in our DB (e.g. from client-side mock or external API).
-            // Always upsert the game first so the inventory_item FK constraint succeeds.
+            // Always upsert the game first so the game_inventory FK constraint succeeds.
             if (!string.IsNullOrEmpty(request.GameId))
             {
                 var gameId = request.GameId!;
