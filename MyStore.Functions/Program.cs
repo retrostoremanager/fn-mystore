@@ -38,6 +38,7 @@ var host = new HostBuilder()
         services.AddScoped<IPaymentRepository, PaymentRepository>();
         
         // Register services
+        services.AddScoped<IGameService, GameService>();
         services.AddScoped<IInventoryService, InventoryService>();
         services.AddScoped<ICustomerService, CustomerService>();
         services.AddScoped<IUserService, UserService>();

@@ -29,9 +29,9 @@ public class InventoryRepository : IInventoryRepository
                      l.name as location_name,
                      g.id as game_id_val, g.title as game_title, g.console as game_console, g.release_date as game_release_date,
                      g.publisher as game_publisher, g.genre as game_genre
-              FROM inventory_item ii
+              FROM game_inventory ii
               LEFT JOIN location l ON ii.location_id = l.id
-              LEFT JOIN game g ON ii.game_id = g.id
+              LEFT JOIN game_encyclopedia g ON ii.game_id = g.id
               WHERE ii.company_id = @p_company_id
                 AND (@p_location_id IS NULL OR ii.location_id = @p_location_id)
               ORDER BY COALESCE(g.title, '')";
@@ -50,9 +50,9 @@ public class InventoryRepository : IInventoryRepository
                      l.name as location_name,
                      g.id as game_id_val, g.title as game_title, g.console as game_console, g.release_date as game_release_date,
                      g.publisher as game_publisher, g.genre as game_genre
-              FROM inventory_item ii
+              FROM game_inventory ii
               LEFT JOIN location l ON ii.location_id = l.id
-              LEFT JOIN game g ON ii.game_id = g.id
+              LEFT JOIN game_encyclopedia g ON ii.game_id = g.id
               WHERE ii.id = @p_id AND ii.company_id = @p_company_id",
             new { p_id = id, p_company_id = companyId });
         return row == null ? null : MapToInventoryItem(row);
@@ -62,7 +62,7 @@ public class InventoryRepository : IInventoryRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         var id = await connection.QuerySingleAsync<int>(
-            @"INSERT INTO inventory_item (company_id, location_id, quantity, price, cost, condition, game_id, notes, created_date, last_modified_date)
+            @"INSERT INTO game_inventory (company_id, location_id, quantity, price, cost, condition, game_id, notes, created_date, last_modified_date)
               VALUES (@p_company_id, @p_location_id, @p_quantity, @p_sell_price, @p_buy_price, @p_condition,
                   @p_game_id, @p_notes, NOW(), NOW())
               RETURNING id",
@@ -87,7 +87,7 @@ public class InventoryRepository : IInventoryRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         var rowsAffected = await connection.ExecuteAsync(
-            @"UPDATE inventory_item SET
+            @"UPDATE game_inventory SET
                 location_id = @p_location_id,
                 quantity = @p_quantity,
                 price = @p_sell_price,
@@ -117,7 +117,7 @@ public class InventoryRepository : IInventoryRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         var rowsAffected = await connection.ExecuteAsync(
-            "DELETE FROM inventory_item WHERE id = @p_id AND company_id = @p_company_id",
+            "DELETE FROM game_inventory WHERE id = @p_id AND company_id = @p_company_id",
             new { p_id = id, p_company_id = companyId });
         return rowsAffected > 0;
     }
@@ -133,9 +133,9 @@ public class InventoryRepository : IInventoryRepository
                      l.name as location_name,
                      g.id as game_id_val, g.title as game_title, g.console as game_console, g.release_date as game_release_date,
                      g.publisher as game_publisher, g.genre as game_genre
-              FROM inventory_item ii
+              FROM game_inventory ii
               LEFT JOIN location l ON ii.location_id = l.id
-              LEFT JOIN game g ON ii.game_id = g.id
+              LEFT JOIN game_encyclopedia g ON ii.game_id = g.id
               WHERE ii.company_id = @p_company_id
                 AND (@p_location_id IS NULL OR ii.location_id = @p_location_id)
                 AND (LOWER(COALESCE(g.title, '')) LIKE @p_term OR LOWER(COALESCE(g.genre, '')) LIKE @p_term
@@ -149,7 +149,7 @@ public class InventoryRepository : IInventoryRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         var rowsAffected = await connection.ExecuteAsync(
-            @"UPDATE inventory_item SET quantity = GREATEST(0, quantity + @p_change), last_modified_date = NOW()
+            @"UPDATE game_inventory SET quantity = GREATEST(0, quantity + @p_change), last_modified_date = NOW()
               WHERE id = @p_id AND company_id = @p_company_id",
             new { p_id = id, p_company_id = companyId, p_change = quantityChange });
         return rowsAffected > 0;
@@ -159,7 +159,7 @@ public class InventoryRepository : IInventoryRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         return await connection.ExecuteScalarAsync<int>(
-            "SELECT COUNT(*) FROM inventory_item WHERE location_id = @p_location_id AND company_id = @p_company_id",
+            "SELECT COUNT(*) FROM game_inventory WHERE location_id = @p_location_id AND company_id = @p_company_id",
             new { p_location_id = locationId, p_company_id = companyId });
     }
 
@@ -167,7 +167,7 @@ public class InventoryRepository : IInventoryRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         return await connection.ExecuteAsync(
-            "DELETE FROM inventory_item WHERE location_id = @p_location_id AND company_id = @p_company_id",
+            "DELETE FROM game_inventory WHERE location_id = @p_location_id AND company_id = @p_company_id",
             new { p_location_id = locationId, p_company_id = companyId });
     }
 
@@ -175,7 +175,7 @@ public class InventoryRepository : IInventoryRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         return await connection.ExecuteAsync(
-            @"UPDATE inventory_item SET location_id = @p_to_id, last_modified_date = NOW()
+            @"UPDATE game_inventory SET location_id = @p_to_id, last_modified_date = NOW()
               WHERE location_id = @p_from_id AND company_id = @p_company_id",
             new { p_from_id = fromLocationId, p_to_id = toLocationId, p_company_id = companyId });
     }
@@ -225,9 +225,9 @@ public class InventoryRepository : IInventoryRepository
 
         var rows = await connection.QueryAsync<(int location_id, string location_name, int quantity, string condition)>(
             @"SELECT ii.location_id, COALESCE(l.name, '') as location_name, ii.quantity, COALESCE(ii.condition, '') as condition
-              FROM inventory_item ii
+              FROM game_inventory ii
               LEFT JOIN location l ON ii.location_id = l.id
-              LEFT JOIN game g ON ii.game_id = g.id
+              LEFT JOIN game_encyclopedia g ON ii.game_id = g.id
               WHERE ii.company_id = @p_company_id
                 AND COALESCE(g.title, '') = @p_name
                 AND ((ii.game_id IS NULL AND @p_game_id IS NULL) OR ii.game_id = @p_game_id)
