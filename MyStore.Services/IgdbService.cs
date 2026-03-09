@@ -29,11 +29,16 @@ public class IgdbService : IIgdbService
             ?? Environment.GetEnvironmentVariable("Twitch__ClientSecret");
     }
 
+    private bool IsConfigured() =>
+        !string.IsNullOrWhiteSpace(_clientId) && !string.IsNullOrWhiteSpace(_clientSecret)
+        && !string.Equals(_clientId, "not-configured", StringComparison.OrdinalIgnoreCase)
+        && !string.Equals(_clientSecret, "not-configured", StringComparison.OrdinalIgnoreCase);
+
     public async Task<List<Game>> SearchAsync(string query, int limit = 20)
     {
-        if (string.IsNullOrWhiteSpace(_clientId) || string.IsNullOrWhiteSpace(_clientSecret))
+        if (!IsConfigured())
         {
-            _logger.LogDebug("IGDB not configured (missing IGDB_CLIENT_ID or IGDB_CLIENT_SECRET)");
+            _logger.LogDebug("IGDB not configured (missing or placeholder IGDB_CLIENT_ID/IGDB_CLIENT_SECRET)");
             return [];
         }
 
