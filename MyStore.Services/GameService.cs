@@ -18,15 +18,22 @@ public class GameService : IGameService
     {
         try
         {
-            var localGames = await _gameRepository.SearchAsync(query ?? "");
+            var searchTerm = query ?? "";
+            var localGames = await _gameRepository.SearchAsync(searchTerm);
+            var igdbGames = await _igdbService.SearchAsync(searchTerm, limit: 20);
 
-            // If game is in encyclopedia, return local results
-            if (localGames.Count > 0)
-                return ApiResponse<List<Game>>.SuccessResponse(localGames);
-
-            // Not in encyclopedia: search IGDB; game will be added when user adds to inventory
-            var igdbGames = await _igdbService.SearchAsync(query ?? "", limit: 20);
-            return ApiResponse<List<Game>>.SuccessResponse(igdbGames);
+            // Merge: local encyclopedia first (games already added), then IGDB, deduped by id
+            var localIds = new HashSet<string>(localGames.Select(g => g.Id), StringComparer.OrdinalIgnoreCase);
+            var merged = localGames.ToList();
+            foreach (var g in igdbGames)
+            {
+                if (!string.IsNullOrEmpty(g.Id) && !localIds.Contains(g.Id))
+                {
+                    merged.Add(g);
+                    localIds.Add(g.Id);
+                }
+            }
+            return ApiResponse<List<Game>>.SuccessResponse(merged);
         }
         catch (Exception ex)
         {
