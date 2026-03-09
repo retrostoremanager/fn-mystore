@@ -49,7 +49,10 @@ public class IgdbService : IIgdbService
         {
             var token = await GetAccessTokenAsync();
             if (string.IsNullOrEmpty(token))
+            {
+                _logger.LogWarning("IGDB search \"{Query}\" skipped: failed to obtain Twitch access token", query);
                 return [];
+            }
 
             var searchQuery = query.Trim().Replace("\"", "\\\"");
             // No category filter - IGDB search can miss games (e.g. Silent Hill) when filter is too restrictive
@@ -65,18 +68,32 @@ public class IgdbService : IIgdbService
             request.Content = new StringContent(body, Encoding.UTF8, "text/plain");
 
             var response = await _httpClient.SendAsync(request);
-            response.EnsureSuccessStatusCode();
-
             var json = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning(
+                    "IGDB API error for query \"{Query}\": HTTP {StatusCode}. Response: {Response}",
+                    query, response.StatusCode, json.Length > 500 ? json[..500] + "..." : json);
+                return [];
+            }
+
             var igdbGames = JsonSerializer.Deserialize<List<IgdbGame>>(json);
             if (igdbGames == null || igdbGames.Count == 0)
+            {
+                _logger.LogInformation(
+                    "IGDB search \"{Query}\" returned 0 results. Raw response length: {Length}",
+                    query, json.Length);
                 return [];
+            }
 
-            return igdbGames.Select(MapToGame).Where(g => !string.IsNullOrEmpty(g.Title)).ToList();
+            var mapped = igdbGames.Select(MapToGame).Where(g => !string.IsNullOrEmpty(g.Title)).ToList();
+            _logger.LogInformation("IGDB search \"{Query}\" returned {Count} results", query, mapped.Count);
+            return mapped;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "IGDB search failed for query {Query}", query);
+            _logger.LogWarning(ex, "IGDB search failed for query \"{Query}\"", query);
             return [];
         }
     }
