@@ -32,6 +32,7 @@ public class JwtAuthenticationMiddleware : IFunctionsWorkerMiddleware
         "VerifyEmail",
         "ResendVerification",
         "Login",
+        "GetCompanyBySlug",
         "ForgotPassword",
         "ResetPassword",
         "StripeWebhook",

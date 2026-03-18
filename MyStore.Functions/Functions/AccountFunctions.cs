@@ -83,6 +83,40 @@ public class AccountFunctions
         }
     }
 
+    /// <summary>
+    /// GET /api/accounts/company-by-slug/{slug} - Get company info by slug for login page display.
+    /// Returns 404 if company not found.
+    /// </summary>
+    [Function("GetCompanyBySlug")]
+    public async Task<HttpResponseData> GetCompanyBySlug(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "accounts/company-by-slug/{slug}")] HttpRequestData req,
+        string slug)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(slug))
+            {
+                var errorResponse = ApiResponse<CompanyBySlugResponse?>.ErrorResponse("Company slug is required.");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+            }
+
+            var response = await _companyService.GetCompanyBySlugAsync(slug);
+
+            var statusCode = response.Success
+                ? (response.Data != null ? HttpStatusCode.OK : HttpStatusCode.NotFound)
+                : HttpStatusCode.NotFound;
+
+            return await CreateHttpResponse(req, response, statusCode);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting company by slug {Slug}", slug);
+            var errorResponse = ApiResponse<CompanyBySlugResponse?>.ErrorResponse(
+                "An error occurred while looking up the company.");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
+        }
+    }
+
     [Function("Login")]
     public async Task<HttpResponseData> Login(
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "accounts/login")] HttpRequestData req)
