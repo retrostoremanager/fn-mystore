@@ -4,6 +4,10 @@ public class Company
 {
     public int Id { get; set; }
     public string? CompanyName { get; set; }
+    /// <summary>
+    /// URL-friendly identifier for path-based login (e.g. /c/acme/login). Unique across companies.
+    /// </summary>
+    public string? Slug { get; set; }
     public string Email { get; set; } = string.Empty;
     public string? PasswordHash { get; set; }
     public string Status { get; set; } = "Pending"; // Pending, Active, Suspended, Cancelled
@@ -148,6 +152,10 @@ public class RegisterAccountResponse
     public DateTime TrialStartDate { get; set; }
     public DateTime TrialEndDate { get; set; }
     public string SubscriptionTier { get; set; } = string.Empty;
+    /// <summary>
+    /// Company slug for path-based login URL (e.g. /c/acme/login).
+    /// </summary>
+    public string? Slug { get; set; }
 }
 
 /// <summary>
@@ -212,11 +220,26 @@ public class ResendVerificationEmailRequest
 
 /// <summary>
 /// Request model for login (custom auth).
+/// Slug is required for path-based login - scopes auth to the specified company.
 /// </summary>
 public class LoginRequest
 {
     public string Email { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
+    /// <summary>
+    /// Company slug from URL (e.g. "acme" from /c/acme/login). Required for path-based login.
+    /// </summary>
+    public string? Slug { get; set; }
+}
+
+/// <summary>
+/// Minimal company info for login page display (validate slug exists, show company name).
+/// </summary>
+public class CompanyBySlugResponse
+{
+    public int Id { get; set; }
+    public string? CompanyName { get; set; }
+    public string Slug { get; set; } = string.Empty;
 }
 
 /// <summary>

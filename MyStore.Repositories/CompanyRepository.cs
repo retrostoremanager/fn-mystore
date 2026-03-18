@@ -39,6 +39,14 @@ public class CompanyRepository : ICompanyRepository
             new { p_email = email });
     }
 
+    public async Task<Company?> GetBySlugAsync(string slug)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        return await connection.QueryFirstOrDefaultAsync<Company>(
+            "SELECT * FROM company_get_by_slug(@p_slug)",
+            new { p_slug = slug });
+    }
+
     public async Task<IEnumerable<Company>> GetExpiringTrialsAsync(int daysRemaining)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
@@ -105,7 +113,7 @@ public class CompanyRepository : ICompanyRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         var id = await connection.QuerySingleAsync<int>(
-            "SELECT company_create(@p_email, @p_status, @p_trial_start_date, @p_trial_end_date, @p_subscription_tier, @p_created_date, @p_verification_token, @p_verification_token_expires::timestamptz, @p_last_modified_date::timestamptz, @p_password_hash, @p_company_name)",
+            "SELECT company_create(@p_email, @p_status, @p_trial_start_date, @p_trial_end_date, @p_subscription_tier, @p_created_date, @p_verification_token, @p_verification_token_expires::timestamptz, @p_last_modified_date::timestamptz, @p_password_hash, @p_company_name, @p_slug)",
             new
             {
                 p_email = company.Email,
@@ -118,7 +126,8 @@ public class CompanyRepository : ICompanyRepository
                 p_verification_token_expires = company.VerificationTokenExpires,
                 p_last_modified_date = company.LastModifiedDate,
                 p_password_hash = company.PasswordHash,
-                p_company_name = company.CompanyName
+                p_company_name = company.CompanyName,
+                p_slug = (string?)null
             });
 
         company.Id = id;

@@ -7,6 +7,10 @@ public interface ICompanyRepository
     Task<Company?> GetByIdAsync(int id);
     Task<Company?> GetByEmailAsync(string email);
     /// <summary>
+    /// Gets company by slug for path-based login (/c/{slug}/login).
+    /// </summary>
+    Task<Company?> GetBySlugAsync(string slug);
+    /// <summary>
     /// Gets companies in trial with expiration in exactly the specified number of days
     /// who have not yet received that notification.
     /// </summary>
