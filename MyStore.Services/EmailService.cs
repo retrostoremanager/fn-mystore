@@ -1,6 +1,7 @@
 using System.Text;
 using Azure;
 using Azure.Communication.Email;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace MyStore.Services;
@@ -30,15 +31,22 @@ public class EmailService : IEmailService
     /// <summary>
     /// Initializes a new instance of the EmailService.
     /// </summary>
+    /// <param name="configuration">Configuration (app settings, Key Vault refs).</param>
     /// <param name="logger">Logger for email operations.</param>
     /// <exception cref="InvalidOperationException">Thrown when required configuration is missing.</exception>
-    public EmailService(ILogger<EmailService> logger)
+    public EmailService(IConfiguration configuration, ILogger<EmailService> logger)
     {
         _logger = logger;
-        
-        // Get Azure Communication Services connection string from environment
-        var connectionString = Environment.GetEnvironmentVariable("AzureCommunicationServices__ConnectionString");
-        
+
+        // Prefer IConfiguration (Azure app settings / Key Vault) then env vars (local.settings.json)
+        static string? GetConfig(IConfiguration config, string key)
+        {
+            var val = config[key] ?? Environment.GetEnvironmentVariable(key);
+            return string.IsNullOrWhiteSpace(val) ? null : val;
+        }
+
+        var connectionString = GetConfig(configuration, "AzureCommunicationServices__ConnectionString");
+
         if (string.IsNullOrEmpty(connectionString))
         {
             _logger.LogWarning("AzureCommunicationServices__ConnectionString is not configured. Email functionality will be disabled.");
@@ -51,29 +59,23 @@ public class EmailService : IEmailService
             _billingBaseUrl = "https://app.mystore.com/dashboard/billing";
             return;
         }
-        
-        _emailClient = new EmailClient(connectionString);
-        
-        _fromEmail = Environment.GetEnvironmentVariable("Email__FromEmail")
-            ?? throw new InvalidOperationException("Email__FromEmail environment variable is not configured. This should be your verified domain email address (e.g., noreply@yourdomain.com)");
-        
-        _fromName = Environment.GetEnvironmentVariable("Email__FromName")
-            ?? "MyStore";
-        
-        _verificationBaseUrl = Environment.GetEnvironmentVariable("VerificationBaseUrl")
-            ?? "https://app.mystore.com/verify";
 
-        _passwordResetBaseUrl = Environment.GetEnvironmentVariable("PasswordResetBaseUrl")
-            ?? "https://app.mystore.com/reset-password";
+        _emailClient = new EmailClient(connectionString);
+
+        _fromEmail = GetConfig(configuration, "Email__FromEmail")
+            ?? throw new InvalidOperationException("Email__FromEmail is not configured. This should be your verified domain email address (e.g., noreply@yourdomain.com)");
+
+        _fromName = GetConfig(configuration, "Email__FromName") ?? "MyStore";
+
+        _verificationBaseUrl = GetConfig(configuration, "VerificationBaseUrl") ?? "https://app.mystore.com/verify";
+        _passwordResetBaseUrl = GetConfig(configuration, "PasswordResetBaseUrl") ?? "https://app.mystore.com/reset-password";
 
         // Derive from VerificationBaseUrl when not explicitly set (e.g. https://dev.retrostoremanager.com/verify -> .../set-password)
         var appBase = _verificationBaseUrl.TrimEnd('/').Replace("/verify", "", StringComparison.OrdinalIgnoreCase);
         if (string.IsNullOrWhiteSpace(appBase)) appBase = "https://app.mystore.com";
-        _userInviteBaseUrl = Environment.GetEnvironmentVariable("UserInviteBaseUrl")
-            ?? $"{appBase.TrimEnd('/')}/set-password";
+        _userInviteBaseUrl = GetConfig(configuration, "UserInviteBaseUrl") ?? $"{appBase.TrimEnd('/')}/set-password";
 
-        _billingBaseUrl = Environment.GetEnvironmentVariable("BillingBaseUrl")
-            ?? "https://app.mystore.com/dashboard/billing";
+        _billingBaseUrl = GetConfig(configuration, "BillingBaseUrl") ?? "https://app.mystore.com/dashboard/billing";
     }
 
     /// <summary>
