@@ -24,6 +24,7 @@ public class EmailService : IEmailService
     private readonly string _fromName;
     private readonly string _verificationBaseUrl;
     private readonly string _passwordResetBaseUrl;
+    private readonly string _userInviteBaseUrl;
     private readonly string _billingBaseUrl;
 
     /// <summary>
@@ -46,6 +47,7 @@ public class EmailService : IEmailService
             _fromName = "MyStore";
             _verificationBaseUrl = "https://app.mystore.com/verify";
             _passwordResetBaseUrl = "https://app.mystore.com/reset-password";
+            _userInviteBaseUrl = "https://app.mystore.com/set-password";
             _billingBaseUrl = "https://app.mystore.com/dashboard/billing";
             return;
         }
@@ -63,6 +65,9 @@ public class EmailService : IEmailService
 
         _passwordResetBaseUrl = Environment.GetEnvironmentVariable("PasswordResetBaseUrl")
             ?? "https://app.mystore.com/reset-password";
+
+        _userInviteBaseUrl = Environment.GetEnvironmentVariable("UserInviteBaseUrl")
+            ?? "https://app.mystore.com/set-password";
 
         _billingBaseUrl = Environment.GetEnvironmentVariable("BillingBaseUrl")
             ?? "https://app.mystore.com/dashboard/billing";
@@ -344,6 +349,100 @@ public class EmailService : IEmailService
                 ErrorMessage = ex.Message
             };
         }
+    }
+
+    /// <summary>
+    /// Sends an invite email to a new user (employee) with a link to set their password.
+    /// </summary>
+    public async Task<EmailSendResult> SendUserInviteEmailAsync(string toEmail, string inviteToken, string companyName, string firstName)
+    {
+        if (_emailClient == null)
+        {
+            _logger.LogWarning("Email service not configured. Skipping user invite email for {Email}", toEmail);
+            return new EmailSendResult { Success = true, ErrorMessage = "Email service not configured" };
+        }
+
+        try
+        {
+            var inviteUrl = $"{_userInviteBaseUrl}?token={Uri.EscapeDataString(inviteToken)}";
+            var emailContent = new EmailContent("Set Up Your Retro Store Manager Password")
+            {
+                PlainText = GetUserInvitePlainText(firstName, companyName, inviteUrl),
+                Html = GetUserInviteHtml(firstName, companyName, inviteUrl)
+            };
+
+            var emailMessage = new EmailMessage(
+                senderAddress: _fromEmail,
+                recipientAddress: toEmail,
+                content: emailContent
+            );
+
+            var success = await SendWithRetryAsync(emailMessage);
+            if (success)
+            {
+                _logger.LogInformation("User invite email sent successfully to {Email}", toEmail);
+                return new EmailSendResult { Success = true };
+            }
+
+            _logger.LogError("Failed to send user invite email to {Email} after retries", toEmail);
+            return new EmailSendResult { Success = false, ErrorMessage = "Failed to send email after retries" };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Exception occurred while sending user invite email to {Email}", toEmail);
+            return new EmailSendResult { Success = false, ErrorMessage = ex.Message };
+        }
+    }
+
+    private static string GetUserInvitePlainText(string firstName, string companyName, string inviteUrl)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"Hello {firstName},");
+        sb.AppendLine();
+        sb.AppendLine($"You've been invited to join {companyName} on Retro Store Manager.");
+        sb.AppendLine();
+        sb.AppendLine("Click the link below to set up your password and activate your account:");
+        sb.AppendLine();
+        sb.AppendLine(inviteUrl);
+        sb.AppendLine();
+        sb.AppendLine("This link will expire in 7 days.");
+        sb.AppendLine();
+        sb.AppendLine("If you did not expect this invitation, please ignore this email.");
+        sb.AppendLine();
+        sb.AppendLine("Best regards,");
+        sb.AppendLine("The Retro Store Manager Team");
+        return sb.ToString();
+    }
+
+    private static string GetUserInviteHtml(string firstName, string companyName, string inviteUrl)
+    {
+        return $@"
+<!DOCTYPE html>
+<html lang=""en"">
+<head>
+    <meta charset=""UTF-8"">
+    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+    <title>Set Up Your Password</title>
+    <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .container {{ background-color: #fff; border-radius: 8px; padding: 40px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+        .button {{ display: inline-block; padding: 14px 32px; background-color: #3498db; color: #fff !important; text-decoration: none; border-radius: 5px; font-weight: bold; }}
+    </style>
+</head>
+<body>
+    <div class=""container"">
+        <h1>You're Invited!</h1>
+        <p>Hello {firstName},</p>
+        <p>You've been invited to join <strong>{companyName}</strong> on Retro Store Manager.</p>
+        <p>Click the button below to set up your password and activate your account:</p>
+        <p><a href=""{inviteUrl}"" class=""button"">Set Up Password</a></p>
+        <p>Or copy and paste this link: <a href=""{inviteUrl}"">{inviteUrl}</a></p>
+        <p><strong>This link expires in 7 days.</strong></p>
+        <p>If you did not expect this invitation, please ignore this email.</p>
+        <p>Best regards,<br>The Retro Store Manager Team</p>
+    </div>
+</body>
+</html>";
     }
 
     /// <summary>

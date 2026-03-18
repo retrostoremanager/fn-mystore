@@ -16,6 +16,7 @@ namespace MyStore.Tests.Functions;
 public class AccountFunctionsTests
 {
     private readonly Mock<ICompanyService> _serviceMock;
+    private readonly Mock<IUserService> _userServiceMock;
     private readonly Mock<ILoggerFactory> _loggerFactoryMock;
     private readonly Mock<ILogger<AccountFunctions>> _loggerMock;
     private readonly AccountFunctions _functions;
@@ -23,6 +24,7 @@ public class AccountFunctionsTests
     public AccountFunctionsTests()
     {
         _serviceMock = new Mock<ICompanyService>();
+        _userServiceMock = new Mock<IUserService>();
         _loggerMock = new Mock<ILogger<AccountFunctions>>();
         _loggerFactoryMock = new Mock<ILoggerFactory>();
         
@@ -30,7 +32,7 @@ public class AccountFunctionsTests
             .Setup(f => f.CreateLogger(It.IsAny<string>()))
             .Returns(_loggerMock.Object);
         
-        _functions = new AccountFunctions(_serviceMock.Object, _loggerFactoryMock.Object);
+        _functions = new AccountFunctions(_serviceMock.Object, _userServiceMock.Object, _loggerFactoryMock.Object);
     }
 
     /// <summary>

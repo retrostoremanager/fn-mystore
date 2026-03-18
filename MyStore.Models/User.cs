@@ -15,6 +15,12 @@ public class User
     public string Status { get; set; } = "active"; // pending_invitation | active | removed
     public DateTime CreatedDate { get; set; }
     public DateTime? LastModifiedDate { get; set; }
+    /// <summary>Token for invite/set-password flow. Used when creating new employee users.</summary>
+    public string? PasswordInviteToken { get; set; }
+    /// <summary>Expiration for invite token. Typically 7 days from creation.</summary>
+    public DateTime? PasswordInviteTokenExpires { get; set; }
+    /// <summary>BCrypt hash for employee login. Not returned in API responses; used internally for auth.</summary>
+    public string? PasswordHash { get; set; }
     public List<string> Roles { get; set; } = new();
 }
 
@@ -40,4 +46,23 @@ public class UpdateUserRequest
     public string? Phone { get; set; }
     public List<int>? RoleIds { get; set; }
     public bool? IsActive { get; set; }
+}
+
+/// <summary>
+/// Request to set password from user invite (employee onboarding).
+/// </summary>
+public class SetPasswordFromInviteRequest
+{
+    public string Token { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Response after successfully setting password from invite. Includes slug for redirect to company login.
+/// </summary>
+public class SetPasswordFromInviteResponse
+{
+    public bool Success { get; set; }
+    public string Slug { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
 }

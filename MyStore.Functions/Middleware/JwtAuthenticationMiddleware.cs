@@ -35,6 +35,7 @@ public class JwtAuthenticationMiddleware : IFunctionsWorkerMiddleware
         "GetCompanyBySlug",
         "ForgotPassword",
         "ResetPassword",
+        "SetPasswordForInvite",
         "StripeWebhook",
         "Health"
     };
