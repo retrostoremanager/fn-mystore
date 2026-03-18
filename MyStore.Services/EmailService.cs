@@ -66,8 +66,11 @@ public class EmailService : IEmailService
         _passwordResetBaseUrl = Environment.GetEnvironmentVariable("PasswordResetBaseUrl")
             ?? "https://app.mystore.com/reset-password";
 
+        // Derive from VerificationBaseUrl when not explicitly set (e.g. https://dev.retrostoremanager.com/verify -> .../set-password)
+        var appBase = _verificationBaseUrl.TrimEnd('/').Replace("/verify", "", StringComparison.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(appBase)) appBase = "https://app.mystore.com";
         _userInviteBaseUrl = Environment.GetEnvironmentVariable("UserInviteBaseUrl")
-            ?? "https://app.mystore.com/set-password";
+            ?? $"{appBase.TrimEnd('/')}/set-password";
 
         _billingBaseUrl = Environment.GetEnvironmentVariable("BillingBaseUrl")
             ?? "https://app.mystore.com/dashboard/billing";
