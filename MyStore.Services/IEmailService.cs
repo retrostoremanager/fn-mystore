@@ -29,6 +29,16 @@ public interface IEmailService
     /// <param name="daysRemaining">Days remaining in trial (7, 3, or 1).</param>
     /// <returns>An EmailSendResult indicating success or failure of the email send operation.</returns>
     Task<EmailSendResult> SendTrialExpirationEmailAsync(string toEmail, int daysRemaining);
+
+    /// <summary>
+    /// Sends an invite email to a new user (employee) with a link to set their password.
+    /// </summary>
+    /// <param name="toEmail">The email address of the recipient.</param>
+    /// <param name="inviteToken">The secure token for the set-password link.</param>
+    /// <param name="companyName">The name of the company for personalization.</param>
+    /// <param name="firstName">The user's first name for personalization.</param>
+    /// <returns>An EmailSendResult indicating success or failure of the email send operation.</returns>
+    Task<EmailSendResult> SendUserInviteEmailAsync(string toEmail, string inviteToken, string companyName, string firstName);
 }
 
 /// <summary>

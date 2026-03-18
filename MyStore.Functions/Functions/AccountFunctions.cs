@@ -13,11 +13,13 @@ namespace MyStore.Functions;
 public class AccountFunctions
 {
     private readonly ICompanyService _companyService;
+    private readonly IUserService _userService;
     private readonly ILogger _logger;
 
-    public AccountFunctions(ICompanyService companyService, ILoggerFactory loggerFactory)
+    public AccountFunctions(ICompanyService companyService, IUserService userService, ILoggerFactory loggerFactory)
     {
         _companyService = companyService;
+        _userService = userService;
         _logger = loggerFactory.CreateLogger<AccountFunctions>();
     }
 
@@ -408,6 +410,57 @@ public class AccountFunctions
         {
             _logger.LogError(ex, "Error processing reset password");
             var errorResponse = ApiResponse<ResetPasswordResponse>.ErrorResponse(
+                "An unexpected error occurred. Please try again later.",
+                new List<string> { ex.Message }
+            );
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
+        }
+    }
+
+    /// <summary>
+    /// POST /api/accounts/set-password-invite - Set password from user invite (employee onboarding).
+    /// Returns company slug for redirect to /c/{slug}/login.
+    /// </summary>
+    [Function("SetPasswordForInvite")]
+    public async Task<HttpResponseData> SetPasswordForInvite(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "accounts/set-password-invite")] HttpRequestData req)
+    {
+        try
+        {
+            _logger.LogInformation("Processing set password from invite request");
+
+            var requestBody = await new StreamReader(req.Body).ReadToEndAsync();
+            SetPasswordFromInviteRequest? request;
+            try
+            {
+                request = JsonSerializer.Deserialize<SetPasswordFromInviteRequest>(requestBody, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            }
+            catch (JsonException)
+            {
+                var errorResponse = ApiResponse<SetPasswordFromInviteResponse>.ErrorResponse("Invalid request body");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+            }
+
+            if (request == null)
+            {
+                var errorResponse = ApiResponse<SetPasswordFromInviteResponse>.ErrorResponse("Invalid request body");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+            }
+
+            var response = await _userService.SetPasswordFromInviteAsync(request);
+
+            var statusCode = response.Success ? HttpStatusCode.OK : HttpStatusCode.BadRequest;
+            if (!response.Success && response.Errors?.Any(e => e.Contains("expired", StringComparison.OrdinalIgnoreCase) || e.Contains("Invalid", StringComparison.OrdinalIgnoreCase)) == true)
+            {
+                statusCode = HttpStatusCode.Gone; // 410 for expired/invalid token
+            }
+
+            return await CreateHttpResponse(req, response, statusCode);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing set password from invite");
+            var errorResponse = ApiResponse<SetPasswordFromInviteResponse>.ErrorResponse(
                 "An unexpected error occurred. Please try again later.",
                 new List<string> { ex.Message }
             );

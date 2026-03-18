@@ -15,6 +15,7 @@ namespace MyStore.Services;
 public class CompanyService : ICompanyService
 {
     private readonly ICompanyRepository _repository;
+    private readonly IUserRepository _userRepository;
     private readonly IEmailService _emailService;
     private readonly IPaymentService _paymentService;
     private readonly IConfiguration _configuration;
@@ -29,9 +30,10 @@ public class CompanyService : ICompanyService
     private const int MaxForgotPasswordAttemptsPerHour = 3;
     private static readonly TimeSpan RateLimitWindow = TimeSpan.FromHours(1);
 
-    public CompanyService(ICompanyRepository repository, IEmailService emailService, IPaymentService paymentService, IConfiguration configuration, ILogger<CompanyService> logger)
+    public CompanyService(ICompanyRepository repository, IUserRepository userRepository, IEmailService emailService, IPaymentService paymentService, IConfiguration configuration, ILogger<CompanyService> logger)
     {
         _repository = repository;
+        _userRepository = userRepository;
         _emailService = emailService;
         _paymentService = paymentService;
         _configuration = configuration;
@@ -90,37 +92,53 @@ public class CompanyService : ICompanyService
                 return ApiResponse<LoginResponse>.ErrorResponse("Invalid email or password.");
             }
 
-            // Verify email matches this company (owner login)
+            // Try owner login first, then employee (user) login
             var trimmedEmail = request.Email.Trim().ToLowerInvariant();
-            if (!string.Equals(company.Email, trimmedEmail, StringComparison.OrdinalIgnoreCase))
+
+            if (string.Equals(company.Email, trimmedEmail, StringComparison.OrdinalIgnoreCase))
             {
-                return ApiResponse<LoginResponse>.ErrorResponse("Invalid email or password.");
+                // Owner login
+                if (string.IsNullOrEmpty(company.PasswordHash))
+                {
+                    return ApiResponse<LoginResponse>.ErrorResponse("Account was created before password sign-in was enabled. Please sign up again or use password reset.");
+                }
+
+                if (!BCrypt.Net.BCrypt.Verify(request.Password, company.PasswordHash))
+                {
+                    return ApiResponse<LoginResponse>.ErrorResponse("Invalid email or password.");
+                }
+
+                if (!string.Equals(company.Status, "Active", StringComparison.OrdinalIgnoreCase))
+                {
+                    return ApiResponse<LoginResponse>.ErrorResponse("Please verify your email before signing in.");
+                }
+
+                var token = GenerateJwtToken(company.Id, company.Email);
+                return ApiResponse<LoginResponse>.SuccessResponse(new LoginResponse
+                {
+                    Token = token,
+                    CompanyId = company.Id,
+                    Email = company.Email
+                }, "Login successful.");
             }
 
-            if (string.IsNullOrEmpty(company.PasswordHash))
+            // Employee (user) login - check user table for this company
+            var userWithPassword = await _userRepository.GetByEmailWithPasswordAsync(trimmedEmail, company.Id);
+            if (userWithPassword != null && !string.IsNullOrEmpty(userWithPassword.PasswordHash))
             {
-                return ApiResponse<LoginResponse>.ErrorResponse("Account was created before password sign-in was enabled. Please sign up again or use password reset.");
+                if (BCrypt.Net.BCrypt.Verify(request.Password, userWithPassword.PasswordHash))
+                {
+                    var userToken = GenerateJwtToken(company.Id, userWithPassword.Email);
+                    return ApiResponse<LoginResponse>.SuccessResponse(new LoginResponse
+                    {
+                        Token = userToken,
+                        CompanyId = company.Id,
+                        Email = userWithPassword.Email
+                    }, "Login successful.");
+                }
             }
 
-            if (!BCrypt.Net.BCrypt.Verify(request.Password, company.PasswordHash))
-            {
-                return ApiResponse<LoginResponse>.ErrorResponse("Invalid email or password.");
-            }
-
-            if (!string.Equals(company.Status, "Active", StringComparison.OrdinalIgnoreCase))
-            {
-                return ApiResponse<LoginResponse>.ErrorResponse("Please verify your email before signing in.");
-            }
-
-            var token = GenerateJwtToken(company.Id, company.Email);
-            var response = new LoginResponse
-            {
-                Token = token,
-                CompanyId = company.Id,
-                Email = company.Email
-            };
-
-            return ApiResponse<LoginResponse>.SuccessResponse(response, "Login successful.");
+            return ApiResponse<LoginResponse>.ErrorResponse("Invalid email or password.");
         }
         catch (Exception ex)
         {

@@ -13,6 +13,7 @@ namespace MyStore.Tests.Services;
 public class CompanyServiceTests
 {
     private readonly Mock<ICompanyRepository> _repositoryMock;
+    private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<IEmailService> _emailServiceMock;
     private readonly Mock<IPaymentService> _paymentServiceMock;
     private readonly Mock<IConfiguration> _configurationMock;
@@ -22,6 +23,7 @@ public class CompanyServiceTests
     public CompanyServiceTests()
     {
         _repositoryMock = new Mock<ICompanyRepository>();
+        _userRepositoryMock = new Mock<IUserRepository>();
         _emailServiceMock = new Mock<IEmailService>();
         _paymentServiceMock = new Mock<IPaymentService>();
         _configurationMock = new Mock<IConfiguration>();
@@ -30,7 +32,7 @@ public class CompanyServiceTests
             .Setup(p => p.StorePaymentMethodAsync(It.IsAny<int>(), It.IsAny<StorePaymentMethodRequest>()))
             .ReturnsAsync(ApiResponse<StorePaymentMethodResponse>.SuccessResponse(
                 new StorePaymentMethodResponse { Id = 1, Last4 = "4242", ExpirationMonth = 12, ExpirationYear = 34, IsDefault = true }));
-        _service = new CompanyService(_repositoryMock.Object, _emailServiceMock.Object, _paymentServiceMock.Object, _configurationMock.Object, _loggerMock.Object);
+        _service = new CompanyService(_repositoryMock.Object, _userRepositoryMock.Object, _emailServiceMock.Object, _paymentServiceMock.Object, _configurationMock.Object, _loggerMock.Object);
     }
 
     /// <summary>

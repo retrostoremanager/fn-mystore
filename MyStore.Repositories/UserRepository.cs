@@ -87,11 +87,37 @@ public class UserRepository : IUserRepository
         return await connection.QueryFirstOrDefaultAsync<User>(new CommandDefinition(sql, new { email, companyId }, cancellationToken: cancellationToken));
     }
 
+    public async Task<User?> GetByEmailWithPasswordAsync(string email, int companyId, CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            SELECT id, company_id, email, first_name, last_name, user_type, phone, status, created_date, last_modified_date, password_hash
+            FROM "user"
+            WHERE email = @email AND company_id = @companyId AND status = 'active'
+            """;
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        return await connection.QueryFirstOrDefaultAsync<User>(new CommandDefinition(sql, new { email, companyId }, cancellationToken: cancellationToken));
+    }
+
+    public async Task<User?> GetByInviteTokenAsync(string token, CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            SELECT id, company_id, email, first_name, last_name, user_type, phone, status, created_date, last_modified_date
+            FROM "user"
+            WHERE password_invite_token = @token
+              AND password_invite_token_expires > NOW()
+              AND status = 'pending_invitation'
+            """;
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        return await connection.QueryFirstOrDefaultAsync<User>(new CommandDefinition(sql, new { token }, cancellationToken: cancellationToken));
+    }
+
     public async Task<User> CreateAsync(User user, CancellationToken cancellationToken = default)
     {
         const string sql = """
-            INSERT INTO "user" (company_id, email, first_name, last_name, user_type, phone, status)
-            VALUES (@companyId, @email, @firstName, @lastName, @userType, @phone, @status)
+            INSERT INTO "user" (company_id, email, first_name, last_name, user_type, phone, status, password_invite_token, password_invite_token_expires)
+            VALUES (@companyId, @email, @firstName, @lastName, @userType, @phone, @status, @passwordInviteToken, @passwordInviteTokenExpires)
             RETURNING id, company_id, email, first_name, last_name, user_type, phone, status, created_date, last_modified_date
             """;
 
@@ -104,9 +130,28 @@ public class UserRepository : IUserRepository
             user.LastName,
             user.UserType,
             user.Phone,
-            user.Status
+            user.Status,
+            user.PasswordInviteToken,
+            user.PasswordInviteTokenExpires
         }, cancellationToken: cancellationToken));
         return created;
+    }
+
+    public async Task<bool> UpdatePasswordFromInviteAsync(int userId, string passwordHash, CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            UPDATE "user"
+            SET password_hash = @passwordHash,
+                password_invite_token = NULL,
+                password_invite_token_expires = NULL,
+                status = 'active',
+                last_modified_date = NOW()
+            WHERE id = @userId AND status = 'pending_invitation'
+            """;
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        var rows = await connection.ExecuteAsync(new CommandDefinition(sql, new { userId, passwordHash }, cancellationToken: cancellationToken));
+        return rows > 0;
     }
 
     public async Task<User?> UpdateAsync(int id, User user, int companyId, CancellationToken cancellationToken = default)
