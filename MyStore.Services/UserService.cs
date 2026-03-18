@@ -150,6 +150,40 @@ public class UserService : IUserService
         }
     }
 
+    public async Task<ApiResponse<bool>> ResendInviteAsync(int userId, int companyId)
+    {
+        try
+        {
+            var user = await _userRepository.GetByIdAsync(userId, companyId);
+            if (user == null)
+                return ApiResponse<bool>.ErrorResponse("User not found");
+            if (user.Status != "pending_invitation")
+                return ApiResponse<bool>.ErrorResponse("User has already set up their password. Resend is only available for pending invitations.");
+
+            var inviteToken = GenerateSecureToken();
+            var tokenExpires = DateTime.UtcNow.AddDays(7);
+
+            var updated = await _userRepository.UpdateInviteTokenAsync(userId, companyId, inviteToken, tokenExpires);
+            if (!updated)
+                return ApiResponse<bool>.ErrorResponse("Failed to update invite. The user may no longer be pending.");
+
+            var company = await _companyRepository.GetByIdAsync(companyId);
+            var companyName = company?.CompanyName ?? "Your Company";
+
+            await _emailService.SendUserInviteEmailAsync(
+                user.Email,
+                inviteToken,
+                companyName,
+                user.FirstName);
+
+            return ApiResponse<bool>.SuccessResponse(true, "Invite email resent successfully.");
+        }
+        catch (Exception ex)
+        {
+            return ApiResponse<bool>.ErrorResponse("Failed to resend invite", new List<string> { ex.Message });
+        }
+    }
+
     private static List<string> ValidatePassword(string password)
     {
         var errors = new List<string>();

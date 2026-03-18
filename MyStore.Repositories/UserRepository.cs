@@ -154,6 +154,21 @@ public class UserRepository : IUserRepository
         return rows > 0;
     }
 
+    public async Task<bool> UpdateInviteTokenAsync(int userId, int companyId, string token, DateTime expires, CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            UPDATE "user"
+            SET password_invite_token = @token,
+                password_invite_token_expires = @expires,
+                last_modified_date = NOW()
+            WHERE id = @userId AND company_id = @companyId AND status = 'pending_invitation'
+            """;
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        var rows = await connection.ExecuteAsync(new CommandDefinition(sql, new { userId, companyId, token, expires }, cancellationToken: cancellationToken));
+        return rows > 0;
+    }
+
     public async Task<User?> UpdateAsync(int id, User user, int companyId, CancellationToken cancellationToken = default)
     {
         const string sql = """

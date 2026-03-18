@@ -100,6 +100,28 @@ public class UserFunctions
         }
     }
 
+    [Function("ResendInvite")]
+    [RequirePermission("users.manage")]
+    public async Task<HttpResponseData> ResendInvite(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "users/{id}/resend-invite")] HttpRequestData req,
+        int id)
+    {
+        try
+        {
+            var companyId = CompanyHelper.GetCompanyIdRequired(req);
+            _logger.LogInformation("Resending invite for user {Id} in company {CompanyId}", id, companyId);
+
+            var response = await _userService.ResendInviteAsync(id, companyId);
+            var statusCode = response.Success ? HttpStatusCode.OK : HttpStatusCode.BadRequest;
+            return await CreateHttpResponse(req, response, statusCode);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            var errorResponse = ApiResponse<bool>.ErrorResponse(ex.Message);
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
+        }
+    }
+
     [Function("UpdateUser")]
     [RequirePermission("users.manage")]
     public async Task<HttpResponseData> UpdateUser(
