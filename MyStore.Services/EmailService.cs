@@ -39,10 +39,14 @@ public class EmailService : IEmailService
         _logger = logger;
 
         // Prefer IConfiguration (Azure app settings / Key Vault) then env vars (local.settings.json)
+        // Reject unresolved Key Vault refs (isolated worker may not resolve them)
         static string? GetConfig(IConfiguration config, string key)
         {
             var val = config[key] ?? Environment.GetEnvironmentVariable(key);
-            return string.IsNullOrWhiteSpace(val) ? null : val;
+            if (string.IsNullOrWhiteSpace(val)) return null;
+            if (val.Contains("@Microsoft.KeyVault", StringComparison.OrdinalIgnoreCase) || val.TrimStart().StartsWith("@"))
+                return null;
+            return val;
         }
 
         var connectionString = GetConfig(configuration, "AzureCommunicationServices__ConnectionString");
