@@ -19,6 +19,7 @@ public interface IUserRepository
     Task<User?> GetByInviteTokenAsync(string token, CancellationToken cancellationToken = default);
     Task<User> CreateAsync(User user, CancellationToken cancellationToken = default);
     Task<bool> UpdatePasswordFromInviteAsync(int userId, string passwordHash, CancellationToken cancellationToken = default);
+    Task<bool> UpdateInviteTokenAsync(int userId, int companyId, string token, DateTime expires, CancellationToken cancellationToken = default);
     Task<User?> UpdateAsync(int id, User user, int companyId, CancellationToken cancellationToken = default);
     Task<bool> DeleteAsync(int id, int companyId, CancellationToken cancellationToken = default);
     Task AssignRolesAsync(int userId, IEnumerable<int> roleIds, CancellationToken cancellationToken = default);
