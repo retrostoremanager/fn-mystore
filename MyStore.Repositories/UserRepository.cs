@@ -160,13 +160,29 @@ public class UserRepository : IUserRepository
             UPDATE "user"
             SET password_invite_token = @token,
                 password_invite_token_expires = @expires,
+                status = 'pending_invitation',
                 last_modified_date = NOW()
-            WHERE id = @userId AND company_id = @companyId AND status = 'pending_invitation'
+            WHERE id = @userId AND company_id = @companyId AND status IN ('pending_invitation', 'invitation_expired')
             """;
 
         await using var connection = new NpgsqlConnection(_connectionString);
         var rows = await connection.ExecuteAsync(new CommandDefinition(sql, new { userId, companyId, token, expires }, cancellationToken: cancellationToken));
         return rows > 0;
+    }
+
+    public async Task<int> UpdateExpiredInvitesToInvitationExpiredAsync(int companyId, CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            UPDATE "user"
+            SET status = 'invitation_expired',
+                last_modified_date = NOW()
+            WHERE company_id = @companyId
+              AND status = 'pending_invitation'
+              AND (password_invite_token_expires IS NULL OR password_invite_token_expires < NOW())
+            """;
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        return await connection.ExecuteAsync(new CommandDefinition(sql, new { companyId }, cancellationToken: cancellationToken));
     }
 
     public async Task<User?> UpdateAsync(int id, User user, int companyId, CancellationToken cancellationToken = default)

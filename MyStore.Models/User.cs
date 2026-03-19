@@ -12,7 +12,7 @@ public class User
     public string LastName { get; set; } = string.Empty;
     public string UserType { get; set; } = "employee"; // owner | employee
     public string? Phone { get; set; }
-    public string Status { get; set; } = "active"; // pending_invitation | active | removed
+    public string Status { get; set; } = "active"; // pending_invitation | invitation_expired | active | removed
     public DateTime CreatedDate { get; set; }
     public DateTime? LastModifiedDate { get; set; }
     /// <summary>Token for invite/set-password flow. Used when creating new employee users.</summary>

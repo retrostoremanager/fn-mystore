@@ -20,6 +20,8 @@ public interface IUserRepository
     Task<User> CreateAsync(User user, CancellationToken cancellationToken = default);
     Task<bool> UpdatePasswordFromInviteAsync(int userId, string passwordHash, CancellationToken cancellationToken = default);
     Task<bool> UpdateInviteTokenAsync(int userId, int companyId, string token, DateTime expires, CancellationToken cancellationToken = default);
+    /// <summary>Updates users with pending_invitation and expired token to invitation_expired.</summary>
+    Task<int> UpdateExpiredInvitesToInvitationExpiredAsync(int companyId, CancellationToken cancellationToken = default);
     Task<User?> UpdateAsync(int id, User user, int companyId, CancellationToken cancellationToken = default);
     Task<bool> DeleteAsync(int id, int companyId, CancellationToken cancellationToken = default);
     Task AssignRolesAsync(int userId, IEnumerable<int> roleIds, CancellationToken cancellationToken = default);

@@ -14,4 +14,9 @@ public interface IPermissionService
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>True if user has the permission, false otherwise</returns>
     Task<bool> HasPermissionAsync(int companyId, string email, string permission, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets all permission names for the user. Used by frontend for UI filtering.
+    /// </summary>
+    Task<IReadOnlySet<string>> GetPermissionsAsync(int companyId, string email, CancellationToken cancellationToken = default);
 }

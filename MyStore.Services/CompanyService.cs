@@ -40,6 +40,12 @@ public class CompanyService : ICompanyService
         _logger = logger;
     }
 
+    private static readonly HashSet<string> ReservedSlugs = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "dashboard", "signup", "verify", "forgot-password", "reset-password",
+        "set-password", "login", "c", "api", "admin"
+    };
+
     public async Task<ApiResponse<CompanyBySlugResponse?>> GetCompanyBySlugAsync(string slug)
     {
         try
@@ -49,7 +55,13 @@ public class CompanyService : ICompanyService
                 return ApiResponse<CompanyBySlugResponse?>.ErrorResponse("Company slug is required.");
             }
 
-            var company = await _repository.GetBySlugAsync(slug.Trim().ToLowerInvariant());
+            var normalizedSlug = slug.Trim().ToLowerInvariant();
+            if (ReservedSlugs.Contains(normalizedSlug))
+            {
+                return ApiResponse<CompanyBySlugResponse?>.ErrorResponse("Company not found.");
+            }
+
+            var company = await _repository.GetBySlugAsync(normalizedSlug);
             if (company == null)
             {
                 return ApiResponse<CompanyBySlugResponse?>.ErrorResponse("Company not found.");
@@ -82,7 +94,7 @@ public class CompanyService : ICompanyService
 
             if (string.IsNullOrWhiteSpace(request.Slug))
             {
-                return ApiResponse<LoginResponse>.ErrorResponse("Company slug is required. Use your company login link (e.g. /c/your-company/login).");
+                return ApiResponse<LoginResponse>.ErrorResponse("Company slug is required. Use your company login link (e.g. /your-company/login).");
             }
 
             // Path-based login: get company by slug first, then verify credentials for that company
