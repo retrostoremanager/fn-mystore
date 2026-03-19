@@ -32,7 +32,7 @@ public class PermissionFunctions
         try
         {
             var companyId = CompanyHelper.GetCompanyIdRequired(req);
-            var email = CompanyHelper.GetEmailFromContext(context) ?? CompanyHelper.GetEmailFromJwt(req);
+            var email = CompanyHelper.GetEmailFromRequest(req, context);
             if (string.IsNullOrEmpty(email))
             {
                 var errorResponse = ApiResponse<List<string>>.ErrorResponse("Authentication required.");
