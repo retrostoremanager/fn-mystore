@@ -26,12 +26,13 @@ public class PermissionFunctions
 
     [Function("GetMyPermissions")]
     public async Task<HttpResponseData> GetMyPermissions(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "permissions")] HttpRequestData req)
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "permissions")] HttpRequestData req,
+        FunctionContext context)
     {
         try
         {
             var companyId = CompanyHelper.GetCompanyIdRequired(req);
-            var email = CompanyHelper.GetEmailFromJwt(req);
+            var email = CompanyHelper.GetEmailFromContext(context) ?? CompanyHelper.GetEmailFromJwt(req);
             if (string.IsNullOrEmpty(email))
             {
                 var errorResponse = ApiResponse<List<string>>.ErrorResponse("Authentication required.");

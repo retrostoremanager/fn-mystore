@@ -73,6 +73,15 @@ public static class CompanyHelper
     public static string? GetEmailFromJwt(HttpRequestData request)
     {
         var context = request.FunctionContext;
+        return GetEmailFromContext(context);
+    }
+
+    /// <summary>
+    /// Gets the user email from JWT claims in the function context.
+    /// Use when FunctionContext is available directly (e.g. from function parameter).
+    /// </summary>
+    public static string? GetEmailFromContext(FunctionContext? context)
+    {
         if (context?.Features == null)
             return null;
         var feature = context.Features.Get<JwtPrincipalFeature>();
@@ -81,7 +90,8 @@ public static class CompanyHelper
             return null;
         var email = principal.FindFirst(ClaimTypes.Email)?.Value
             ?? principal.FindFirst("email")?.Value
-            ?? principal.FindFirst("sub")?.Value;
+            ?? principal.FindFirst("sub")?.Value
+            ?? principal.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         return string.IsNullOrEmpty(email) ? null : email;
     }
 }
