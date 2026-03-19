@@ -225,7 +225,8 @@ public class UserRepository : IUserRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.ExecuteAsync(new CommandDefinition("DELETE FROM user_role WHERE user_id = @userId", new { userId }, cancellationToken: cancellationToken));
-        foreach (var roleId in roleIds)
+        var roleId = roleIds.FirstOrDefault();
+        if (roleId != 0)
         {
             await connection.ExecuteAsync(new CommandDefinition(
                 "INSERT INTO user_role (user_id, role_id) VALUES (@userId, @roleId) ON CONFLICT (user_id, role_id) DO NOTHING",
