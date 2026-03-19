@@ -22,6 +22,7 @@ public class UserService : IUserService
     {
         try
         {
+            await _userRepository.UpdateExpiredInvitesToInvitationExpiredAsync(companyId);
             var users = await _userRepository.GetByCompanyIdAsync(companyId);
             return ApiResponse<List<User>>.SuccessResponse(users);
         }
@@ -157,8 +158,8 @@ public class UserService : IUserService
             var user = await _userRepository.GetByIdAsync(userId, companyId);
             if (user == null)
                 return ApiResponse<bool>.ErrorResponse("User not found");
-            if (user.Status != "pending_invitation")
-                return ApiResponse<bool>.ErrorResponse("User has already set up their password. Resend is only available for pending invitations.");
+            if (user.Status != "pending_invitation" && user.Status != "invitation_expired")
+                return ApiResponse<bool>.ErrorResponse("User has already set up their password. Resend is only available for pending or expired invitations.");
 
             var inviteToken = GenerateSecureToken();
             var tokenExpires = DateTime.UtcNow.AddDays(7);

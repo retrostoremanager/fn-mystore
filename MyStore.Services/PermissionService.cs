@@ -19,4 +19,12 @@ public class PermissionService : IPermissionService
         var permissions = await _userRepository.GetPermissionsAsync(companyId, email, cancellationToken);
         return permissions.Contains(permission);
     }
+
+    public async Task<IReadOnlySet<string>> GetPermissionsAsync(int companyId, string email, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return new HashSet<string>();
+
+        return await _userRepository.GetPermissionsAsync(companyId, email, cancellationToken);
+    }
 }

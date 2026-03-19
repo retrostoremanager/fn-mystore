@@ -419,7 +419,7 @@ public class AccountFunctions
 
     /// <summary>
     /// POST /api/accounts/set-password-invite - Set password from user invite (employee onboarding).
-    /// Returns company slug for redirect to /c/{slug}/login.
+    /// Returns company slug for redirect to /{slug}/login.
     /// </summary>
     [Function("SetPasswordForInvite")]
     public async Task<HttpResponseData> SetPasswordForInvite(

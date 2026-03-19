@@ -7,7 +7,7 @@ public interface ICompanyRepository
     Task<Company?> GetByIdAsync(int id);
     Task<Company?> GetByEmailAsync(string email);
     /// <summary>
-    /// Gets company by slug for path-based login (/c/{slug}/login).
+    /// Gets company by slug for path-based login (/{slug}/login).
     /// </summary>
     Task<Company?> GetBySlugAsync(string slug);
     /// <summary>
