@@ -10,7 +10,7 @@ public class User
     public string Email { get; set; } = string.Empty;
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
-    public string UserType { get; set; } = "employee"; // owner | employee
+    public string UserType { get; set; } = "employee"; // owner | employee | customer
     public string? Phone { get; set; }
     public string Status { get; set; } = "active"; // pending_invitation | invitation_expired | active | removed
     public DateTime CreatedDate { get; set; }
@@ -65,4 +65,6 @@ public class SetPasswordFromInviteResponse
     public bool Success { get; set; }
     public string Slug { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
+    /// <summary>employee | customer — drives redirect after set-password (staff login vs customer portal).</summary>
+    public string UserType { get; set; } = "employee";
 }

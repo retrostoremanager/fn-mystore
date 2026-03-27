@@ -135,13 +135,15 @@ public class UserService : IUserService
 
             var company = await _companyRepository.GetByIdAsync(user.CompanyId);
             var slug = company?.Slug ?? string.Empty;
+            var userType = string.IsNullOrWhiteSpace(user.UserType) ? "employee" : user.UserType;
 
             return ApiResponse<SetPasswordFromInviteResponse>.SuccessResponse(
                 new SetPasswordFromInviteResponse
                 {
                     Success = true,
                     Slug = slug,
-                    Message = "Password set successfully. You can now sign in."
+                    Message = "Password set successfully. You can now sign in.",
+                    UserType = userType
                 },
                 "Password set successfully.");
         }
