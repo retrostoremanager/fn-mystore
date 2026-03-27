@@ -21,7 +21,10 @@ public class CustomerRepository : ICustomerRepository
 
     public Task<Customer?> GetByEmailAsync(string email, int companyId)
     {
-        var customer = _customers.FirstOrDefault(c => c.Email.Equals(email, StringComparison.OrdinalIgnoreCase) && c.CompanyId == companyId);
+        var customer = _customers.FirstOrDefault(c =>
+            c.Email != null &&
+            c.Email.Equals(email, StringComparison.OrdinalIgnoreCase) &&
+            c.CompanyId == companyId);
         return Task.FromResult(customer);
     }
 
@@ -74,7 +77,7 @@ public class CustomerRepository : ICustomerRepository
             c.CompanyId == companyId &&
             (c.FirstName.ToLowerInvariant().Contains(term) ||
             c.LastName.ToLowerInvariant().Contains(term) ||
-            c.Email.ToLowerInvariant().Contains(term) ||
+            (c.Email != null && c.Email.ToLowerInvariant().Contains(term)) ||
             (c.Phone != null && c.Phone.Contains(term)))
         ).ToList();
 

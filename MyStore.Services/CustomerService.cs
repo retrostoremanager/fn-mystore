@@ -53,40 +53,39 @@ public class CustomerService : ICustomerService
     {
         try
         {
-            // Validation
             if (string.IsNullOrWhiteSpace(request.FirstName))
             {
-                return ApiResponse<Customer>.ErrorResponse("First name is required");
+                return ApiResponse<Customer>.ErrorResponse("Name is required");
             }
 
-            if (string.IsNullOrWhiteSpace(request.LastName))
+            var email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim().ToLowerInvariant();
+            var phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim();
+
+            if (email == null && phone == null)
             {
-                return ApiResponse<Customer>.ErrorResponse("Last name is required");
+                return ApiResponse<Customer>.ErrorResponse("Email or phone is required");
             }
 
-            if (string.IsNullOrWhiteSpace(request.Email))
+            if (email != null)
             {
-                return ApiResponse<Customer>.ErrorResponse("Email is required");
-            }
-
-            // Check if email already exists for this company
-            var existing = await _repository.GetByEmailAsync(request.Email, companyId);
-            if (existing != null)
-            {
-                return ApiResponse<Customer>.ErrorResponse("A customer with this email already exists");
+                var existing = await _repository.GetByEmailAsync(email, companyId);
+                if (existing != null)
+                {
+                    return ApiResponse<Customer>.ErrorResponse("A customer with this email already exists");
+                }
             }
 
             var customer = new Customer
             {
                 CompanyId = companyId,
-                FirstName = request.FirstName,
-                LastName = request.LastName,
-                Email = request.Email,
-                Phone = request.Phone,
-                Address = request.Address,
-                City = request.City,
-                State = request.State,
-                ZipCode = request.ZipCode
+                FirstName = request.FirstName.Trim(),
+                LastName = string.IsNullOrWhiteSpace(request.LastName) ? string.Empty : request.LastName.Trim(),
+                Email = email,
+                Phone = phone,
+                Address = string.IsNullOrWhiteSpace(request.Address) ? null : request.Address.Trim(),
+                City = string.IsNullOrWhiteSpace(request.City) ? null : request.City.Trim(),
+                State = string.IsNullOrWhiteSpace(request.State) ? null : request.State.Trim(),
+                ZipCode = string.IsNullOrWhiteSpace(request.ZipCode) ? null : request.ZipCode.Trim()
             };
 
             var created = await _repository.CreateAsync(customer);
@@ -124,16 +123,16 @@ public class CustomerService : ICustomerService
 
             if (!string.IsNullOrWhiteSpace(request.Email))
             {
-                // Check if email is being changed and if new email already exists
-                if (existing.Email != request.Email)
+                var normalized = request.Email.Trim().ToLowerInvariant();
+                if (!string.Equals(existing.Email, normalized, StringComparison.Ordinal))
                 {
-                    var emailExists = await _repository.GetByEmailAsync(request.Email, companyId);
+                    var emailExists = await _repository.GetByEmailAsync(normalized, companyId);
                     if (emailExists != null && emailExists.Id != id)
                     {
                         return ApiResponse<Customer>.ErrorResponse("A customer with this email already exists");
                     }
                 }
-                existing.Email = request.Email;
+                existing.Email = normalized;
             }
 
             if (request.Phone != null)
