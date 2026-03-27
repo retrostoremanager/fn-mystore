@@ -1,87 +1,138 @@
+using Dapper;
+using Npgsql;
 using MyStore.Models;
 
 namespace MyStore.Repositories;
 
 public class CustomerRepository : ICustomerRepository
 {
-    private static readonly List<Customer> _customers = new();
-    private static int _nextId = 1;
+    private readonly string _connectionString;
 
-    public Task<List<Customer>> GetAllAsync(int companyId)
+    private const string SelectColumns =
+        "id, company_id, first_name, last_name, email, phone, address, city, state, zip_code, created_date, last_modified_date";
+
+    static CustomerRepository()
     {
-        var results = _customers.Where(c => c.CompanyId == companyId).ToList();
-        return Task.FromResult(results);
+        DefaultTypeMap.MatchNamesWithUnderscores = true;
     }
 
-    public Task<Customer?> GetByIdAsync(int id, int companyId)
+    public CustomerRepository()
     {
-        var customer = _customers.FirstOrDefault(c => c.Id == id && c.CompanyId == companyId);
-        return Task.FromResult(customer);
+        _connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+            ?? Environment.GetEnvironmentVariable("PostgresConnectionString")
+            ?? throw new InvalidOperationException("Connection string environment variable is not set");
     }
 
-    public Task<Customer?> GetByEmailAsync(string email, int companyId)
+    public async Task<List<Customer>> GetAllAsync(int companyId)
     {
-        var customer = _customers.FirstOrDefault(c =>
-            c.Email != null &&
-            c.Email.Equals(email, StringComparison.OrdinalIgnoreCase) &&
-            c.CompanyId == companyId);
-        return Task.FromResult(customer);
+        await using var connection = new NpgsqlConnection(_connectionString);
+        var rows = await connection.QueryAsync<Customer>(
+            $@"SELECT {SelectColumns} FROM customer
+               WHERE company_id = @p_company_id
+               ORDER BY last_name, first_name",
+            new { p_company_id = companyId });
+        return rows.ToList();
     }
 
-    public Task<Customer> CreateAsync(Customer customer)
+    public async Task<Customer?> GetByIdAsync(int id, int companyId)
     {
-        customer.Id = _nextId++;
-        customer.CreatedDate = DateTime.UtcNow;
-        customer.LastModifiedDate = DateTime.UtcNow;
-        _customers.Add(customer);
-        return Task.FromResult(customer);
+        await using var connection = new NpgsqlConnection(_connectionString);
+        return await connection.QueryFirstOrDefaultAsync<Customer>(
+            $@"SELECT {SelectColumns} FROM customer
+               WHERE id = @p_id AND company_id = @p_company_id",
+            new { p_id = id, p_company_id = companyId });
     }
 
-    public Task<Customer?> UpdateAsync(int id, Customer customer, int companyId)
+    public async Task<Customer?> GetByEmailAsync(string email, int companyId)
     {
-        var existing = _customers.FirstOrDefault(c => c.Id == id && c.CompanyId == companyId);
-        if (existing == null)
-        {
-            return Task.FromResult<Customer?>(null);
-        }
-
-        existing.FirstName = customer.FirstName;
-        existing.LastName = customer.LastName;
-        existing.Email = customer.Email;
-        existing.Phone = customer.Phone;
-        existing.Address = customer.Address;
-        existing.City = customer.City;
-        existing.State = customer.State;
-        existing.ZipCode = customer.ZipCode;
-        existing.LastModifiedDate = DateTime.UtcNow;
-
-        return Task.FromResult<Customer?>(existing);
+        await using var connection = new NpgsqlConnection(_connectionString);
+        return await connection.QueryFirstOrDefaultAsync<Customer>(
+            $@"SELECT {SelectColumns} FROM customer
+               WHERE company_id = @p_company_id
+                 AND email IS NOT NULL
+                 AND lower(email) = lower(@p_email)",
+            new { p_company_id = companyId, p_email = email });
     }
 
-    public Task<bool> DeleteAsync(int id, int companyId)
+    public async Task<Customer> CreateAsync(Customer customer)
     {
-        var customer = _customers.FirstOrDefault(c => c.Id == id && c.CompanyId == companyId);
-        if (customer == null)
-        {
-            return Task.FromResult(false);
-        }
-
-        _customers.Remove(customer);
-        return Task.FromResult(true);
+        await using var connection = new NpgsqlConnection(_connectionString);
+        return await connection.QuerySingleAsync<Customer>(
+            $@"INSERT INTO customer (
+                company_id, first_name, last_name, email, phone, address, city, state, zip_code, created_date, last_modified_date)
+              VALUES (
+                @p_company_id, @p_first_name, @p_last_name, @p_email, @p_phone, @p_address, @p_city, @p_state, @p_zip_code, NOW(), NOW())
+              RETURNING {SelectColumns}",
+            new
+            {
+                p_company_id = customer.CompanyId,
+                p_first_name = customer.FirstName,
+                p_last_name = customer.LastName,
+                p_email = customer.Email,
+                p_phone = customer.Phone,
+                p_address = customer.Address,
+                p_city = customer.City,
+                p_state = customer.State,
+                p_zip_code = customer.ZipCode,
+            });
     }
 
-    public Task<List<Customer>> SearchAsync(string searchTerm, int companyId)
+    public async Task<Customer?> UpdateAsync(int id, Customer customer, int companyId)
     {
-        var term = searchTerm.ToLowerInvariant();
-        var results = _customers.Where(c =>
-            c.CompanyId == companyId &&
-            (c.FirstName.ToLowerInvariant().Contains(term) ||
-            c.LastName.ToLowerInvariant().Contains(term) ||
-            (c.Email != null && c.Email.ToLowerInvariant().Contains(term)) ||
-            (c.Phone != null && c.Phone.Contains(term)))
-        ).ToList();
+        await using var connection = new NpgsqlConnection(_connectionString);
+        var rows = await connection.ExecuteAsync(
+            @"UPDATE customer SET
+                first_name = @p_first_name,
+                last_name = @p_last_name,
+                email = @p_email,
+                phone = @p_phone,
+                address = @p_address,
+                city = @p_city,
+                state = @p_state,
+                zip_code = @p_zip_code,
+                last_modified_date = NOW()
+              WHERE id = @p_id AND company_id = @p_company_id",
+            new
+            {
+                p_id = id,
+                p_company_id = companyId,
+                p_first_name = customer.FirstName,
+                p_last_name = customer.LastName,
+                p_email = customer.Email,
+                p_phone = customer.Phone,
+                p_address = customer.Address,
+                p_city = customer.City,
+                p_state = customer.State,
+                p_zip_code = customer.ZipCode,
+            });
+        if (rows == 0) return null;
+        return await GetByIdAsync(id, companyId);
+    }
 
-        return Task.FromResult(results);
+    public async Task<bool> DeleteAsync(int id, int companyId)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        var rows = await connection.ExecuteAsync(
+            "DELETE FROM customer WHERE id = @p_id AND company_id = @p_company_id",
+            new { p_id = id, p_company_id = companyId });
+        return rows > 0;
+    }
+
+    public async Task<List<Customer>> SearchAsync(string searchTerm, int companyId)
+    {
+        if (string.IsNullOrWhiteSpace(searchTerm))
+            return await GetAllAsync(companyId);
+
+        var needle = searchTerm.Trim().ToLowerInvariant();
+        await using var connection = new NpgsqlConnection(_connectionString);
+        var rows = await connection.QueryAsync<Customer>(
+            $@"SELECT {SelectColumns} FROM customer
+               WHERE company_id = @p_company_id
+                 AND strpos(
+                   lower(concat_ws(' ', first_name, last_name, coalesce(email, ''), coalesce(phone, ''))),
+                   @p_needle) > 0
+               ORDER BY last_name, first_name",
+            new { p_company_id = companyId, p_needle = needle });
+        return rows.ToList();
     }
 }
-

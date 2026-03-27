@@ -39,6 +39,11 @@ public interface IEmailService
     /// <param name="firstName">The user's first name for personalization.</param>
     /// <returns>An EmailSendResult indicating success or failure of the email send operation.</returns>
     Task<EmailSendResult> SendUserInviteEmailAsync(string toEmail, string inviteToken, string companyName, string firstName);
+
+    /// <summary>
+    /// Sends an invite for a store customer to set a password for the customer portal (same set-password flow as staff).
+    /// </summary>
+    Task<EmailSendResult> SendCustomerPortalInviteEmailAsync(string toEmail, string inviteToken, string companyName, string firstName);
 }
 
 /// <summary>

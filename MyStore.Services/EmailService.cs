@@ -403,6 +403,97 @@ public class EmailService : IEmailService
         }
     }
 
+    /// <inheritdoc />
+    public async Task<EmailSendResult> SendCustomerPortalInviteEmailAsync(string toEmail, string inviteToken, string companyName, string firstName)
+    {
+        if (_emailClient == null)
+        {
+            _logger.LogWarning("Email service not configured. Skipping customer portal invite for {Email}", toEmail);
+            return new EmailSendResult { Success = true, ErrorMessage = "Email service not configured" };
+        }
+
+        try
+        {
+            var inviteUrl = $"{_userInviteBaseUrl}?token={Uri.EscapeDataString(inviteToken)}";
+            var emailContent = new EmailContent("Set Up Your Customer Account")
+            {
+                PlainText = GetCustomerPortalInvitePlainText(firstName, companyName, inviteUrl),
+                Html = GetCustomerPortalInviteHtml(firstName, companyName, inviteUrl)
+            };
+
+            var emailMessage = new EmailMessage(
+                senderAddress: _fromEmail,
+                recipientAddress: toEmail,
+                content: emailContent
+            );
+
+            var success = await SendWithRetryAsync(emailMessage);
+            if (success)
+            {
+                _logger.LogInformation("Customer portal invite email sent successfully to {Email}", toEmail);
+                return new EmailSendResult { Success = true };
+            }
+
+            _logger.LogError("Failed to send customer portal invite email to {Email} after retries", toEmail);
+            return new EmailSendResult { Success = false, ErrorMessage = "Failed to send email after retries" };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Exception while sending customer portal invite to {Email}", toEmail);
+            return new EmailSendResult { Success = false, ErrorMessage = ex.Message };
+        }
+    }
+
+    private static string GetCustomerPortalInvitePlainText(string firstName, string companyName, string inviteUrl)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"Hello {firstName},");
+        sb.AppendLine();
+        sb.AppendLine($"{companyName} has invited you to create a password for your customer account on Retro Store Manager.");
+        sb.AppendLine();
+        sb.AppendLine("Use the link below to choose your password (expires in 7 days):");
+        sb.AppendLine();
+        sb.AppendLine(inviteUrl);
+        sb.AppendLine();
+        sb.AppendLine("After setting your password, sign in from your store’s customer link using this same email.");
+        sb.AppendLine();
+        sb.AppendLine("If you did not expect this, you can ignore this email.");
+        sb.AppendLine();
+        sb.AppendLine("Best regards,");
+        sb.AppendLine("The Retro Store Manager Team");
+        return sb.ToString();
+    }
+
+    private static string GetCustomerPortalInviteHtml(string firstName, string companyName, string inviteUrl)
+    {
+        return $@"
+<!DOCTYPE html>
+<html lang=""en"">
+<head>
+    <meta charset=""UTF-8"">
+    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+    <title>Your customer account</title>
+    <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .container {{ background-color: #fff; border-radius: 8px; padding: 40px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+        .button {{ display: inline-block; padding: 14px 32px; background-color: #16a085; color: #fff !important; text-decoration: none; border-radius: 5px; font-weight: bold; }}
+    </style>
+</head>
+<body>
+    <div class=""container"">
+        <h1>Your customer account</h1>
+        <p>Hello {firstName},</p>
+        <p><strong>{companyName}</strong> invited you to create a password for your customer account on Retro Store Manager.</p>
+        <p><a href=""{inviteUrl}"" class=""button"">Choose your password</a></p>
+        <p>Or copy this link: <a href=""{inviteUrl}"">{inviteUrl}</a></p>
+        <p><strong>This link expires in 7 days.</strong> Afterward, sign in from your store’s customer page using this email.</p>
+        <p>If you did not expect this, you can ignore this email.</p>
+        <p>Best regards,<br>The Retro Store Manager Team</p>
+    </div>
+</body>
+</html>";
+    }
+
     private static string GetUserInvitePlainText(string firstName, string companyName, string inviteUrl)
     {
         var sb = new StringBuilder();

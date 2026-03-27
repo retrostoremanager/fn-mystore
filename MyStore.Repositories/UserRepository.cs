@@ -46,6 +46,7 @@ public class UserRepository : IUserRepository
             SELECT id, company_id, email, first_name, last_name, user_type, phone, status, created_date, last_modified_date
             FROM "user"
             WHERE company_id = @companyId
+              AND LOWER(COALESCE(user_type, 'employee')) <> 'customer'
             ORDER BY last_name, first_name
             """;
 
