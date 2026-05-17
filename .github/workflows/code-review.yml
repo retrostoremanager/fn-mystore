@@ -1,0 +1,32 @@
+name: "Code Review Agent"
+on:
+  pull_request:
+    types: [opened, synchronize]
+    branches: [development]
+jobs:
+  review:
+    if: startsWith(github.head_ref, 'feature/issue-')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 1
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: anthropics/claude-code-action@beta
+        env:
+          GH_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          direct_prompt: "Code review mode. Review PR #${{ github.event.pull_request.number }} following the Code Review Mode instructions in CLAUDE.md."
+          mode: agent
+          model: claude-haiku-4-5-20251001
+          allowed_tools: Bash,Read,Glob,Grep,LS
+          timeout_minutes: 15
