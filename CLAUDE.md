@@ -36,61 +36,51 @@ Target the `development` branch. Include a brief summary of what changed and why
 
 ## Code Review Mode
 
-When your session starts with "Code review mode. Review PR #N", follow these steps exactly.
+When your session starts with "Code review mode. Review PR #N", complete ALL steps and execute the final GitHub command. Do not stop at analysis — you must call `gh pr review` or `gh pr merge`.
 
 ### Step 1 — Check retry count
 ```bash
-gh pr view N --json labels --jq '.labels[].name' | grep '^review-retry-' | wc -l
+RETRIES=$(gh pr view N --json labels --jq '[.labels[].name | select(startswith("review-retry-"))] | length')
 ```
-If the count is **3 or more**:
-- `gh pr edit N --add-label "needs-human-review"`
-- `gh pr comment N --body "Max revision cycles (3) reached. Human review required."`
-- Stop. Do nothing else.
+If RETRIES >= 3: run `gh pr edit N --add-label "needs-human-review"` and `gh pr comment N --body "Max revision cycles reached. Human review required."` then stop.
 
-### Step 2 — Gather context
+### Step 2 — Get PR diff ONLY (do not read the whole codebase)
 ```bash
 gh pr view N --json title,body,headRefName,number
 gh pr diff N
 ```
-Read each changed file in full using the Read tool.
+Use Read only on files that appear in the diff output.
 
-### Step 3 — Classify issues
+### Step 3 — Classify issues introduced by this PR's changes
 - **MAJOR**: security vulnerabilities, auth bypass, data loss, breaking API changes, wrong business logic
-- **MODERATE**: significant bugs, missing error handling for common failures, wrong HTTP status codes
-- **MINOR**: style, naming, missing comments — acceptable, do not block merge
+- **MODERATE**: significant bugs, missing error handling, wrong HTTP status codes
+- **MINOR**: style, naming — do not block merge
 
-### Step 4 — APPROVE (no major or moderate issues)
+### Step 4 — APPROVE: run these exact commands
 ```bash
-gh pr review N --approve --body "LGTM. No major or moderate issues."
+gh pr review N --approve --body "Code review passed. No major or moderate issues."
 gh pr merge N --squash --delete-branch
-```
-Then close the orchestrator issue. Extract the issue number from the PR body (look for `Closes sbranham314/orchestrator-mystore#N`):
-```bash
-gh issue edit ISSUE_N --repo sbranham314/orchestrator-mystore --remove-label in-progress --add-label done
+ISSUE_N=$(gh pr view N --json body --jq '.body' | grep -oP 'orchestrator-mystore#\K[0-9]+')
+gh issue edit $ISSUE_N --repo sbranham314/orchestrator-mystore --remove-label in-progress --add-label done
 ```
 
-### Step 5 — REQUEST CHANGES (major or moderate issues found)
-1. Count existing `review-retry-*` labels to determine next retry number (start at 1).
-2. `gh pr edit N --add-label "review-retry-NEXT"`
-3. `gh pr review N --request-changes --body "[detailed list of issues with file paths, line numbers, and specific fixes required]"`
-4. Write a revision prompt to a temp file:
+### Step 5 — REQUEST CHANGES: run these exact commands
 ```bash
-cat > /tmp/revision-prompt.txt << 'ENDOFPROMPT'
-REVISION REQUEST for BRANCH_NAME (attempt NEXT/3).
+NEXT=$((RETRIES + 1))
+HEAD=$(gh pr view N --json headRefName --jq '.headRefName')
+gh pr edit N --add-label "review-retry-$NEXT"
+gh pr review N --request-changes --body "## Review Findings (attempt $NEXT/3)
 
-Original task:
-ORIGINAL_TASK_TEXT
+[your detailed findings with file:line references]"
+ORIGINAL=$(gh pr view N --json body --jq '.body')
+jq -n --arg p "REVISION REQUEST for $HEAD (attempt $NEXT/3).
 
-Review feedback:
-YOUR_DETAILED_FEEDBACK
+Original task: $ORIGINAL
 
-IMPORTANT: Push your fixes to the EXISTING branch BRANCH_NAME. Do NOT create a new branch. Commit and push, then the review agent will re-run automatically.
-ENDOFPROMPT
-```
-5. Re-dispatch the developer agent:
-```bash
-jq -n --arg prompt "$(cat /tmp/revision-prompt.txt)" \
-  '{"ref":"main","inputs":{"prompt":$prompt,"branch":"development"}}' | \
+Review feedback: [your findings]
+
+Push fixes to EXISTING branch $HEAD. Do NOT create a new branch." \
+  --arg b "$HEAD" '{"ref":"main","inputs":{"prompt":$p,"branch":$b}}' | \
 GH_TOKEN="$GH_DISPATCH_TOKEN" gh api \
   repos/sbranham314/fn-mystore/actions/workflows/claude-code.yml/dispatches \
   --method POST --input -
