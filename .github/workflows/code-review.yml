@@ -4,29 +4,22 @@ on:
     types: [opened, synchronize]
     branches: [development]
 jobs:
-  review:
+  trigger-review:
     if: startsWith(github.head_ref, 'feature/issue-')
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-      issues: write
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
-          fetch-depth: 1
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
-      - uses: anthropics/claude-code-action@beta
+      - name: Dispatch review to Claude Code Agent
         env:
           GH_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
-        with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          direct_prompt: "Code review mode. Review PR #${{ github.event.pull_request.number }} following the Code Review Mode instructions in CLAUDE.md."
-          mode: agent
-          model: claude-haiku-4-5-20251001
-          allowed_tools: Bash,Read,Glob,Grep,LS
-          timeout_minutes: 15
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          PROMPT="Code review mode. Review PR #${PR_NUMBER} (${HEAD_BRANCH} -> development) following the Code Review Mode instructions in CLAUDE.md."
+
+          jq -n --arg prompt "$PROMPT" --arg branch "$HEAD_BRANCH" \
+            '{"ref":"main","inputs":{"prompt":$prompt,"branch":$branch}}' | \
+          GH_TOKEN="$GH_DISPATCH_TOKEN" gh api \
+            repos/sbranham314/fn-mystore/actions/workflows/claude-code.yml/dispatches \
+            --method POST --input -
+
+          echo "Review dispatched for PR #${PR_NUMBER} on branch ${HEAD_BRANCH}"
