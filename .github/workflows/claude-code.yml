@@ -81,4 +81,5 @@ jobs:
           direct_prompt: ${{ github.event.inputs.prompt || github.event.client_payload.prompt }}
           mode: agent
           model: claude-sonnet-4-6
+          allowed_tools: Bash,Edit,MultiEdit,Glob,Grep,LS,Read,Write,TodoWrite
           timeout_minutes: 30
