@@ -47,6 +47,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          model: claude-sonnet-4-6
           timeout_minutes: 30
 
   # Triggered by workflow_dispatch (manual/CLI) or repository_dispatch (orchestrator)
@@ -79,4 +80,5 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           direct_prompt: ${{ github.event.inputs.prompt || github.event.client_payload.prompt }}
           mode: agent
+          model: claude-sonnet-4-6
           timeout_minutes: 30
