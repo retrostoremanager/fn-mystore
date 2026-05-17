@@ -8,18 +8,13 @@ jobs:
     if: startsWith(github.head_ref, 'feature/issue-')
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
       - name: Dispatch review to Claude Code Agent
         env:
           GH_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_BRANCH: ${{ github.head_ref }}
-        run: |
-          PROMPT="Code review mode. Review PR #${PR_NUMBER} (${HEAD_BRANCH} -> development) following the Code Review Mode instructions in CLAUDE.md."
-
-          jq -n --arg prompt "$PROMPT" --arg branch "$HEAD_BRANCH" \
-            '{"ref":"main","inputs":{"prompt":$prompt,"branch":$branch}}' | \
-          GH_TOKEN="$GH_DISPATCH_TOKEN" gh api \
-            repos/sbranham314/fn-mystore/actions/workflows/claude-code.yml/dispatches \
-            --method POST --input -
-
-          echo "Review dispatched for PR #${PR_NUMBER} on branch ${HEAD_BRANCH}"
+        run: bash scripts/trigger-review.sh
