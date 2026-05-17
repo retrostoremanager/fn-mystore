@@ -45,7 +45,7 @@ Review feedback: [replace with your specific findings]
 
 Push fixes to the EXISTING branch ${HEAD_BRANCH}. Do NOT create a new branch. Commit and push when done." \
       --arg b "${HEAD_BRANCH}" \
-      '{"ref":"main","inputs":{"prompt":$p,"branch":$b}}' | \
+      '{"ref":"main","inputs":{"prompt":\$p,"branch":\$b}}' | \
     GH_TOKEN="\$GH_DISPATCH_TOKEN" gh api \
       repos/sbranham314/fn-mystore/actions/workflows/claude-code.yml/dispatches \
       --method POST --input -
