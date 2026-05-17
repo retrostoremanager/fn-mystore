@@ -77,6 +77,6 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          prompt: ${{ github.event.inputs.prompt || github.event.client_payload.prompt }}
+          direct_prompt: ${{ github.event.inputs.prompt || github.event.client_payload.prompt }}
           mode: agent
           timeout_minutes: 30
