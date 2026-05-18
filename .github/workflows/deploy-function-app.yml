@@ -1,33 +1,35 @@
 name: Deploy Function App
 
 on:
-  push:
+  pull_request:
+    types: [closed]
     branches:
       - development
-  workflow_dispatch:  # Allows manual trigger from GitHub UI
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-    
+
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '8.0.x'
-    
+
     - name: Restore dependencies
       run: dotnet restore MyStore.sln
-    
+
     - name: Build
       run: dotnet build MyStore.sln --configuration Release --no-restore
-    
+
     - name: Publish
       run: dotnet publish MyStore.Functions/MyStore.Functions.csproj --configuration Release --output ./publish --no-build
-    
+
     - name: Verify publish output
       run: |
         echo "Publish output contents:"
@@ -36,12 +38,12 @@ jobs:
         test -f ./publish/host.json && echo "host.json found" || echo "WARNING: host.json missing"
         echo "Checking for worker:"
         ls ./publish/*.dll 2>/dev/null | head -5 || echo "No DLLs found"
-    
+
     - name: Azure Login
       uses: azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
-    
+
     - name: Deploy to Azure Function App
       run: |
         cd publish
@@ -51,7 +53,7 @@ jobs:
           --resource-group mystore-rg-dev \
           --name mystore-func-dev \
           --src deploy.zip
-    
+
     - name: Deployment Complete
       run: |
         echo "Function App deployed successfully!"
