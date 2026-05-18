@@ -44,9 +44,9 @@ STEP 5 — E2E tests with Playwright (for UI changes or complete user flows)
   Use page.waitForLoadState('networkidle') after navigation.
 
 STEP 6 — Report results
-  If ALL tests pass: print "All tests passed for PR #{{PR}}." and stop. Do NOT create any issues.
+  If ALL tests pass: print "All tests passed for PR #{{PR}}." then go to STEP 7.
 
-  If a test FAILS: create one GitHub issue per distinct bug.
+  If a test FAILS: create one GitHub issue per distinct bug, then go to STEP 7.
   Write each bug body to a temp file to avoid quoting issues:
 
     cat > /tmp/bug-body-1.md << 'EOF'
@@ -80,6 +80,9 @@ STEP 6 — Report results
       --label "repo:{{REPO}}"
 
   Use different file names (/tmp/bug-body-2.md, etc.) for each distinct bug.
+
+STEP 7 — Update orchestrator issue label
+{{ISSUE_LABEL_STEP}}
 
 RULES:
 - Only test what changed in this PR — do not run a full regression suite

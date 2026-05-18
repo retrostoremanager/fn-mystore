@@ -26,13 +26,14 @@ STEP 4 — If NO major or moderate issues found, run ALL of these commands in or
   # Attempt a formal approval (may fail if token cannot self-approve — that is OK, the comment above is the record)
   GH_TOKEN="\$GH_REVIEW_TOKEN" gh pr review ${PR_NUMBER} --approve --body "Code review passed." 2>/dev/null || true
 
-  # Merge
-  gh pr merge ${PR_NUMBER} --squash --delete-branch
+  # Merge using PAT so the push triggers the deploy workflow
+  # (GITHUB_TOKEN merges do NOT trigger other workflows — PAT merges do)
+  GH_TOKEN="\$GH_DISPATCH_TOKEN" gh pr merge ${PR_NUMBER} --squash --delete-branch
 
-  # Update orchestrator issue label: code-review → done
+  # Update orchestrator issue label: code-review → in-test (deploy + QA testing now running)
   ISSUE_N=\$(gh pr view ${PR_NUMBER} --json body --jq '.body' | grep -oP 'orchestrator-mystore#\K[0-9]+' | head -1)
   if [ -n "\$ISSUE_N" ]; then
-    GH_TOKEN="\$GH_DISPATCH_TOKEN" gh issue edit "\$ISSUE_N" --repo sbranham314/orchestrator-mystore --remove-label code-review --add-label done
+    GH_TOKEN="\$GH_DISPATCH_TOKEN" gh issue edit "\$ISSUE_N" --repo sbranham314/orchestrator-mystore --remove-label code-review --add-label in-test
   fi
 
 STEP 5 — If major or moderate issues exist, run ALL of these commands in order:
