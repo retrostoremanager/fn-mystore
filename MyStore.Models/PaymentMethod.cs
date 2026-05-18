@@ -19,6 +19,23 @@ public class PaymentMethod
 }
 
 /// <summary>
+/// Invoice summary returned by GET /billing/invoices.
+/// </summary>
+public class InvoiceSummary
+{
+    public string Id { get; set; } = string.Empty;
+    public string? Number { get; set; }
+    public long Amount { get; set; }
+    public string Currency { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public DateTime Created { get; set; }
+    public DateTime PeriodStart { get; set; }
+    public DateTime PeriodEnd { get; set; }
+    public string? HostedInvoiceUrl { get; set; }
+    public string? InvoicePdf { get; set; }
+}
+
+/// <summary>
 /// Request to store a payment method from the frontend.
 /// Frontend creates PaymentMethod via Stripe.js and sends only the ID.
 /// </summary>

@@ -21,6 +21,7 @@ public class BillingFunctionsTests
     private readonly Mock<ISubscriptionChangeService> _subscriptionChangeServiceMock;
     private readonly Mock<ICompanyRepository> _companyRepositoryMock;
     private readonly Mock<IPaymentRepository> _paymentRepositoryMock;
+    private readonly Mock<InvoiceService> _invoiceServiceMock;
     private readonly Mock<ILoggerFactory> _loggerFactoryMock;
     private readonly Mock<ILogger<BillingFunctions>> _loggerMock;
     private readonly BillingFunctions _functions;
@@ -32,6 +33,7 @@ public class BillingFunctionsTests
         _subscriptionChangeServiceMock = new Mock<ISubscriptionChangeService>();
         _companyRepositoryMock = new Mock<ICompanyRepository>();
         _paymentRepositoryMock = new Mock<IPaymentRepository>();
+        _invoiceServiceMock = new Mock<InvoiceService>();
         _loggerMock = new Mock<ILogger<BillingFunctions>>();
         _loggerFactoryMock = new Mock<ILoggerFactory>();
         _loggerFactoryMock
@@ -49,6 +51,7 @@ public class BillingFunctionsTests
             _companyRepositoryMock.Object,
             _paymentRepositoryMock.Object,
             stripeOptions,
+            _invoiceServiceMock.Object,
             _loggerFactoryMock.Object);
     }
 
@@ -115,6 +118,7 @@ public class BillingFunctionsTests
             _companyRepositoryMock.Object,
             _paymentRepositoryMock.Object,
             stripeOptions,
+            _invoiceServiceMock.Object,
             _loggerFactoryMock.Object);
         var payload = """{"id":"evt_1","object":"event","type":"test"}""";
         var request = TestHelpers.CreateHttpRequestDataWithRawBody(payload);
@@ -323,5 +327,91 @@ public class BillingFunctionsTests
         var data = parsed.GetProperty("data");
         data.GetProperty("accessRestricted").GetBoolean().Should().BeFalse();
         data.GetProperty("accessSuspended").GetBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetInvoices_NoStripeCustomerId_Returns200WithEmptyList()
+    {
+        var companyId = 1;
+        var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+
+        _paymentRepositoryMock.Setup(p => p.GetByCompanyIdAsync(companyId))
+            .ReturnsAsync(Array.Empty<Models.PaymentMethod>());
+
+        var result = await _functions.GetInvoices(request);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await TestHelpers.ReadResponseBody(result);
+        var parsed = JsonSerializer.Deserialize<JsonElement>(body);
+        parsed.GetProperty("success").GetBoolean().Should().BeTrue();
+        var data = parsed.GetProperty("data");
+        data.GetArrayLength().Should().Be(0);
+        _invoiceServiceMock.Verify(s => s.ListAsync(It.IsAny<InvoiceListOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetInvoices_WithStripeCustomerId_Returns200WithInvoices()
+    {
+        var companyId = 1;
+        var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+        var stripeCustomerId = "cus_test123";
+
+        _paymentRepositoryMock.Setup(p => p.GetByCompanyIdAsync(companyId))
+            .ReturnsAsync(new List<Models.PaymentMethod>
+            {
+                new Models.PaymentMethod { Id = 1, CompanyId = companyId, StripeCustomerId = stripeCustomerId }
+            });
+
+        var created = new DateTime(2025, 1, 15, 0, 0, 0, DateTimeKind.Utc);
+        var stripeInvoice = new Invoice
+        {
+            Id = "in_test1",
+            Number = "INV-0001",
+            Total = 2999,
+            Currency = "usd",
+            Status = "paid",
+            Created = created,
+            PeriodStart = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            PeriodEnd = new DateTime(2025, 1, 31, 0, 0, 0, DateTimeKind.Utc),
+            HostedInvoiceUrl = "https://invoice.stripe.com/i/test",
+            InvoicePdf = "https://pay.stripe.com/invoice/test/pdf",
+        };
+
+        var stripeList = new StripeList<Invoice>
+        {
+            Data = new List<Invoice> { stripeInvoice }
+        };
+
+        _invoiceServiceMock
+            .Setup(s => s.ListAsync(It.IsAny<InvoiceListOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(stripeList);
+
+        var result = await _functions.GetInvoices(request);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await TestHelpers.ReadResponseBody(result);
+        var parsed = JsonSerializer.Deserialize<JsonElement>(body);
+        parsed.GetProperty("success").GetBoolean().Should().BeTrue();
+        var data = parsed.GetProperty("data");
+        data.GetArrayLength().Should().Be(1);
+        var inv = data[0];
+        inv.GetProperty("id").GetString().Should().Be("in_test1");
+        inv.GetProperty("number").GetString().Should().Be("INV-0001");
+        inv.GetProperty("amount").GetInt64().Should().Be(2999);
+        inv.GetProperty("currency").GetString().Should().Be("usd");
+        inv.GetProperty("status").GetString().Should().Be("paid");
+    }
+
+    [Fact]
+    public async Task GetInvoices_MissingCompanyId_Returns401()
+    {
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("");
+
+        var result = await _functions.GetInvoices(request);
+
+        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        _invoiceServiceMock.Verify(s => s.ListAsync(It.IsAny<InvoiceListOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 }
