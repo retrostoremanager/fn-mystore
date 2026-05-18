@@ -29,10 +29,10 @@ STEP 4 — If NO major or moderate issues found, run ALL of these commands in or
   # Merge
   gh pr merge ${PR_NUMBER} --squash --delete-branch
 
-  # Update orchestrator issue label
+  # Update orchestrator issue label: code-review → done
   ISSUE_N=\$(gh pr view ${PR_NUMBER} --json body --jq '.body' | grep -oP 'orchestrator-mystore#\K[0-9]+' | head -1)
   if [ -n "\$ISSUE_N" ]; then
-    GH_TOKEN="\$GH_DISPATCH_TOKEN" gh issue edit "\$ISSUE_N" --repo sbranham314/orchestrator-mystore --remove-label in-progress --add-label done
+    GH_TOKEN="\$GH_DISPATCH_TOKEN" gh issue edit "\$ISSUE_N" --repo sbranham314/orchestrator-mystore --remove-label code-review --add-label done
   fi
 
 STEP 5 — If major or moderate issues exist, run ALL of these commands in order:
@@ -44,6 +44,11 @@ STEP 5 — If major or moderate issues exist, run ALL of these commands in order
   else
     NEXT=\$((RETRIES + 1))
     gh pr edit ${PR_NUMBER} --add-label "review-retry-\$NEXT"
+    # Flip orchestrator issue label back: code-review → in-progress
+    ISSUE_N=\$(gh pr view ${PR_NUMBER} --json body --jq '.body' | grep -oP 'orchestrator-mystore#\K[0-9]+' | head -1)
+    if [ -n "\$ISSUE_N" ]; then
+      GH_TOKEN="\$GH_DISPATCH_TOKEN" gh issue edit "\$ISSUE_N" --repo sbranham314/orchestrator-mystore --remove-label code-review --add-label in-progress
+    fi
     # Leave a comment with your specific findings (file:line — issue — fix required)
     gh pr comment ${PR_NUMBER} --body "## Review findings (attempt \$NEXT/3)
 
@@ -65,6 +70,16 @@ Push fixes to the EXISTING branch ${HEAD_BRANCH}. Do NOT create a new branch. Co
 ENDPROMPT
 
 echo "Dispatching review for PR #${PR_NUMBER} on branch ${HEAD_BRANCH}"
+
+# Flip orchestrator issue label: in-progress → code-review
+ISSUE_N=$(gh pr view "${PR_NUMBER}" --json body --jq '.body' \
+  | grep -oP 'orchestrator-mystore#\K[0-9]+' | head -1 || true)
+if [ -n "$ISSUE_N" ]; then
+  GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue edit "$ISSUE_N" \
+    --repo sbranham314/orchestrator-mystore \
+    --remove-label in-progress \
+    --add-label code-review
+fi
 
 jq -n --arg prompt "$(cat /tmp/review-prompt.txt)" --arg branch "$HEAD_BRANCH" \
   '{"ref":"main","inputs":{"prompt":$prompt,"branch":$branch}}' | \
