@@ -22,6 +22,7 @@ public class BillingFunctions
     private readonly ICompanyRepository _companyRepository;
     private readonly IPaymentRepository _paymentRepository;
     private readonly StripeOptions _stripeOptions;
+    private readonly InvoiceService _invoiceService;
     private readonly ILogger _logger;
 
     public BillingFunctions(
@@ -31,6 +32,7 @@ public class BillingFunctions
         ICompanyRepository companyRepository,
         IPaymentRepository paymentRepository,
         IOptions<StripeOptions> stripeOptions,
+        InvoiceService invoiceService,
         ILoggerFactory loggerFactory)
     {
         _paymentService = paymentService;
@@ -39,6 +41,7 @@ public class BillingFunctions
         _companyRepository = companyRepository;
         _paymentRepository = paymentRepository;
         _stripeOptions = stripeOptions.Value;
+        _invoiceService = invoiceService;
         _logger = loggerFactory.CreateLogger<BillingFunctions>();
     }
 
@@ -362,6 +365,74 @@ public class BillingFunctions
             _logger.LogError(ex, "Error deleting payment method");
             var errorResponse = ApiResponse<object>.ErrorResponse(
                 "An error occurred while removing the payment method.");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
+        }
+    }
+
+    [Function("GetInvoices")]
+    [RequirePermission("billing.view")]
+    public async Task<HttpResponseData> GetInvoices(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "billing/invoices")] HttpRequestData req)
+    {
+        try
+        {
+            var companyId = CompanyHelper.GetCompanyIdRequired(req);
+
+            var limitParam = req.Url.Query
+                .TrimStart('?')
+                .Split('&')
+                .Select(p => p.Split('='))
+                .Where(p => p.Length == 2 && p[0].Equals("limit", StringComparison.OrdinalIgnoreCase))
+                .Select(p => p[1])
+                .FirstOrDefault();
+
+            var limit = 10;
+            if (!string.IsNullOrEmpty(limitParam) && int.TryParse(limitParam, out var parsedLimit))
+                limit = Math.Clamp(parsedLimit, 1, 100);
+
+            var paymentMethods = await _paymentRepository.GetByCompanyIdAsync(companyId);
+            var stripeCustomerId = paymentMethods.FirstOrDefault()?.StripeCustomerId;
+
+            if (string.IsNullOrEmpty(stripeCustomerId))
+            {
+                var emptyResponse = ApiResponse<List<InvoiceSummary>>.SuccessResponse(new List<InvoiceSummary>());
+                return await CreateHttpResponse(req, emptyResponse, HttpStatusCode.OK);
+            }
+
+            var invoices = await _invoiceService.ListAsync(new InvoiceListOptions
+            {
+                Customer = stripeCustomerId,
+                Limit = limit,
+            });
+
+            var summaries = invoices.Data.Select(inv => new InvoiceSummary
+            {
+                Id = inv.Id,
+                Number = inv.Number,
+                Amount = inv.Total,
+                Currency = inv.Currency,
+                Status = inv.Status,
+                Created = inv.Created,
+                PeriodStart = inv.PeriodStart,
+                PeriodEnd = inv.PeriodEnd,
+                HostedInvoiceUrl = inv.HostedInvoiceUrl,
+                InvoicePdf = inv.InvoicePdf,
+            }).ToList();
+
+            var response = ApiResponse<List<InvoiceSummary>>.SuccessResponse(summaries);
+            return await CreateHttpResponse(req, response, HttpStatusCode.OK);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized invoice retrieval attempt");
+            var errorResponse = ApiResponse<List<InvoiceSummary>>.ErrorResponse(ex.Message);
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving invoices");
+            var errorResponse = ApiResponse<List<InvoiceSummary>>.ErrorResponse(
+                "An error occurred while retrieving invoices.");
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
         }
     }
