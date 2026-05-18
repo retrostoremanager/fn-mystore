@@ -122,7 +122,7 @@ Use Read only on files that appear in the diff output.
 gh pr review N --approve --body "Code review passed. No major or moderate issues."
 gh pr merge N --squash --delete-branch
 ISSUE_N=$(gh pr view N --json body --jq '.body' | grep -oP 'orchestrator-mystore#\K[0-9]+')
-gh issue edit $ISSUE_N --repo sbranham314/orchestrator-mystore --remove-label in-progress --add-label done
+gh issue edit $ISSUE_N --repo retrostoremanager/orchestrator-mystore --remove-label code-review --add-label in-test
 ```
 
 ### Step 5 — REQUEST CHANGES: run these exact commands
@@ -143,6 +143,6 @@ Review feedback: [your findings]
 Push fixes to EXISTING branch $HEAD. Do NOT create a new branch." \
   --arg b "$HEAD" '{"ref":"main","inputs":{"prompt":$p,"branch":$b}}' | \
 GH_TOKEN="$GH_DISPATCH_TOKEN" gh api \
-  repos/sbranham314/fn-mystore/actions/workflows/claude-code.yml/dispatches \
+  repos/retrostoremanager/fn-mystore/actions/workflows/claude-code.yml/dispatches \
   --method POST --input -
 ```
