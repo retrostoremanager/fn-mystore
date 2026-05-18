@@ -1,0 +1,12 @@
+C:\Users\sbran\source\repos\fn-mystore\MyStore.Models\bin\Debug\net9.0\MyStore.Models.deps.json
+C:\Users\sbran\source\repos\fn-mystore\MyStore.Models\bin\Debug\net9.0\MyStore.Models.dll
+C:\Users\sbran\source\repos\fn-mystore\MyStore.Models\bin\Debug\net9.0\MyStore.Models.pdb
+C:\Users\sbran\source\repos\fn-mystore\MyStore.Models\obj\Debug\net9.0\MyStore.Models.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\sbran\source\repos\fn-mystore\MyStore.Models\obj\Debug\net9.0\MyStore.Models.AssemblyInfoInputs.cache
+C:\Users\sbran\source\repos\fn-mystore\MyStore.Models\obj\Debug\net9.0\MyStore.Models.AssemblyInfo.cs
+C:\Users\sbran\source\repos\fn-mystore\MyStore.Models\obj\Debug\net9.0\MyStore.Models.csproj.CoreCompileInputs.cache
+C:\Users\sbran\source\repos\fn-mystore\MyStore.Models\obj\Debug\net9.0\MyStore.Models.sourcelink.json
+C:\Users\sbran\source\repos\fn-mystore\MyStore.Models\obj\Debug\net9.0\MyStore.Models.dll
+C:\Users\sbran\source\repos\fn-mystore\MyStore.Models\obj\Debug\net9.0\refint\MyStore.Models.dll
+C:\Users\sbran\source\repos\fn-mystore\MyStore.Models\obj\Debug\net9.0\MyStore.Models.pdb
+C:\Users\sbran\source\repos\fn-mystore\MyStore.Models\obj\Debug\net9.0\ref\MyStore.Models.dll

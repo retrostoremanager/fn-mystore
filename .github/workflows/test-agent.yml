@@ -1,0 +1,178 @@
+name: Test Agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number that was just deployed'
+        required: true
+        type: string
+      target_repo:
+        description: 'Repo that was deployed (fn-mystore or web-mystore)'
+        required: true
+        type: string
+        default: 'fn-mystore'
+      orchestrator_issue:
+        description: 'Orchestrator issue number (if any)'
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: development
+          fetch-depth: 1
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore MyStore.sln
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Playwright
+        run: |
+          npm install -D @playwright/test
+          npx playwright install chromium --with-deps
+
+      - name: Build test prompt
+        id: prompt
+        shell: bash
+        run: |
+          PR="${{ inputs.pr_number }}"
+          REPO="${{ inputs.target_repo }}"
+          ISSUE="${{ inputs.orchestrator_issue }}"
+
+          if [ -n "$ISSUE" ]; then
+            ISSUE_REF="sbranham314/orchestrator-mystore#${ISSUE}"
+            ISSUE_STEP="  GH_TOKEN=\"\$GH_DISPATCH_TOKEN\" gh issue view ${ISSUE} --repo sbranham314/orchestrator-mystore"
+          else
+            ISSUE_REF="(no linked orchestrator issue)"
+            ISSUE_STEP="  # No orchestrator issue linked — test based on PR diff only"
+          fi
+
+          PROMPT=$(cat << ENDPROMPT
+You are a QA testing agent for RetroStoreManager. A PR was just merged and deployed to the dev environment. Test the deployed feature thoroughly and create bug issues in orchestrator-mystore for any failures found.
+
+Dev API: https://mystore-func-dev.azurewebsites.net/api
+Dev frontend: https://dev.retrostoremanager.com
+Deployed repo: ${REPO}
+PR: sbranham314/${REPO}/pull/${PR}
+Orchestrator issue: ${ISSUE_REF}
+
+STEP 1 — Get context
+  gh pr view ${PR} --repo sbranham314/${REPO} --json title,body
+  gh pr diff ${PR} --repo sbranham314/${REPO}
+${ISSUE_STEP}
+
+STEP 2 — Authenticate against the dev API
+  Find the login route by reading MyStore.Functions/Functions/AccountFunctions.cs (look for the Route attribute on the login function).
+  Then authenticate:
+    RESPONSE=\$(curl -s -X POST "https://mystore-func-dev.azurewebsites.net/api/[login-route]" \
+      -H "Content-Type: application/json" \
+      -d "{\"email\":\"\$TEST_EMAIL\",\"password\":\"\$TEST_PASSWORD\"}")
+    TOKEN=\$(echo "\$RESPONSE" | grep -oP '"token"\s*:\s*"\K[^"]+')
+    COMPANY_ID=\$(echo "\$RESPONSE" | grep -oP '"companyId"\s*:\s*"\K[^"]+')
+
+  Every authenticated request needs both headers:
+    -H "Authorization: Bearer \$TOKEN" -H "x-company-id: \$COMPANY_ID"
+
+STEP 3 — API tests
+  Based on the PR diff and acceptance criteria, test each new/modified endpoint:
+  - Happy path: correct inputs return expected HTTP status and response shape
+  - Error cases: missing/invalid fields return 400, no auth header returns 401, bad IDs return 404
+  - Business logic: verify calculated values are correct, state transitions work, data is persisted
+
+STEP 4 — Integration tests
+  Test multi-step flows end-to-end through the API.
+  Example: if a sale endpoint was added, create a sale then verify it appears in GET /sales.
+  Example: if a settings endpoint was added, PUT settings then confirm GET returns the new values.
+
+STEP 5 — E2E tests with Playwright (for UI changes or complete user flows)
+  Playwright and Chromium are already installed on this runner.
+  Write the test to /tmp/e2e-test.spec.js, then run:
+    npx playwright test /tmp/e2e-test.spec.js --reporter=line
+
+  Tests must use the TEST_EMAIL/TEST_PASSWORD env vars for login.
+  The frontend is at https://dev.retrostoremanager.com.
+  Use page.waitForLoadState('networkidle') after navigation to ensure the app is ready.
+
+STEP 6 — Report results
+  If ALL tests pass: print "All tests passed for PR #${PR}." and stop. Do NOT create any issues.
+
+  If a test FAILS: create one GitHub issue per distinct bug.
+  Write each bug body to a temp file to avoid quoting issues:
+
+    cat > /tmp/bug-body-1.md << 'EOF'
+    ## Bug description
+    [What is wrong — be specific about the behavior]
+
+    ## Failing test
+    [Exact curl command or Playwright code that failed]
+
+    Actual output:
+    [paste the actual response or error]
+
+    Expected:
+    [what should have happened]
+
+    ## Context
+    Introduced by: ${ISSUE_REF}
+    Deployed PR: https://github.com/sbranham314/${REPO}/pull/${PR}
+
+    ## Technical notes
+    [Which file, function, or component to fix; full error message or stack trace if available]
+    EOF
+
+    GH_TOKEN="\$GH_DISPATCH_TOKEN" gh issue create \
+      --repo sbranham314/orchestrator-mystore \
+      --title "Bug: [concise description of what is broken]" \
+      --body-file /tmp/bug-body-1.md \
+      --label "bug" \
+      --label "ready" \
+      --label "priority:high" \
+      --label "repo:${REPO}"
+
+  Use different file names (/tmp/bug-body-2.md, etc.) for each distinct bug.
+
+RULES:
+- Only test what changed in this PR — do not run a full regression suite
+- Each bug must include exact reproduction steps (copy-pasteable curl or test code)
+- Always include x-company-id header on multi-tenant endpoints
+- If the dev environment is unreachable, create one bug titled: "Dev environment unreachable after deploy of PR #${PR}"
+- Never comment on PRs — only create issues in orchestrator-mystore
+ENDPROMPT
+)
+          {
+            echo 'value<<QA_PROMPT_DELIMITER'
+            echo "$PROMPT"
+            echo 'QA_PROMPT_DELIMITER'
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: anthropics/claude-code-action@beta
+        env:
+          GH_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
+          TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
+          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          mode: agent
+          model: claude-sonnet-4-6
+          allowed_tools: Bash,Read,Write,Edit,Glob,Grep
+          timeout_minutes: 30
+          max_turns: 40
+          direct_prompt: ${{ steps.prompt.outputs.value }}

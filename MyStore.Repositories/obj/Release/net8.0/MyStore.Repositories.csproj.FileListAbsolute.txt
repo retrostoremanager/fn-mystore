@@ -1,0 +1,16 @@
+C:\Users\sbran\source\repos\fn-mystore\MyStore.Repositories\bin\Release\net8.0\MyStore.Repositories.deps.json
+C:\Users\sbran\source\repos\fn-mystore\MyStore.Repositories\bin\Release\net8.0\MyStore.Repositories.dll
+C:\Users\sbran\source\repos\fn-mystore\MyStore.Repositories\bin\Release\net8.0\MyStore.Repositories.pdb
+C:\Users\sbran\source\repos\fn-mystore\MyStore.Repositories\bin\Release\net8.0\MyStore.Models.dll
+C:\Users\sbran\source\repos\fn-mystore\MyStore.Repositories\bin\Release\net8.0\MyStore.Models.pdb
+C:\Users\sbran\source\repos\fn-mystore\MyStore.Repositories\obj\Release\net8.0\MyStore.Repositories.csproj.AssemblyReference.cache
+C:\Users\sbran\source\repos\fn-mystore\MyStore.Repositories\obj\Release\net8.0\MyStore.Repositories.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\sbran\source\repos\fn-mystore\MyStore.Repositories\obj\Release\net8.0\MyStore.Repositories.AssemblyInfoInputs.cache
+C:\Users\sbran\source\repos\fn-mystore\MyStore.Repositories\obj\Release\net8.0\MyStore.Repositories.AssemblyInfo.cs
+C:\Users\sbran\source\repos\fn-mystore\MyStore.Repositories\obj\Release\net8.0\MyStore.Repositories.csproj.CoreCompileInputs.cache
+C:\Users\sbran\source\repos\fn-mystore\MyStore.Repositories\obj\Release\net8.0\MyStore.Repositories.sourcelink.json
+C:\Users\sbran\source\repos\fn-mystore\MyStore.Repositories\obj\Release\net8.0\MyStore..2174C225.Up2Date
+C:\Users\sbran\source\repos\fn-mystore\MyStore.Repositories\obj\Release\net8.0\MyStore.Repositories.dll
+C:\Users\sbran\source\repos\fn-mystore\MyStore.Repositories\obj\Release\net8.0\refint\MyStore.Repositories.dll
+C:\Users\sbran\source\repos\fn-mystore\MyStore.Repositories\obj\Release\net8.0\MyStore.Repositories.pdb
+C:\Users\sbran\source\repos\fn-mystore\MyStore.Repositories\obj\Release\net8.0\ref\MyStore.Repositories.dll

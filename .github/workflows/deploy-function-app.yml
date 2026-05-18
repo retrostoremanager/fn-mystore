@@ -1,0 +1,76 @@
+name: Deploy Function App
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - development
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore MyStore.sln
+
+    - name: Build
+      run: dotnet build MyStore.sln --configuration Release --no-restore
+
+    - name: Publish
+      run: dotnet publish MyStore.Functions/MyStore.Functions.csproj --configuration Release --output ./publish --no-build
+
+    - name: Verify publish output
+      run: |
+        echo "Publish output contents:"
+        ls -la ./publish
+        echo "Checking for host.json:"
+        test -f ./publish/host.json && echo "host.json found" || echo "WARNING: host.json missing"
+        echo "Checking for worker:"
+        ls ./publish/*.dll 2>/dev/null | head -5 || echo "No DLLs found"
+
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Deploy to Azure Function App
+      run: |
+        cd publish
+        zip -r ../deploy.zip . -x "*.git*"
+        cd ..
+        az functionapp deployment source config-zip \
+          --resource-group mystore-rg-dev \
+          --name mystore-func-dev \
+          --src deploy.zip
+
+    - name: Deployment Complete
+      run: |
+        echo "Function App deployed successfully!"
+        echo "URL: https://mystore-func-dev.azurewebsites.net"
+
+    - name: Trigger test agent
+      if: github.event_name == 'pull_request'
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
+      run: |
+        PR_NUMBER="${{ github.event.pull_request.number }}"
+        ORCHESTRATOR_ISSUE=$(gh pr view "$PR_NUMBER" --json body --jq '.body' \
+          | grep -oP 'orchestrator-mystore#\K[0-9]+' | head -1 || true)
+        gh api repos/sbranham314/fn-mystore/actions/workflows/test-agent.yml/dispatches \
+          --method POST \
+          --field ref=main \
+          --field "inputs[pr_number]=$PR_NUMBER" \
+          --field "inputs[target_repo]=fn-mystore" \
+          --field "inputs[orchestrator_issue]=${ORCHESTRATOR_ISSUE:-}"
