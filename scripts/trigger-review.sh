@@ -33,7 +33,7 @@ STEP 4 — If NO major or moderate issues found, run ALL of these commands in or
   # Update orchestrator issue label: code-review → in-test (deploy + QA testing now running)
   ISSUE_N=\$(gh pr view ${PR_NUMBER} --json body --jq '.body' | grep -oP 'orchestrator-mystore#\K[0-9]+' | head -1)
   if [ -n "\$ISSUE_N" ]; then
-    GH_TOKEN="\$GH_DISPATCH_TOKEN" gh issue edit "\$ISSUE_N" --repo sbranham314/orchestrator-mystore --remove-label code-review --add-label in-test
+    GH_TOKEN="\$GH_DISPATCH_TOKEN" gh issue edit "\$ISSUE_N" --repo retrostoremanager/orchestrator-mystore --remove-label code-review --add-label in-test
   fi
 
 STEP 5 — If major or moderate issues exist, run ALL of these commands in order:
@@ -48,7 +48,7 @@ STEP 5 — If major or moderate issues exist, run ALL of these commands in order
     # Flip orchestrator issue label back: code-review → in-progress
     ISSUE_N=\$(gh pr view ${PR_NUMBER} --json body --jq '.body' | grep -oP 'orchestrator-mystore#\K[0-9]+' | head -1)
     if [ -n "\$ISSUE_N" ]; then
-      GH_TOKEN="\$GH_DISPATCH_TOKEN" gh issue edit "\$ISSUE_N" --repo sbranham314/orchestrator-mystore --remove-label code-review --add-label in-progress
+      GH_TOKEN="\$GH_DISPATCH_TOKEN" gh issue edit "\$ISSUE_N" --repo retrostoremanager/orchestrator-mystore --remove-label code-review --add-label in-progress
     fi
     # Leave a comment with your specific findings (file:line — issue — fix required)
     gh pr comment ${PR_NUMBER} --body "## Review findings (attempt \$NEXT/3)
@@ -65,7 +65,7 @@ Push fixes to the EXISTING branch ${HEAD_BRANCH}. Do NOT create a new branch. Co
       --arg b "${HEAD_BRANCH}" \
       '{"ref":"main","inputs":{"prompt":\$p,"branch":\$b}}' | \
     GH_TOKEN="\$GH_DISPATCH_TOKEN" gh api \
-      repos/sbranham314/fn-mystore/actions/workflows/claude-code.yml/dispatches \
+      repos/retrostoremanager/fn-mystore/actions/workflows/claude-code.yml/dispatches \
       --method POST --input -
   fi
 ENDPROMPT
@@ -77,7 +77,7 @@ ISSUE_N=$(gh pr view "${PR_NUMBER}" --json body --jq '.body' \
   | grep -oP 'orchestrator-mystore#\K[0-9]+' | head -1 || true)
 if [ -n "$ISSUE_N" ]; then
   GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue edit "$ISSUE_N" \
-    --repo sbranham314/orchestrator-mystore \
+    --repo retrostoremanager/orchestrator-mystore \
     --remove-label in-progress \
     --add-label code-review
 fi
@@ -85,7 +85,7 @@ fi
 jq -n --arg prompt "$(cat /tmp/review-prompt.txt)" --arg branch "$HEAD_BRANCH" \
   '{"ref":"main","inputs":{"prompt":$prompt,"branch":$branch}}' | \
 GH_TOKEN="$GH_DISPATCH_TOKEN" gh api \
-  repos/sbranham314/fn-mystore/actions/workflows/claude-code.yml/dispatches \
+  repos/retrostoremanager/fn-mystore/actions/workflows/claude-code.yml/dispatches \
   --method POST --input -
 
 echo "Review dispatched."
