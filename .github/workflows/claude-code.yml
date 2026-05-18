@@ -114,18 +114,25 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
         run: |
-          BRANCH="${{ github.event.inputs.branch || github.event.client_payload.branch || 'development' }}"
-          # Only review feature/issue-* branches
-          if [[ "$BRANCH" != feature/issue-* ]]; then
-            echo "Branch $BRANCH is not a feature branch — skipping review trigger"
+          # The agent checks out 'development' then creates feature/issue-N itself,
+          # so the input branch is always 'development' — we can't use it to find the PR.
+          # Instead, find any open feature PR not yet in a review cycle.
+          PR_DATA=$(gh pr list \
+            --base development \
+            --state open \
+            --json number,headRefName,labels \
+            --jq '[.[] | select(
+              (.headRefName | startswith("feature/issue-")) and
+              (.labels | map(.name) | any(startswith("review-retry-") or . == "needs-human-review") | not)
+            )] | first // empty')
+
+          if [ -z "$PR_DATA" ] || [ "$PR_DATA" = "null" ]; then
+            echo "No open feature PRs awaiting review — skipping"
             exit 0
           fi
-          PR_NUMBER=$(gh pr list --head "$BRANCH" --base development --state open \
-            --json number --jq '.[0].number // empty')
-          if [ -z "$PR_NUMBER" ]; then
-            echo "No open PR found for branch $BRANCH — agent may not have opened one"
-            exit 0
-          fi
-          echo "Found PR #$PR_NUMBER on $BRANCH — dispatching code review"
-          export PR_NUMBER HEAD_BRANCH="$BRANCH"
+
+          PR_NUMBER=$(echo "$PR_DATA" | jq -r '.number')
+          HEAD_BRANCH=$(echo "$PR_DATA" | jq -r '.headRefName')
+          echo "Found PR #$PR_NUMBER on $HEAD_BRANCH — dispatching code review"
+          export PR_NUMBER HEAD_BRANCH
           bash scripts/trigger-review.sh
