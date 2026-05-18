@@ -1,5 +1,21 @@
 # Agent Guidelines: Azure Functions App
 
+## Token Efficiency (MANDATORY — read before anything else)
+
+Every tool call costs money. This project has a spending cap. Violating these rules causes the run to fail mid-task, wasting all work done so far.
+
+**File reading rules:**
+- The complete file map is in `CLAUDE.md`. Do NOT use Glob, LS, or Find — the map is authoritative.
+- Read each file **at most once**. After reading, you have the content in context — do not re-read it.
+- For a new endpoint: read the relevant interface + implementation (e.g., `IBillingFunctions.cs`, `BillingFunctions.cs`) and `Program.cs`. That's it.
+- For tests: read the existing test file for that domain once to understand the mock pattern, then write new tests. Do not read all test files.
+
+**Planning rule:**
+Before your first tool call, write: "I will read: [list exact files]. I will NOT read: [what you're skipping and why]." Hold yourself to this.
+
+**Turn budget:**
+You have ~50 turns. A typical feature (service + endpoint + tests + PR) should take 20–30 turns. If you're past 35 turns and haven't started writing code, you're over-exploring — stop and implement.
+
 ## Critical First Step: Check for Existing Code
 
 **BEFORE implementing any new functionality, you MUST:**
