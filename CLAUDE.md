@@ -1,5 +1,66 @@
 # fn-mystore — Azure Functions Backend
 
+## Efficiency Rules (READ FIRST)
+
+**These rules exist to prevent hitting spending caps. Follow them strictly.**
+
+1. **Never run Glob, LS, or Find.** The full file map is below — use it.
+2. **Read each file at most once per session.** If you've read it, you have the content — don't re-read it.
+3. **For new features:** read only the interface file(s) for the domain you're touching, plus `Program.cs` to check DI registration. Do NOT read every existing service/repo "for context."
+4. **For bug fixes:** read the diff (`gh pr diff N`) first. Only `Read` files that appear in the diff.
+5. **Before your first tool call:** write a one-sentence plan stating which files you'll read and why. Commit to it.
+6. **If the task requires >5 files read:** stop and reconsider — you're probably exploring instead of implementing.
+
+## Complete File Map
+
+Do not Glob or LS. Every file is listed here.
+
+### MyStore.Functions/
+- `Program.cs` — DI registration (always check here before adding new services)
+- `Functions/AccountFunctions.cs` — login, register, email verification, password reset
+- `Functions/BillingFunctions.cs` — Stripe webhooks, payment methods, trial status, subscription
+- `Functions/CompanyProfileFunctions.cs` — company profile get/update, logo upload
+- `Functions/CustomerFunctions.cs` — customer CRUD
+- `Functions/GameFunctions.cs` — game search and catalog
+- `Functions/HealthFunctions.cs` — health check endpoint
+- `Functions/InventoryFunctions.cs` — inventory CRUD
+- `Functions/PermissionFunctions.cs` — RBAC permission queries
+- `Functions/RoleFunctions.cs` — role CRUD
+- `Functions/SalesFunctions.cs` — sales transactions
+- `Functions/TrialConversionFunctions.cs` — timer trigger for trial-to-paid conversion
+- `Functions/TrialNotificationFunctions.cs` — timer trigger for trial expiry emails
+- `Functions/TrialSuspensionFunctions.cs` — timer trigger for suspending expired trials
+- `Functions/UserFunctions.cs` — user management (invite, deactivate, roles)
+- `Helpers/CompanyHelper.cs` — `GetCompanyIdRequired(req)` multi-tenant extraction
+- `Middleware/CorsMiddleware.cs`, `JwtAuthenticationMiddleware.cs`, `CompanyAccessMiddleware.cs`, `RbacMiddleware.cs` — request pipeline
+- `Attributes/RequirePermissionAttribute.cs` — RBAC decoration
+- `Services/LogoStorageService.cs` — Azure Blob logo storage
+
+### MyStore.Services/
+Interfaces: `ICompanyService`, `ICustomerService`, `IEmailService`, `IGameService`, `IIgdbService`, `IInventoryService`, `IPaymentService`, `IPermissionService`, `ISalesService`, `ISubscriptionChangeService`, `ISubscriptionService`, `ITrialConversionService`, `ITrialSuspensionService`, `IUserService`
+
+Implementations: matching `*Service.cs` files for each interface above, plus:
+- `StripeOptions.cs` — Stripe config (SecretKey, WebhookSecret, PriceId*)
+- `StripeErrorMapper.cs` — maps Stripe exceptions to user-friendly messages
+
+### MyStore.Repositories/
+Interfaces: `ICompanyRepository`, `ICustomerRepository`, `IGameRepository`, `IInventoryRepository`, `ILocationRepository`, `IPaymentRepository`, `IRoleRepository`, `ISalesRepository`, `ISubscriptionRepository`, `IUserRepository`
+
+Implementations: matching `*Repository.cs` for each above. All use Dapper + NpgsqlConnection. Connection string from env `ConnectionStrings__DefaultConnection`.
+
+### MyStore.Models/
+- `ApiResponse.cs` — `ApiResponse<T>` wrapper with `SuccessResponse(data)` / `ErrorResponse(msg)`
+- `Company.cs` — Company, TrialStatusResponse, CompanyProfile, TrialConversionCandidate, SubscriptionStatusResponse
+- `Customer.cs`, `Game.cs`, `InventoryItem.cs`, `PaymentMethod.cs`, `Role.cs`, `Sale.cs`, `Subscription.cs`, `SubscriptionChangeModels.cs`, `User.cs`
+
+### MyStore.Tests/
+- `Functions/` — BillingFunctionsTests, AccountFunctionsTests, TrialConversionFunctionsTests, TrialNotificationFunctionsTests
+- `Services/` — CompanyServiceTests, InventoryServiceTests, StripeErrorMapperTests, SubscriptionServiceTests, TrialConversionServiceTests
+- `Repositories/` — CompanyRepositoryTests
+- `Helpers/TestHelpers.cs` — `MockHttpRequestData`, `MockHttpResponseData`, `CreateHttpRequestDataWithRawBody`, `ReadResponseBody`
+- `Helpers/StripeTestHelpers.cs` — `CreateSubscriptionObjectPayload`, `WrapInEventPayload`, `CreateSignedPayloadAndHeader`
+- `Helpers/CompanyHelperTests.cs`
+
 ## Build & Test
 
 ```bash
