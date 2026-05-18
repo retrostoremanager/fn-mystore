@@ -32,7 +32,7 @@ STEP 4 — If NO major or moderate issues found, run ALL of these commands in or
   # Update orchestrator issue label
   ISSUE_N=\$(gh pr view ${PR_NUMBER} --json body --jq '.body' | grep -oP 'orchestrator-mystore#\K[0-9]+' | head -1)
   if [ -n "\$ISSUE_N" ]; then
-    gh issue edit "\$ISSUE_N" --repo sbranham314/orchestrator-mystore --remove-label in-progress --add-label done
+    GH_TOKEN="\$GH_DISPATCH_TOKEN" gh issue edit "\$ISSUE_N" --repo sbranham314/orchestrator-mystore --remove-label in-progress --add-label done
   fi
 
 STEP 5 — If major or moderate issues exist, run ALL of these commands in order:
