@@ -7,11 +7,11 @@ repo = os.environ.get("REPO", "")
 issue = os.environ.get("ISSUE", "")
 
 if issue:
-    issue_ref = f"sbranham314/orchestrator-mystore#{issue}"
-    issue_step = f'  GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue view {issue} --repo sbranham314/orchestrator-mystore'
+    issue_ref = f"retrostoremanager/orchestrator-mystore#{issue}"
+    issue_step = f'  GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue view {issue} --repo retrostoremanager/orchestrator-mystore'
     issue_label_step = (
         f'  GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue edit {issue} \\\n'
-        f'    --repo sbranham314/orchestrator-mystore \\\n'
+        f'    --repo retrostoremanager/orchestrator-mystore \\\n'
         f'    --remove-label in-test \\\n'
         f'    --add-label done'
     )
