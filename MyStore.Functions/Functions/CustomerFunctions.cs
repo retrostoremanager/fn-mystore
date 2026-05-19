@@ -52,6 +52,16 @@ public class CustomerFunctions
             _logger.LogInformation("Getting customer with ID: {Id} for company {CompanyId}", id, companyId);
 
             var response = await _customerService.GetCustomerByIdAsync(id, companyId);
+            if (!response.Success)
+            {
+                var msg = response.Message ?? string.Empty;
+                if (msg.Contains("access denied", StringComparison.OrdinalIgnoreCase) ||
+                    msg.Contains("cross-tenant", StringComparison.OrdinalIgnoreCase) ||
+                    msg.Contains("does not belong", StringComparison.OrdinalIgnoreCase) ||
+                    msg.Contains("forbidden", StringComparison.OrdinalIgnoreCase))
+                    return await CreateHttpResponse(req, response, HttpStatusCode.Forbidden);
+                return await CreateHttpResponse(req, response, HttpStatusCode.NotFound);
+            }
             return await CreateHttpResponse(req, response);
         }
         catch (UnauthorizedAccessException ex)
