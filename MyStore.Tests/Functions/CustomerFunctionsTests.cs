@@ -92,14 +92,14 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task GetAllCustomers_MissingCompanyId_Returns401Unauthorized()
+    public async Task GetAllCustomers_MissingCompanyId_Returns403Forbidden()
     {
         var context = new Mock<FunctionContext>();
         var req = TestHelpers.CreateHttpRequestData(context.Object, null);
 
         var result = await _functions.GetAllCustomers(req);
 
-        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        result.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     [Fact]
@@ -331,7 +331,7 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task CreateCustomer_MissingCompanyId_Returns401Unauthorized()
+    public async Task CreateCustomer_MissingCompanyId_Returns403Forbidden()
     {
         var request = new CreateCustomerRequest { FirstName = "Jane", LastName = "Smith" };
 
@@ -340,7 +340,7 @@ public class CustomerFunctionsTests
 
         var result = await _functions.CreateCustomer(req);
 
-        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        result.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     [Fact]
@@ -522,14 +522,14 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task DeleteCustomer_MissingCompanyId_Returns401Unauthorized()
+    public async Task DeleteCustomer_MissingCompanyId_Returns403Forbidden()
     {
         var context = new Mock<FunctionContext>();
         var req = TestHelpers.CreateHttpRequestData(context.Object, null);
 
         var result = await _functions.DeleteCustomer(req, 1);
 
-        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        result.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     [Fact]
@@ -619,7 +619,7 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task SearchCustomers_MissingCompanyId_Returns401Unauthorized()
+    public async Task SearchCustomers_MissingCompanyId_Returns403Forbidden()
     {
         var query = new NameValueCollection { { "q", "john" } };
         var context = new Mock<FunctionContext>();
@@ -627,7 +627,7 @@ public class CustomerFunctionsTests
 
         var result = await _functions.SearchCustomers(req);
 
-        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        result.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     #endregion
