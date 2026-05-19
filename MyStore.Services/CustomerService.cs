@@ -51,6 +51,10 @@ public class CustomerService : ICustomerService
 
             return ApiResponse<Customer>.SuccessResponse(customer);
         }
+        catch (UnauthorizedAccessException ex)
+        {
+            return ApiResponse<Customer>.ErrorResponse(ex.Message);
+        }
         catch (Exception ex)
         {
             return ApiResponse<Customer>.ErrorResponse(

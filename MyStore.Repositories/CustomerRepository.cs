@@ -37,10 +37,18 @@ public class CustomerRepository : ICustomerRepository
     public async Task<Customer?> GetByIdAsync(int id, int companyId)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
-        return await connection.QueryFirstOrDefaultAsync<Customer>(
+        var customer = await connection.QueryFirstOrDefaultAsync<Customer>(
             $@"SELECT {SelectColumns} FROM customer
-               WHERE id = @p_id AND company_id = @p_company_id",
-            new { p_id = id, p_company_id = companyId });
+               WHERE id = @p_id",
+            new { p_id = id });
+
+        if (customer == null)
+            return null;
+
+        if (customer.CompanyId != companyId)
+            throw new UnauthorizedAccessException($"Access denied: customer does not belong to this company");
+
+        return customer;
     }
 
     public async Task<Customer?> GetByEmailAsync(string email, int companyId)
