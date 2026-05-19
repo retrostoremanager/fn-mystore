@@ -10,6 +10,7 @@ using MyStore.Functions.Helpers;
 using MyStore.Models;
 using MyStore.Repositories;
 using MyStore.Services;
+using Newtonsoft.Json.Linq;
 using Stripe;
 
 namespace MyStore.Functions;
@@ -523,7 +524,47 @@ public class BillingFunctions
             }
             else
             {
-                status = isInTrial ? "trial" : "active";
+                var stripeCustomerId = paymentMethods.FirstOrDefault()?.StripeCustomerId;
+                if (!string.IsNullOrEmpty(stripeCustomerId))
+                {
+                    Stripe.Subscription? stripeSub = null;
+                    try
+                    {
+                        var stripeList = await _stripeSubscriptionService.ListAsync(new SubscriptionListOptions
+                        {
+                            Customer = stripeCustomerId,
+                            Status = "active",
+                            Limit = 1,
+                        });
+                        stripeSub = stripeList.Data?.FirstOrDefault();
+                    }
+                    catch (StripeException ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to fetch Stripe subscriptions for customer {StripeCustomerId}", stripeCustomerId);
+                    }
+
+                    if (stripeSub is not null)
+                    {
+                        status = "active";
+                        if (stripeSub.RawJObject?["current_period_start"] is not null)
+                            currentPeriodStart = DateTimeOffset.FromUnixTimeSeconds(stripeSub.RawJObject["current_period_start"]!.Value<long>()).UtcDateTime;
+                        if (stripeSub.RawJObject?["current_period_end"] is not null)
+                            currentPeriodEnd = DateTimeOffset.FromUnixTimeSeconds(stripeSub.RawJObject["current_period_end"]!.Value<long>()).UtcDateTime;
+                        var firstItem = stripeSub.Items?.Data?.FirstOrDefault();
+                        if (firstItem?.Plan is not null)
+                        {
+                            billingCycle = firstItem.Plan.Interval == "year" ? "annual" : "monthly";
+                        }
+                    }
+                    else
+                    {
+                        status = "active";
+                    }
+                }
+                else
+                {
+                    status = "active";
+                }
             }
 
             var responseData = new SubscriptionStatusResponse
