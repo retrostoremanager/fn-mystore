@@ -134,15 +134,17 @@ gh pr review N --request-changes --body "## Review Findings (attempt $NEXT/3)
 
 [your detailed findings with file:line references]"
 ORIGINAL=$(gh pr view N --json body --jq '.body')
-jq -n --arg p "REVISION REQUEST for $HEAD (attempt $NEXT/3).
+REVISION_PROMPT="REVISION REQUEST for $HEAD (attempt $NEXT/3).
 
 Original task: $ORIGINAL
 
 Review feedback: [your findings]
 
-Push fixes to EXISTING branch $HEAD. Do NOT create a new branch." \
-  --arg b "$HEAD" '{"ref":"main","inputs":{"prompt":$p,"branch":$b}}' | \
+Push fixes to EXISTING branch $HEAD. Do NOT create a new branch."
+cat > /tmp/revision-payload.json << PAYLOAD_EOF
+$(jq -n --arg p "$REVISION_PROMPT" --arg b "$HEAD" '{"ref":"main","inputs":{"prompt":$p,"branch":$b}}')
+PAYLOAD_EOF
 GH_TOKEN="$GH_DISPATCH_TOKEN" gh api \
   repos/retrostoremanager/fn-mystore/actions/workflows/claude-code.yml/dispatches \
-  --method POST --input -
+  --method POST --input /tmp/revision-payload.json
 ```
