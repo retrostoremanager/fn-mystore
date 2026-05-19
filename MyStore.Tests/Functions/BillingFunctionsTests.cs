@@ -570,6 +570,169 @@ public class BillingFunctionsTests
     }
 
     [Fact]
+    public async Task GetSubscriptionStatus_ActivePaidNoLocalSub_FetchesStripeByCustomerAndReturnsBillingData()
+    {
+        var companyId = 13;
+        var trialEnd = DateTime.UtcNow.AddDays(-60);
+        var company = new Company
+        {
+            Id = companyId,
+            Status = "Active",
+            TrialStartDate = trialEnd.AddDays(-30),
+            TrialEndDate = trialEnd,
+            SubscriptionTier = "Enterprise"
+        };
+        var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+
+        var periodStart = new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc);
+        var periodEnd = new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var periodStartUnix = new DateTimeOffset(periodStart).ToUnixTimeSeconds();
+        var periodEndUnix = new DateTimeOffset(periodEnd).ToUnixTimeSeconds();
+
+        var subJson = $$"""
+            {
+                "id": "sub_enterprise123",
+                "object": "subscription",
+                "status": "active",
+                "current_period_start": {{periodStartUnix}},
+                "current_period_end": {{periodEndUnix}},
+                "cancel_at_period_end": false,
+                "customer": "cus_enterprise123",
+                "items": {
+                    "object": "list",
+                    "data": [{
+                        "id": "si_test",
+                        "object": "subscription_item",
+                        "plan": {
+                            "id": "plan_test",
+                            "object": "plan",
+                            "interval": "month"
+                        },
+                        "price": {
+                            "id": "price_test",
+                            "object": "price"
+                        }
+                    }]
+                }
+            }
+            """;
+        var stripeSub = Newtonsoft.Json.JsonConvert.DeserializeObject<Stripe.Subscription>(subJson)!;
+
+        var stripeList = new StripeList<Stripe.Subscription>
+        {
+            Data = new List<Stripe.Subscription> { stripeSub }
+        };
+
+        _companyRepositoryMock.Setup(r => r.GetByIdAsync(companyId)).ReturnsAsync(company);
+        _paymentRepositoryMock.Setup(p => p.GetByCompanyIdAsync(companyId))
+            .ReturnsAsync(new List<Models.PaymentMethod>
+            {
+                new Models.PaymentMethod { Id = 1, CompanyId = companyId, StripeCustomerId = "cus_enterprise123" }
+            });
+        _subscriptionRepositoryMock.Setup(r => r.GetByCompanyIdAsync(companyId))
+            .ReturnsAsync((MyStore.Models.Subscription?)null);
+        _stripeSubscriptionServiceMock
+            .Setup(s => s.ListAsync(It.Is<SubscriptionListOptions>(o => o.Customer == "cus_enterprise123"), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(stripeList);
+
+        var result = await _functions.GetSubscriptionStatus(request);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await TestHelpers.ReadResponseBody(result);
+        var parsed = JsonSerializer.Deserialize<JsonElement>(body);
+        parsed.GetProperty("success").GetBoolean().Should().BeTrue();
+        var data = parsed.GetProperty("data");
+        data.GetProperty("status").GetString().Should().Be("active");
+        data.GetProperty("isInTrial").GetBoolean().Should().BeFalse();
+        data.GetProperty("billingCycle").GetString().Should().Be("monthly");
+        data.GetProperty("currentPeriodStart").GetDateTime().Should().Be(periodStart);
+        data.GetProperty("currentPeriodEnd").GetDateTime().Should().Be(periodEnd);
+        data.GetProperty("hasPaymentMethod").GetBoolean().Should().BeTrue();
+        data.GetProperty("tier").GetString().Should().Be("Enterprise");
+    }
+
+    [Fact]
+    public async Task GetSubscriptionStatus_ActivePaidNoLocalSubNoStripeMatch_ReturnsActiveWithNullBillingFields()
+    {
+        var companyId = 14;
+        var trialEnd = DateTime.UtcNow.AddDays(-60);
+        var company = new Company
+        {
+            Id = companyId,
+            Status = "Active",
+            TrialStartDate = trialEnd.AddDays(-30),
+            TrialEndDate = trialEnd,
+            SubscriptionTier = "Enterprise"
+        };
+        var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+
+        var emptyStripeList = new StripeList<Stripe.Subscription>
+        {
+            Data = new List<Stripe.Subscription>()
+        };
+
+        _companyRepositoryMock.Setup(r => r.GetByIdAsync(companyId)).ReturnsAsync(company);
+        _paymentRepositoryMock.Setup(p => p.GetByCompanyIdAsync(companyId))
+            .ReturnsAsync(new List<Models.PaymentMethod>
+            {
+                new Models.PaymentMethod { Id = 1, CompanyId = companyId, StripeCustomerId = "cus_enterprise456" }
+            });
+        _subscriptionRepositoryMock.Setup(r => r.GetByCompanyIdAsync(companyId))
+            .ReturnsAsync((MyStore.Models.Subscription?)null);
+        _stripeSubscriptionServiceMock
+            .Setup(s => s.ListAsync(It.IsAny<SubscriptionListOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(emptyStripeList);
+
+        var result = await _functions.GetSubscriptionStatus(request);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await TestHelpers.ReadResponseBody(result);
+        var parsed = JsonSerializer.Deserialize<JsonElement>(body);
+        parsed.GetProperty("success").GetBoolean().Should().BeTrue();
+        var data = parsed.GetProperty("data");
+        data.GetProperty("status").GetString().Should().Be("active");
+        data.GetProperty("isInTrial").GetBoolean().Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetSubscriptionStatus_ActivePaidNoLocalSubNoPaymentMethod_ReturnsActiveWithNullBillingFields()
+    {
+        var companyId = 15;
+        var trialEnd = DateTime.UtcNow.AddDays(-60);
+        var company = new Company
+        {
+            Id = companyId,
+            Status = "Active",
+            TrialStartDate = trialEnd.AddDays(-30),
+            TrialEndDate = trialEnd,
+            SubscriptionTier = "Enterprise"
+        };
+        var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+
+        _companyRepositoryMock.Setup(r => r.GetByIdAsync(companyId)).ReturnsAsync(company);
+        _paymentRepositoryMock.Setup(p => p.GetByCompanyIdAsync(companyId))
+            .ReturnsAsync(Array.Empty<Models.PaymentMethod>());
+        _subscriptionRepositoryMock.Setup(r => r.GetByCompanyIdAsync(companyId))
+            .ReturnsAsync((MyStore.Models.Subscription?)null);
+
+        var result = await _functions.GetSubscriptionStatus(request);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await TestHelpers.ReadResponseBody(result);
+        var parsed = JsonSerializer.Deserialize<JsonElement>(body);
+        parsed.GetProperty("success").GetBoolean().Should().BeTrue();
+        var data = parsed.GetProperty("data");
+        data.GetProperty("status").GetString().Should().Be("active");
+        data.GetProperty("isInTrial").GetBoolean().Should().BeFalse();
+        _stripeSubscriptionServiceMock.Verify(
+            s => s.ListAsync(It.IsAny<SubscriptionListOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
     public async Task GetSubscriptionStatus_PastDueStripeSubscription_ReturnsPastDueStatus()
     {
         var companyId = 4;
