@@ -21,8 +21,10 @@ public class BillingFunctions
     private readonly ISubscriptionChangeService _subscriptionChangeService;
     private readonly ICompanyRepository _companyRepository;
     private readonly IPaymentRepository _paymentRepository;
+    private readonly ISubscriptionRepository _subscriptionRepository;
     private readonly StripeOptions _stripeOptions;
     private readonly InvoiceService _invoiceService;
+    private readonly Stripe.SubscriptionService _stripeSubscriptionService;
     private readonly ILogger _logger;
 
     public BillingFunctions(
@@ -31,8 +33,10 @@ public class BillingFunctions
         ISubscriptionChangeService subscriptionChangeService,
         ICompanyRepository companyRepository,
         IPaymentRepository paymentRepository,
+        ISubscriptionRepository subscriptionRepository,
         IOptions<StripeOptions> stripeOptions,
         InvoiceService invoiceService,
+        Stripe.SubscriptionService stripeSubscriptionService,
         ILoggerFactory loggerFactory)
     {
         _paymentService = paymentService;
@@ -40,8 +44,10 @@ public class BillingFunctions
         _subscriptionChangeService = subscriptionChangeService;
         _companyRepository = companyRepository;
         _paymentRepository = paymentRepository;
+        _subscriptionRepository = subscriptionRepository;
         _stripeOptions = stripeOptions.Value;
         _invoiceService = invoiceService;
+        _stripeSubscriptionService = stripeSubscriptionService;
         _logger = loggerFactory.CreateLogger<BillingFunctions>();
     }
 
@@ -433,6 +439,120 @@ public class BillingFunctions
             _logger.LogError(ex, "Error retrieving invoices");
             var errorResponse = ApiResponse<List<InvoiceSummary>>.ErrorResponse(
                 "An error occurred while retrieving invoices.");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
+        }
+    }
+
+    [Function("GetSubscriptionStatus")]
+    [RequirePermission("billing.view")]
+    public async Task<HttpResponseData> GetSubscriptionStatus(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "billing/subscription")] HttpRequestData req)
+    {
+        try
+        {
+            var companyId = CompanyHelper.GetCompanyIdRequired(req);
+
+            var company = await _companyRepository.GetByIdAsync(companyId);
+            if (company == null)
+            {
+                var errorResponse = ApiResponse<SubscriptionStatusResponse>.ErrorResponse("Company not found.");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.NotFound);
+            }
+
+            var paymentMethods = await _paymentRepository.GetByCompanyIdAsync(companyId);
+            var hasPaymentMethod = paymentMethods.Any();
+
+            var now = DateTime.UtcNow;
+            var isInTrial = company.TrialEndDate > now;
+            var daysRemainingInTrial = isInTrial
+                ? Math.Max(0, (int)(company.TrialEndDate - now).TotalDays)
+                : 0;
+
+            var isSuspended = string.Equals(company.Status, "Suspended", StringComparison.OrdinalIgnoreCase);
+
+            var localSub = await _subscriptionRepository.GetByCompanyIdAsync(companyId);
+
+            string status;
+            string? billingCycle = null;
+            DateTime? currentPeriodStart = null;
+            DateTime? currentPeriodEnd = null;
+
+            if (isSuspended)
+            {
+                status = "suspended";
+            }
+            else if (isInTrial && localSub == null)
+            {
+                status = "trial";
+            }
+            else if (localSub != null)
+            {
+                Stripe.Subscription? stripeSub = null;
+                try
+                {
+                    stripeSub = await _stripeSubscriptionService.GetAsync(localSub.StripeSubscriptionId);
+                }
+                catch (StripeException ex)
+                {
+                    _logger.LogWarning(ex, "Failed to fetch Stripe subscription {StripeSubscriptionId}", localSub.StripeSubscriptionId);
+                }
+
+                currentPeriodStart = localSub.CurrentPeriodStart;
+                currentPeriodEnd = localSub.CurrentPeriodEnd;
+
+                if (stripeSub is not null)
+                {
+                    status = stripeSub.Status switch
+                    {
+                        "active" or "trialing" => "active",
+                        "past_due" => "past_due",
+                        "canceled" => "canceled",
+                        _ => stripeSub.Status
+                    };
+
+                    var firstItem = stripeSub.Items?.Data?.FirstOrDefault();
+                    if (firstItem?.Plan is not null)
+                    {
+                        billingCycle = firstItem.Plan.Interval == "year" ? "annual" : "monthly";
+                    }
+                }
+                else
+                {
+                    status = localSub.Status;
+                }
+            }
+            else
+            {
+                status = isInTrial ? "trial" : "active";
+            }
+
+            var responseData = new SubscriptionStatusResponse
+            {
+                Tier = company.SubscriptionTier ?? "Trial",
+                Status = status,
+                IsInTrial = isInTrial,
+                TrialEndDate = company.TrialEndDate,
+                DaysRemainingInTrial = daysRemainingInTrial,
+                BillingCycle = billingCycle,
+                CurrentPeriodStart = currentPeriodStart,
+                CurrentPeriodEnd = currentPeriodEnd,
+                HasPaymentMethod = hasPaymentMethod,
+            };
+
+            var response = ApiResponse<SubscriptionStatusResponse>.SuccessResponse(responseData);
+            return await CreateHttpResponse(req, response, HttpStatusCode.OK);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized subscription status retrieval attempt");
+            var errorResponse = ApiResponse<SubscriptionStatusResponse>.ErrorResponse(ex.Message);
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving subscription status");
+            var errorResponse = ApiResponse<SubscriptionStatusResponse>.ErrorResponse(
+                "An error occurred while retrieving subscription status.");
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
         }
     }

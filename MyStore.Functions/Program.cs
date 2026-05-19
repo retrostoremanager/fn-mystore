@@ -57,6 +57,7 @@ var host = new HostBuilder()
         services.AddScoped<IPermissionService, PermissionService>();
         services.AddScoped<LogoStorageService>();
         services.AddScoped<Stripe.InvoiceService>();
+        services.AddScoped<Stripe.SubscriptionService>();
     })
     .Build();
 
