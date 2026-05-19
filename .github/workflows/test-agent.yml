@@ -62,11 +62,13 @@ jobs:
             echo 'QA_PROMPT_DELIMITER'
           } >> "$GITHUB_OUTPUT"
 
-      - uses: anthropics/claude-code-action@beta
+      - id: claude
+        uses: anthropics/claude-code-action@beta
         env:
           GH_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
           TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
           TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+          TEST_COMPANY_SLUG: ${{ secrets.TEST_COMPANY_SLUG }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -76,3 +78,47 @@ jobs:
           timeout_minutes: 45
           max_turns: 80
           direct_prompt: ${{ steps.prompt.outputs.value }}
+
+      - name: Handle spending cap
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
+          ISSUE_N: ${{ inputs.orchestrator_issue }}
+        run: |
+          STEP_OUTPUT="${{ steps.claude.outputs.output }}"
+          if ! echo "$STEP_OUTPUT" | grep -q "Spending cap reached"; then
+            echo "Not a spending cap — stale recovery will handle it."
+            exit 0
+          fi
+          if [ -z "$ISSUE_N" ]; then
+            echo "No orchestrator issue — skipping cap-wait label"
+            exit 0
+          fi
+          RESET_STR=$(echo "$STEP_OUTPUT" | grep -oP 'Spending cap reached resets \K[^\n]+' | head -1)
+          RESET_ISO=""
+          if [ -n "$RESET_STR" ]; then
+            if echo "$RESET_STR" | grep -qP '^\d+:\d+(am|pm)'; then
+              RESET_EPOCH=$(TZ=America/New_York date -d "$RESET_STR" +%s 2>/dev/null || echo "")
+              if [ -n "$RESET_EPOCH" ]; then
+                CURRENT=$(date +%s)
+                if [ "$RESET_EPOCH" -le "$CURRENT" ]; then
+                  RESET_EPOCH=$(TZ=America/New_York date -d "tomorrow $RESET_STR" +%s 2>/dev/null || echo "")
+                fi
+                [ -n "$RESET_EPOCH" ] && RESET_ISO=$(date -u -d "@$RESET_EPOCH" +%Y-%m-%dT%H:%M:%SZ)
+              fi
+            else
+              RESET_EPOCH=$(TZ=America/New_York date -d "$RESET_STR" +%s 2>/dev/null || echo "")
+              [ -n "$RESET_EPOCH" ] && RESET_ISO=$(date -u -d "@$RESET_EPOCH" +%Y-%m-%dT%H:%M:%SZ)
+            fi
+          fi
+          [ -z "$RESET_ISO" ] && RESET_ISO=$(date -u -d "+8 hours" +%Y-%m-%dT%H:%M:%SZ)
+          GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue edit "$ISSUE_N" \
+            --repo retrostoremanager/orchestrator-mystore \
+            --add-label "cap-wait"
+          GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue comment "$ISSUE_N" \
+            --repo retrostoremanager/orchestrator-mystore \
+            --body "Spending cap reached. RESET_ISO: ${RESET_ISO}
+          Raw message: $RESET_STR
+          Will auto-resume after reset."
+          echo "Marked issue #$ISSUE_N with cap-wait (resets $RESET_ISO)"
