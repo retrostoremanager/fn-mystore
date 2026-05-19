@@ -171,7 +171,7 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task GetCustomerById_CustomerBelongsToDifferentCompany_Returns401Unauthorized()
+    public async Task GetCustomerById_CustomerBelongsToDifferentCompany_Returns403Forbidden()
     {
         _customerServiceMock
             .Setup(s => s.GetCustomerByIdAsync(1, CompanyId))
@@ -182,7 +182,7 @@ public class CustomerFunctionsTests
 
         var result = await _functions.GetCustomerById(req, 1);
 
-        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        result.StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
         var body = await TestHelpers.ReadResponseBody(result);
         var deserialized = JsonSerializer.Deserialize<ApiResponse<Customer>>(
@@ -209,14 +209,14 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task GetCustomerById_MissingCompanyId_Returns401Unauthorized()
+    public async Task GetCustomerById_MissingCompanyId_Returns403Forbidden()
     {
         var context = new Mock<FunctionContext>();
         var req = TestHelpers.CreateHttpRequestData(context.Object, null);
 
         var result = await _functions.GetCustomerById(req, 1);
 
-        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        result.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     [Fact]
@@ -449,7 +449,7 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task UpdateCustomer_MissingCompanyId_Returns401Unauthorized()
+    public async Task UpdateCustomer_MissingCompanyId_Returns403Forbidden()
     {
         var request = new UpdateCustomerRequest { FirstName = "Updated" };
 
@@ -458,7 +458,7 @@ public class CustomerFunctionsTests
 
         var result = await _functions.UpdateCustomer(req, 1);
 
-        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        result.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     #endregion

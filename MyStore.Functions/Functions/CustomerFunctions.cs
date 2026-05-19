@@ -59,7 +59,7 @@ public class CustomerFunctions
         catch (UnauthorizedAccessException ex)
         {
             var errorResponse = ApiResponse<Customer>.ErrorResponse(ex.Message);
-            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Forbidden);
         }
     }
 
@@ -127,7 +127,7 @@ public class CustomerFunctions
         catch (UnauthorizedAccessException ex)
         {
             var errorResponse = ApiResponse<Customer>.ErrorResponse(ex.Message);
-            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Forbidden);
         }
     }
 
