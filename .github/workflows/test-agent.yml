@@ -73,6 +73,6 @@ jobs:
           mode: agent
           model: claude-sonnet-4-6
           allowed_tools: Bash,Read,Write,Edit,Glob,Grep
-          timeout_minutes: 30
-          max_turns: 40
+          timeout_minutes: 45
+          max_turns: 80
           direct_prompt: ${{ steps.prompt.outputs.value }}
