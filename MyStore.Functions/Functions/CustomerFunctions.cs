@@ -43,7 +43,7 @@ public class CustomerFunctions
 
     [Function("GetCustomerById")]
     public async Task<HttpResponseData> GetCustomerById(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "customers/{id}")] HttpRequestData req,
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "customers/{id:int}")] HttpRequestData req,
         int id)
     {
         try
@@ -99,7 +99,7 @@ public class CustomerFunctions
     [Function("UpdateCustomer")]
     [RequirePermission("customers.edit")]
     public async Task<HttpResponseData> UpdateCustomer(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "customers/{id}")] HttpRequestData req,
+        [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "customers/{id:int}")] HttpRequestData req,
         int id)
     {
         try
@@ -134,7 +134,7 @@ public class CustomerFunctions
     [Function("DeleteCustomer")]
     [RequirePermission("customers.edit")]
     public async Task<HttpResponseData> DeleteCustomer(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "delete", Route = "customers/{id}")] HttpRequestData req,
+        [HttpTrigger(AuthorizationLevel.Anonymous, "delete", Route = "customers/{id:int}")] HttpRequestData req,
         int id)
     {
         try
