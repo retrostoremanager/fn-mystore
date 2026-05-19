@@ -140,7 +140,7 @@ public class CustomerFunctions
             _logger.LogInformation("Deleting customer with ID: {Id} for company {CompanyId}", id, companyId);
 
             var response = await _customerService.DeleteCustomerAsync(id, companyId);
-            var statusCode = response.Success ? HttpStatusCode.OK : HttpStatusCode.NotFound;
+            var statusCode = response.Success ? HttpStatusCode.NoContent : HttpStatusCode.NotFound;
             return await CreateHttpResponse(req, response, statusCode);
         }
         catch (UnauthorizedAccessException ex)

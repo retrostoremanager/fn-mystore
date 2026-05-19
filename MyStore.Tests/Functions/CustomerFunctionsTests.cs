@@ -444,7 +444,7 @@ public class CustomerFunctionsTests
     #region DeleteCustomer Tests
 
     [Fact]
-    public async Task DeleteCustomer_ExistingCustomer_Returns200OK()
+    public async Task DeleteCustomer_ExistingCustomer_Returns204NoContent()
     {
         var apiResponse = ApiResponse<bool>.SuccessResponse(true);
 
@@ -457,13 +457,7 @@ public class CustomerFunctionsTests
 
         var result = await _functions.DeleteCustomer(req, 1);
 
-        result.StatusCode.Should().Be(HttpStatusCode.OK);
-
-        var body = await TestHelpers.ReadResponseBody(result);
-        var deserialized = JsonSerializer.Deserialize<ApiResponse<bool>>(
-            body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
-        deserialized!.Success.Should().BeTrue();
+        result.StatusCode.Should().Be(HttpStatusCode.NoContent);
     }
 
     [Fact]
