@@ -194,6 +194,22 @@ public class TrialStatusResponse
     public bool AccessSuspended { get; set; }
 }
 
+/// <summary>
+/// Unified subscription status response for GET /billing/subscription.
+/// </summary>
+public class SubscriptionStatusResponse
+{
+    public string Tier { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public bool IsInTrial { get; set; }
+    public DateTime? TrialEndDate { get; set; }
+    public int DaysRemainingInTrial { get; set; }
+    public string? BillingCycle { get; set; }
+    public DateTime? CurrentPeriodStart { get; set; }
+    public DateTime? CurrentPeriodEnd { get; set; }
+    public bool HasPaymentMethod { get; set; }
+}
+
 public class VerifyEmailRequest
 {
     public string Token { get; set; } = string.Empty;
