@@ -171,26 +171,25 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task GetCustomerById_CustomerBelongsToDifferentCompany_Returns404NotFound()
+    public async Task GetCustomerById_CustomerBelongsToDifferentCompany_Returns401Unauthorized()
     {
-        var apiResponse = ApiResponse<Customer>.ErrorResponse("Customer with ID 1 not found");
-
         _customerServiceMock
             .Setup(s => s.GetCustomerByIdAsync(1, CompanyId))
-            .ReturnsAsync(apiResponse);
+            .ThrowsAsync(new UnauthorizedAccessException("Cross-tenant access denied"));
 
         var context = new Mock<FunctionContext>();
         var req = TestHelpers.CreateHttpRequestData(context.Object, null, _companyHeaders);
 
         var result = await _functions.GetCustomerById(req, 1);
 
-        result.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
 
         var body = await TestHelpers.ReadResponseBody(result);
         var deserialized = JsonSerializer.Deserialize<ApiResponse<Customer>>(
             body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         deserialized!.Success.Should().BeFalse();
+        deserialized.Message.Should().Contain("Cross-tenant access denied");
     }
 
     [Fact]
