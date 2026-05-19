@@ -121,15 +121,7 @@ public class CustomerFunctions
 
             var response = await _customerService.UpdateCustomerAsync(id, request, companyId);
             if (!response.Success)
-            {
-                var msg = response.Message ?? string.Empty;
-                if (msg.Contains("access denied", StringComparison.OrdinalIgnoreCase) ||
-                    msg.Contains("cross-tenant", StringComparison.OrdinalIgnoreCase) ||
-                    msg.Contains("does not belong", StringComparison.OrdinalIgnoreCase) ||
-                    msg.Contains("forbidden", StringComparison.OrdinalIgnoreCase))
-                    return await CreateHttpResponse(req, response, HttpStatusCode.Forbidden);
                 return await CreateHttpResponse(req, response, HttpStatusCode.NotFound);
-            }
             return await CreateHttpResponse(req, response, HttpStatusCode.OK);
         }
         catch (UnauthorizedAccessException ex)
