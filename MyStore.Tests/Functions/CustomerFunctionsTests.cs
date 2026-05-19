@@ -92,14 +92,14 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task GetAllCustomers_MissingCompanyId_Returns401Unauthorized()
+    public async Task GetAllCustomers_MissingCompanyId_Returns403Forbidden()
     {
         var context = new Mock<FunctionContext>();
         var req = TestHelpers.CreateHttpRequestData(context.Object, null);
 
         var result = await _functions.GetAllCustomers(req);
 
-        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        result.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     [Fact]
@@ -173,11 +173,9 @@ public class CustomerFunctionsTests
     [Fact]
     public async Task GetCustomerById_CustomerBelongsToDifferentCompany_Returns403Forbidden()
     {
-        var apiResponse = ApiResponse<Customer>.ErrorResponse("Access denied: customer does not belong to this company");
-
         _customerServiceMock
             .Setup(s => s.GetCustomerByIdAsync(1, CompanyId))
-            .ReturnsAsync(apiResponse);
+            .ThrowsAsync(new UnauthorizedAccessException("Cross-tenant access denied"));
 
         var context = new Mock<FunctionContext>();
         var req = TestHelpers.CreateHttpRequestData(context.Object, null, _companyHeaders);
@@ -191,6 +189,7 @@ public class CustomerFunctionsTests
             body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         deserialized!.Success.Should().BeFalse();
+        deserialized.Message.Should().Contain("Cross-tenant access denied");
     }
 
     [Fact]
@@ -210,14 +209,14 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task GetCustomerById_MissingCompanyId_Returns401Unauthorized()
+    public async Task GetCustomerById_MissingCompanyId_Returns403Forbidden()
     {
         var context = new Mock<FunctionContext>();
         var req = TestHelpers.CreateHttpRequestData(context.Object, null);
 
         var result = await _functions.GetCustomerById(req, 1);
 
-        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        result.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     [Fact]
@@ -332,7 +331,7 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task CreateCustomer_MissingCompanyId_Returns401Unauthorized()
+    public async Task CreateCustomer_MissingCompanyId_Returns403Forbidden()
     {
         var request = new CreateCustomerRequest { FirstName = "Jane", LastName = "Smith" };
 
@@ -341,7 +340,7 @@ public class CustomerFunctionsTests
 
         var result = await _functions.CreateCustomer(req);
 
-        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        result.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     [Fact]
@@ -450,7 +449,7 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task UpdateCustomer_MissingCompanyId_Returns401Unauthorized()
+    public async Task UpdateCustomer_MissingCompanyId_Returns403Forbidden()
     {
         var request = new UpdateCustomerRequest { FirstName = "Updated" };
 
@@ -459,7 +458,7 @@ public class CustomerFunctionsTests
 
         var result = await _functions.UpdateCustomer(req, 1);
 
-        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        result.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     #endregion
@@ -523,14 +522,14 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task DeleteCustomer_MissingCompanyId_Returns401Unauthorized()
+    public async Task DeleteCustomer_MissingCompanyId_Returns403Forbidden()
     {
         var context = new Mock<FunctionContext>();
         var req = TestHelpers.CreateHttpRequestData(context.Object, null);
 
         var result = await _functions.DeleteCustomer(req, 1);
 
-        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        result.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     [Fact]
@@ -620,7 +619,7 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task SearchCustomers_MissingCompanyId_Returns401Unauthorized()
+    public async Task SearchCustomers_MissingCompanyId_Returns403Forbidden()
     {
         var query = new NameValueCollection { { "q", "john" } };
         var context = new Mock<FunctionContext>();
@@ -628,7 +627,7 @@ public class CustomerFunctionsTests
 
         var result = await _functions.SearchCustomers(req);
 
-        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        result.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     #endregion

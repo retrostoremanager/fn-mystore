@@ -106,8 +106,8 @@ public class SalesService : ISalesService
             }
 
             // Verify customer exists and belongs to company
-            var customer = await _customerRepository.GetByIdAsync(request.CustomerId, companyId);
-            if (customer == null)
+            var customer = await _customerRepository.GetByIdAsync(request.CustomerId);
+            if (customer == null || customer.CompanyId != companyId)
             {
                 return ApiResponse<Sale>.ErrorResponse($"Customer with ID {request.CustomerId} not found");
             }
@@ -211,7 +211,8 @@ public class SalesService : ISalesService
             // Load customer (must belong to same company)
             if (sale.CustomerId > 0)
             {
-                sale.Customer = await _customerRepository.GetByIdAsync(sale.CustomerId, companyId);
+                var c = await _customerRepository.GetByIdAsync(sale.CustomerId);
+                sale.Customer = c?.CompanyId == companyId ? c : null;
             }
 
             // Load user (must belong to same company)

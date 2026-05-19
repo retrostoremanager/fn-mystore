@@ -37,7 +37,7 @@ public class CustomerFunctions
         catch (UnauthorizedAccessException ex)
         {
             var errorResponse = ApiResponse<List<Customer>>.ErrorResponse(ex.Message);
-            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Forbidden);
         }
     }
 
@@ -53,21 +53,13 @@ public class CustomerFunctions
 
             var response = await _customerService.GetCustomerByIdAsync(id, companyId);
             if (!response.Success)
-            {
-                var msg = response.Message ?? string.Empty;
-                if (msg.Contains("access denied", StringComparison.OrdinalIgnoreCase) ||
-                    msg.Contains("cross-tenant", StringComparison.OrdinalIgnoreCase) ||
-                    msg.Contains("does not belong", StringComparison.OrdinalIgnoreCase) ||
-                    msg.Contains("forbidden", StringComparison.OrdinalIgnoreCase))
-                    return await CreateHttpResponse(req, response, HttpStatusCode.Forbidden);
                 return await CreateHttpResponse(req, response, HttpStatusCode.NotFound);
-            }
             return await CreateHttpResponse(req, response);
         }
         catch (UnauthorizedAccessException ex)
         {
             var errorResponse = ApiResponse<Customer>.ErrorResponse(ex.Message);
-            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Forbidden);
         }
     }
 
@@ -100,7 +92,7 @@ public class CustomerFunctions
         catch (UnauthorizedAccessException ex)
         {
             var errorResponse = ApiResponse<Customer>.ErrorResponse(ex.Message);
-            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Forbidden);
         }
     }
 
@@ -128,13 +120,14 @@ public class CustomerFunctions
             }
 
             var response = await _customerService.UpdateCustomerAsync(id, request, companyId);
-            var statusCode = response.Success ? HttpStatusCode.OK : HttpStatusCode.NotFound;
-            return await CreateHttpResponse(req, response, statusCode);
+            if (!response.Success)
+                return await CreateHttpResponse(req, response, HttpStatusCode.NotFound);
+            return await CreateHttpResponse(req, response, HttpStatusCode.OK);
         }
         catch (UnauthorizedAccessException ex)
         {
             var errorResponse = ApiResponse<Customer>.ErrorResponse(ex.Message);
-            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Forbidden);
         }
     }
 
@@ -156,7 +149,7 @@ public class CustomerFunctions
         catch (UnauthorizedAccessException ex)
         {
             var errorResponse = ApiResponse<bool>.ErrorResponse(ex.Message);
-            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Forbidden);
         }
     }
 
@@ -182,7 +175,7 @@ public class CustomerFunctions
         catch (UnauthorizedAccessException ex)
         {
             var errorResponse = ApiResponse<List<Customer>>.ErrorResponse(ex.Message);
-            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Forbidden);
         }
     }
 
