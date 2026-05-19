@@ -90,8 +90,8 @@ STEP 7 — Mark done (only reached when all tests passed)
     OPEN_BUGS=$(GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue list \
       --repo retrostoremanager/orchestrator-mystore \
       --label bug --state open --limit 50 \
-      --json number,body \
-      --jq '[.[] | select(.body | contains("{{ISSUE_REF}}"))] | length')
+      --json number,body,labels \
+      --jq '[.[] | select(.body | contains("{{ISSUE_REF}}")) | select(.labels | map(.name) | any(. == "done") | not)] | length')
 
   If OPEN_BUGS equals 0:
 {{ISSUE_LABEL_STEP}}

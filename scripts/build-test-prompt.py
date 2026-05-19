@@ -13,7 +13,9 @@ if issue:
         f'  GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue edit {issue} \\\n'
         f'    --repo retrostoremanager/orchestrator-mystore \\\n'
         f'    --remove-label in-test \\\n'
-        f'    --add-label done'
+        f'    --add-label done\n'
+        f'  GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue close {issue} \\\n'
+        f'    --repo retrostoremanager/orchestrator-mystore'
     )
 else:
     issue_ref = "(no linked orchestrator issue)"
