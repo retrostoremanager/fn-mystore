@@ -13,10 +13,13 @@ STEP 1 — Get context
 
 STEP 2 — Authenticate against the dev API
   Find the login route by reading MyStore.Functions/Functions/AccountFunctions.cs (look for the Route attribute on the login function).
-  Then authenticate:
+  Then authenticate (the login endpoint requires a company slug):
+    cat > /tmp/login.json << LOGINEOF
+    {"email":"$TEST_EMAIL","password":"$TEST_PASSWORD","slug":"$TEST_COMPANY_SLUG"}
+    LOGINEOF
     RESPONSE=$(curl -s -X POST "https://mystore-func-dev.azurewebsites.net/api/[login-route]" \
       -H "Content-Type: application/json" \
-      -d "{\"email\":\"$TEST_EMAIL\",\"password\":\"$TEST_PASSWORD\"}")
+      -d @/tmp/login.json)
     TOKEN=$(echo "$RESPONSE" | grep -oP '"token"\s*:\s*"\K[^"]+')
     COMPANY_ID=$(echo "$RESPONSE" | grep -oP '"companyId"\s*:\s*"\K[^"]+')
 
