@@ -161,7 +161,30 @@ public class CustomerFunctionsTests
 
         var result = await _functions.GetCustomerById(req, 99);
 
-        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        result.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<Customer>>(
+            body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Success.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetCustomerById_CustomerBelongsToDifferentCompany_Returns403Forbidden()
+    {
+        var apiResponse = ApiResponse<Customer>.ErrorResponse("Access denied: customer does not belong to this company");
+
+        _customerServiceMock
+            .Setup(s => s.GetCustomerByIdAsync(1, CompanyId))
+            .ReturnsAsync(apiResponse);
+
+        var context = new Mock<FunctionContext>();
+        var req = TestHelpers.CreateHttpRequestData(context.Object, null, _companyHeaders);
+
+        var result = await _functions.GetCustomerById(req, 1);
+
+        result.StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
         var body = await TestHelpers.ReadResponseBody(result);
         var deserialized = JsonSerializer.Deserialize<ApiResponse<Customer>>(
