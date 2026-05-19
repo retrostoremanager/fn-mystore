@@ -64,15 +64,13 @@ jobs:
     - name: Trigger test agent
       if: github.event_name == 'pull_request'
       env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
         GH_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
       run: |
         PR_NUMBER="${{ github.event.pull_request.number }}"
-        ORCHESTRATOR_ISSUE=$(gh pr view "$PR_NUMBER" --json body --jq '.body' \
-          | grep -oP 'orchestrator-mystore#\K[0-9]+' | head -1 || true)
-        GH_TOKEN="$GH_DISPATCH_TOKEN" gh api repos/retrostoremanager/fn-mystore/actions/workflows/test-agent.yml/dispatches \
-          --method POST \
-          --field ref=main \
-          --field "inputs[pr_number]=$PR_NUMBER" \
-          --field "inputs[target_repo]=fn-mystore" \
-          --field "inputs[orchestrator_issue]=${ORCHESTRATOR_ISSUE:-}"
+        ORCHESTRATOR_ISSUE=$(gh pr view "$PR_NUMBER" --repo retrostoremanager/fn-mystore --json body \
+          --jq '.body' | grep -oP 'orchestrator-mystore#\K[0-9]+' | head -1 || true)
+        jq -n --arg pr "$PR_NUMBER" --arg issue "${ORCHESTRATOR_ISSUE:-}" \
+          '{"ref":"main","inputs":{"pr_number":$pr,"target_repo":"fn-mystore","orchestrator_issue":$issue}}' | \
+        gh api repos/retrostoremanager/fn-mystore/actions/workflows/test-agent.yml/dispatches \
+          --method POST --input -
