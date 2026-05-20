@@ -16,6 +16,22 @@ Before your first tool call, write: "I will read: [list exact files]. I will NOT
 **Turn budget:**
 You have ~50 turns. A typical feature (service + endpoint + tests + PR) should take 20–30 turns. If you're past 35 turns and haven't started writing code, you're over-exploring — stop and implement.
 
+## Pre-PR Validation (MANDATORY)
+
+Before creating any PR, you MUST run and pass both of these commands:
+
+```bash
+dotnet build MyStore.sln --configuration Release
+dotnet test MyStore.Tests/MyStore.Tests.csproj --configuration Release --no-build --logger "console;verbosity=normal"
+```
+
+**Rules — no exceptions:**
+- **Zero build errors.** Fix compile errors before creating the PR. A PR with build failures will be rejected automatically.
+- **Zero test failures.** Fix or update tests before creating the PR. Do not create the PR if any test fails.
+- **New functionality = new tests.** For every new endpoint, service method, or middleware change, write at least one unit test covering the happy path.
+- **Auth/middleware changes require a round-trip test.** If you touch `JwtAuthenticationMiddleware`, `CompanyService.GenerateJwtToken`, or any config key lookup for JWT, write a test that: (1) signs a token with the configured key, and (2) validates that same token through the middleware or validator using the exact same key name.
+- **Config key consistency.** Always use colon notation (`JwtAuthentication:SecretKey`) in `_configuration["..."]` calls — never `JwtAuthentication__SecretKey`. The double-underscore form is the Azure env var name; the .NET config provider maps it to the colon form before your code sees it.
+
 ## Critical First Step: Check for Existing Code
 
 **BEFORE implementing any new functionality, you MUST:**
