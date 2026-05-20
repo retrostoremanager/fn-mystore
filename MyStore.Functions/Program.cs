@@ -20,7 +20,9 @@ var host = new HostBuilder()
         services.AddApplicationInsightsTelemetryWorkerService();
         services.ConfigureFunctionsApplicationInsights();
 
-        // JWT authentication — fail fast if the signing key is absent
+        // JWT authentication — fail fast if the signing key is absent.
+        // Azure deployment: set via `az functionapp config appsettings set --settings JwtAuthentication__SecretKey=<secret>`
+        // Local dev: set in local.settings.json (see local.settings.example.json).
         var jwtSecretKey = context.Configuration["JwtAuthentication__SecretKey"]
             ?? context.Configuration["JwtSecret"];
         if (string.IsNullOrWhiteSpace(jwtSecretKey))
