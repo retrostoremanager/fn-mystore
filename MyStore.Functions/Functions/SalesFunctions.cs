@@ -146,6 +146,12 @@ public class SalesFunctions
             var errorResponse = ApiResponse<Sale>.ErrorResponse(ex.Message);
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
         }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unhandled exception in CreateSale");
+            var errorResponse = ApiResponse<Sale>.ErrorResponse("An unexpected error occurred");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
+        }
     }
 
     [Function("DeleteSale")]
