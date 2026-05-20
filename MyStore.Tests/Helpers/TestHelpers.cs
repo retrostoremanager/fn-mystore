@@ -6,6 +6,7 @@ using System.Text.Json;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Moq;
+using MyStore.Functions.Middleware;
 
 namespace MyStore.Tests.Helpers;
 
@@ -68,6 +69,22 @@ public static class TestHelpers
     {
         var mock = new Mock<FunctionContext>();
         return mock.Object;
+    }
+
+    public static FunctionContext CreateMockFunctionContextWithJwt(int companyId)
+    {
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        {
+            new Claim("extension_CompanyId", companyId.ToString())
+        }));
+        var feature = new JwtPrincipalFeature(principal, companyId);
+
+        var featuresMock = new Mock<IInvocationFeatures>();
+        featuresMock.Setup(f => f.Get<JwtPrincipalFeature>()).Returns(feature);
+
+        var contextMock = new Mock<FunctionContext>();
+        contextMock.Setup(c => c.Features).Returns(featuresMock.Object);
+        return contextMock.Object;
     }
 
     public static async Task<string> ReadResponseBody(HttpResponseData response)
