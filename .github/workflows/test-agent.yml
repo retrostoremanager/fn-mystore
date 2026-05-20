@@ -32,22 +32,6 @@ jobs:
           ref: development
           fetch-depth: 1
 
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
-
-      - name: Restore dependencies
-        run: dotnet restore MyStore.sln
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install Playwright
-        run: |
-          npm install -D @playwright/test
-          npx playwright install chromium --with-deps
-
       - name: Build test prompt
         id: prompt
         env:
