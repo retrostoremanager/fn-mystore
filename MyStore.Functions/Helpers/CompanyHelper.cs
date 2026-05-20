@@ -57,14 +57,15 @@ public static class CompanyHelper
     /// <exception cref="UnauthorizedAccessException">Thrown when company ID is not provided</exception>
     public static int GetCompanyIdRequired(HttpRequestData request)
     {
-        var companyId = GetCompanyId(request);
-        if (!companyId.HasValue)
+        if (request.Headers.TryGetValues(CompanyIdHeader, out var headerValues))
         {
-            throw new UnauthorizedAccessException(
-                "Company ID is required. Provide a valid JWT with CompanyId claim, or X-Company-Id header, or companyId query parameter.");
+            var headerValue = headerValues.FirstOrDefault();
+            if (!string.IsNullOrEmpty(headerValue) && int.TryParse(headerValue, out var headerCompanyId))
+                return headerCompanyId;
         }
 
-        return companyId.Value;
+        throw new UnauthorizedAccessException(
+            "Company ID is required. Provide a valid X-Company-Id header.");
     }
 
     /// <summary>

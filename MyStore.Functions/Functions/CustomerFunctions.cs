@@ -37,7 +37,7 @@ public class CustomerFunctions
         catch (UnauthorizedAccessException ex)
         {
             var errorResponse = ApiResponse<List<Customer>>.ErrorResponse(ex.Message);
-            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Forbidden);
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
         }
     }
 
@@ -59,7 +59,7 @@ public class CustomerFunctions
         catch (UnauthorizedAccessException ex)
         {
             var errorResponse = ApiResponse<Customer>.ErrorResponse(ex.Message);
-            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Forbidden);
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
         }
     }
 
@@ -92,7 +92,7 @@ public class CustomerFunctions
         catch (UnauthorizedAccessException ex)
         {
             var errorResponse = ApiResponse<Customer>.ErrorResponse(ex.Message);
-            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Forbidden);
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
         }
     }
 
@@ -127,7 +127,7 @@ public class CustomerFunctions
         catch (UnauthorizedAccessException ex)
         {
             var errorResponse = ApiResponse<Customer>.ErrorResponse(ex.Message);
-            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Forbidden);
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
         }
     }
 
@@ -149,7 +149,7 @@ public class CustomerFunctions
         catch (UnauthorizedAccessException ex)
         {
             var errorResponse = ApiResponse<bool>.ErrorResponse(ex.Message);
-            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Forbidden);
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
         }
     }
 
@@ -175,7 +175,7 @@ public class CustomerFunctions
         catch (UnauthorizedAccessException ex)
         {
             var errorResponse = ApiResponse<List<Customer>>.ErrorResponse(ex.Message);
-            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Forbidden);
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
         }
     }
 
