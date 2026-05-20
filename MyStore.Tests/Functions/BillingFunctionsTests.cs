@@ -604,6 +604,8 @@ public class BillingFunctionsTests
                     "data": [{
                         "id": "si_test",
                         "object": "subscription_item",
+                        "current_period_start": {{periodStartUnix}},
+                        "current_period_end": {{periodEndUnix}},
                         "plan": {
                             "id": "plan_test",
                             "object": "plan",
