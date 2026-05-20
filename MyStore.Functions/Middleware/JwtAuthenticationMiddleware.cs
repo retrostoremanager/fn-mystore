@@ -80,7 +80,9 @@ public class JwtAuthenticationMiddleware : IFunctionsWorkerMiddleware
         }
 
         // Custom JWT (MyStore) - check first for MVP
-        var customSecretKey = _configuration["JwtAuthentication__SecretKey"] ?? _configuration["JwtSecret"];
+        var customSecretKey = _configuration["JwtAuthentication__SecretKey"]
+            ?? _configuration["JwtAuthentication:SecretKey"]
+            ?? _configuration["JwtSecret"];
         if (!string.IsNullOrEmpty(customSecretKey) && !string.IsNullOrEmpty(token))
         {
             if (TryValidateCustomJwt(context, token!, customSecretKey))
