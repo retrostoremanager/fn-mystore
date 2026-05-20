@@ -266,7 +266,7 @@ public class SalesFunctionsTests
     }
 
     [Fact]
-    public async Task CreateSale_ServiceException_ThrowsException()
+    public async Task CreateSale_ServiceException_Returns500WithErrorBody()
     {
         var request = CreateValidSaleRequest();
 
@@ -277,9 +277,11 @@ public class SalesFunctionsTests
         var context = new Mock<FunctionContext>();
         var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, request, CompanyHeaders);
 
-        var act = async () => await _functions.CreateSale(httpRequest);
+        var response = await _functions.CreateSale(httpRequest);
 
-        await act.Should().ThrowAsync<Exception>().WithMessage("Database error");
+        response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
+        var body = await TestHelpers.ReadResponseBody(response);
+        body.Should().Contain("An unexpected error occurred");
     }
 
     #endregion
