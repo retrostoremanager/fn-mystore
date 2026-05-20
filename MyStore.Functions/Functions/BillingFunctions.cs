@@ -546,10 +546,19 @@ public class BillingFunctions
                     if (stripeSub is not null)
                     {
                         status = "active";
-                        if (stripeSub.RawJObject?["current_period_start"] is not null)
-                            currentPeriodStart = DateTimeOffset.FromUnixTimeSeconds(stripeSub.RawJObject["current_period_start"]!.Value<long>()).UtcDateTime;
-                        if (stripeSub.RawJObject?["current_period_end"] is not null)
-                            currentPeriodEnd = DateTimeOffset.FromUnixTimeSeconds(stripeSub.RawJObject["current_period_end"]!.Value<long>()).UtcDateTime;
+                        var subRawJson = stripeSub.RawJObject;
+                        if (subRawJson?["current_period_start"] is not null)
+                            currentPeriodStart = DateTimeOffset.FromUnixTimeSeconds(subRawJson["current_period_start"]!.Value<long>()).UtcDateTime;
+                        if (subRawJson?["current_period_end"] is not null)
+                            currentPeriodEnd = DateTimeOffset.FromUnixTimeSeconds(subRawJson["current_period_end"]!.Value<long>()).UtcDateTime;
+                        if (currentPeriodStart is null)
+                        {
+                            var itemRawJson = stripeSub.Items?.Data?.FirstOrDefault()?.RawJObject;
+                            if (itemRawJson?["current_period_start"] is not null)
+                                currentPeriodStart = DateTimeOffset.FromUnixTimeSeconds(itemRawJson["current_period_start"]!.Value<long>()).UtcDateTime;
+                            if (itemRawJson?["current_period_end"] is not null)
+                                currentPeriodEnd = DateTimeOffset.FromUnixTimeSeconds(itemRawJson["current_period_end"]!.Value<long>()).UtcDateTime;
+                        }
                         var firstItem = stripeSub.Items?.Data?.FirstOrDefault();
                         if (firstItem?.Plan is not null)
                         {
