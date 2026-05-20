@@ -51,18 +51,16 @@ public static class CompanyHelper
 
     /// <summary>
     /// Extracts the company ID from the HTTP request and throws an exception if not found.
+    /// Checks JWT claims first (from auth middleware), then headers (X-Company-Id), then query parameters (companyId).
     /// </summary>
     /// <param name="request">The HTTP request data</param>
     /// <returns>The company ID</returns>
-    /// <exception cref="UnauthorizedAccessException">Thrown when company ID is not provided</exception>
+    /// <exception cref="UnauthorizedAccessException">Thrown when company ID is not found in any source</exception>
     public static int GetCompanyIdRequired(HttpRequestData request)
     {
-        if (request.Headers.TryGetValues(CompanyIdHeader, out var headerValues))
-        {
-            var headerValue = headerValues.FirstOrDefault();
-            if (!string.IsNullOrEmpty(headerValue) && int.TryParse(headerValue, out var headerCompanyId))
-                return headerCompanyId;
-        }
+        var companyId = GetCompanyId(request);
+        if (companyId.HasValue)
+            return companyId.Value;
 
         throw new UnauthorizedAccessException(
             "Company ID is required. Provide a valid X-Company-Id header.");

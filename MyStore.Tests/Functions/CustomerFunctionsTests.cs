@@ -92,14 +92,14 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task GetAllCustomers_MissingCompanyId_Returns401Unauthorized()
+    public async Task GetAllCustomers_MissingCompanyId_Returns403Forbidden()
     {
-        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
-        var req = TestHelpers.CreateHttpRequestData(context, null);
+        var context = new Mock<FunctionContext>();
+        var req = TestHelpers.CreateHttpRequestData(context.Object, null);
 
         var result = await _functions.GetAllCustomers(req);
 
-        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        result.StatusCode.Should().Be(HttpStatusCode.Forbidden);
         _customerServiceMock.Verify(s => s.GetAllCustomersAsync(It.IsAny<int>()), Times.Never);
     }
 
@@ -172,7 +172,7 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task GetCustomerById_CustomerBelongsToDifferentCompany_Returns401Unauthorized()
+    public async Task GetCustomerById_CustomerBelongsToDifferentCompany_Returns403Forbidden()
     {
         _customerServiceMock
             .Setup(s => s.GetCustomerByIdAsync(1, CompanyId))
@@ -183,7 +183,7 @@ public class CustomerFunctionsTests
 
         var result = await _functions.GetCustomerById(req, 1);
 
-        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        result.StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
         var body = await TestHelpers.ReadResponseBody(result);
         var deserialized = JsonSerializer.Deserialize<ApiResponse<Customer>>(
@@ -210,14 +210,14 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task GetCustomerById_MissingCompanyId_Returns401Unauthorized()
+    public async Task GetCustomerById_MissingCompanyId_Returns403Forbidden()
     {
-        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
-        var req = TestHelpers.CreateHttpRequestData(context, null);
+        var context = new Mock<FunctionContext>();
+        var req = TestHelpers.CreateHttpRequestData(context.Object, null);
 
         var result = await _functions.GetCustomerById(req, 1);
 
-        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        result.StatusCode.Should().Be(HttpStatusCode.Forbidden);
         _customerServiceMock.Verify(s => s.GetCustomerByIdAsync(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
     }
 
@@ -333,16 +333,16 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task CreateCustomer_MissingCompanyId_Returns401Unauthorized()
+    public async Task CreateCustomer_MissingCompanyId_Returns403Forbidden()
     {
         var request = new CreateCustomerRequest { FirstName = "Jane", LastName = "Smith", Email = "jane@example.com" };
 
-        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
-        var req = TestHelpers.CreateHttpRequestData(context, request);
+        var context = new Mock<FunctionContext>();
+        var req = TestHelpers.CreateHttpRequestData(context.Object, request);
 
         var result = await _functions.CreateCustomer(req);
 
-        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        result.StatusCode.Should().Be(HttpStatusCode.Forbidden);
         _customerServiceMock.Verify(s => s.CreateCustomerAsync(It.IsAny<CreateCustomerRequest>(), It.IsAny<int>()), Times.Never);
     }
 
@@ -452,16 +452,16 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task UpdateCustomer_MissingCompanyId_Returns401Unauthorized()
+    public async Task UpdateCustomer_MissingCompanyId_Returns403Forbidden()
     {
         var request = new UpdateCustomerRequest { FirstName = "Updated" };
 
-        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
-        var req = TestHelpers.CreateHttpRequestData(context, request);
+        var context = new Mock<FunctionContext>();
+        var req = TestHelpers.CreateHttpRequestData(context.Object, request);
 
         var result = await _functions.UpdateCustomer(req, 1);
 
-        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        result.StatusCode.Should().Be(HttpStatusCode.Forbidden);
         _customerServiceMock.Verify(s => s.UpdateCustomerAsync(It.IsAny<int>(), It.IsAny<UpdateCustomerRequest>(), It.IsAny<int>()), Times.Never);
     }
 
@@ -526,14 +526,14 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task DeleteCustomer_MissingCompanyId_Returns401Unauthorized()
+    public async Task DeleteCustomer_MissingCompanyId_Returns403Forbidden()
     {
-        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
-        var req = TestHelpers.CreateHttpRequestData(context, null);
+        var context = new Mock<FunctionContext>();
+        var req = TestHelpers.CreateHttpRequestData(context.Object, null);
 
         var result = await _functions.DeleteCustomer(req, 1);
 
-        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        result.StatusCode.Should().Be(HttpStatusCode.Forbidden);
         _customerServiceMock.Verify(s => s.DeleteCustomerAsync(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
     }
 
@@ -624,15 +624,15 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task SearchCustomers_MissingCompanyId_Returns401Unauthorized()
+    public async Task SearchCustomers_MissingCompanyId_Returns403Forbidden()
     {
         var query = new NameValueCollection { { "q", "john" } };
-        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
-        var req = TestHelpers.CreateHttpRequestData(context, null, null, query);
+        var context = new Mock<FunctionContext>();
+        var req = TestHelpers.CreateHttpRequestData(context.Object, null, null, query);
 
         var result = await _functions.SearchCustomers(req);
 
-        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        result.StatusCode.Should().Be(HttpStatusCode.Forbidden);
         _customerServiceMock.Verify(s => s.SearchCustomersAsync(It.IsAny<string>(), It.IsAny<int>()), Times.Never);
     }
 
