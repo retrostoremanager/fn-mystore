@@ -56,6 +56,15 @@ jobs:
           --name mystore-func-dev \
           --src deploy.zip
 
+    - name: Configure app settings
+      env:
+        JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+      run: |
+        az functionapp config appsettings set \
+          --resource-group mystore-rg-dev \
+          --name mystore-func-dev \
+          --settings "JwtAuthentication__SecretKey=${JWT_SECRET_KEY}"
+
     - name: Deployment Complete
       run: |
         echo "Function App deployed successfully!"
