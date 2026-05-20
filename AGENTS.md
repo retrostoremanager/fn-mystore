@@ -32,7 +32,7 @@ dotnet test MyStore.Tests/MyStore.Tests.csproj --configuration Release --no-buil
 - **Auth/middleware changes require a round-trip test.** If you touch `JwtAuthenticationMiddleware`, `CompanyService.GenerateJwtToken`, or any config key lookup for JWT, write a test that: (1) signs a token with the configured key, and (2) validates that same token through the middleware or validator using the exact same key name.
 - **Config key consistency.** Always use colon notation (`JwtAuthentication:SecretKey`) in `_configuration["..."]` calls — never `JwtAuthentication__SecretKey`. The double-underscore form is the Azure env var name; the .NET config provider maps it to the colon form before your code sees it.
 
-## Critical First Step: Check for Existing Code
+## Critical First Step: Check for Existing Code AND Database Schema
 
 **BEFORE implementing any new functionality, you MUST:**
 1. Search the codebase for existing implementations that handle similar functionality
@@ -41,6 +41,30 @@ dotnet test MyStore.Tests/MyStore.Tests.csproj --configuration Release --no-buil
 4. Look for existing service interfaces and implementations
 5. Check for existing repository patterns and data access code
 6. **DO NOT reinvent the wheel** - reuse existing code patterns and utilities
+7. **If writing SQL:** read the relevant schema file from `retrostoremanager/dbproj-mystore` (development branch) before writing any query. Never guess column names.
+
+### Reading the Database Schema
+
+The authoritative schema is in `retrostoremanager/dbproj-mystore`, development branch, under `PostgreSQL/`.
+
+```bash
+# List all migration files
+GH_TOKEN="$GH_DISPATCH_TOKEN" gh api \
+  "repos/retrostoremanager/dbproj-mystore/contents/PostgreSQL?ref=development" \
+  --jq '[.[] | .name]'
+
+# Read a specific table's schema (replace filename as needed)
+GH_TOKEN="$GH_DISPATCH_TOKEN" gh api \
+  "repos/retrostoremanager/dbproj-mystore/contents/PostgreSQL/006_create_sale_table.sql?ref=development" \
+  --jq '.content' | base64 -d
+```
+
+Key tables and their migration files (from `CLAUDE.md`):
+- **sale**: `006_create_sale_table.sql` — has subtotal, tax, total, payment_method, sale_date
+- **sale_item**: `007_create_sale_item_table.sql` — has quantity, unit_price, total_price
+- **customer**: `002_create_customer_table.sql`
+- **inventory_item** (was game_inventory): `005` + `034`
+- **user/role/permission**: `031_add_user_role_permission_schema.sql`
 
 ## Architecture Patterns
 

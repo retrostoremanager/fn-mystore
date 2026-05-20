@@ -48,6 +48,29 @@ Interfaces: `ICompanyRepository`, `ICustomerRepository`, `IGameRepository`, `IIn
 
 Implementations: matching `*Repository.cs` for each above. All use Dapper + NpgsqlConnection. Connection string from env `ConnectionStrings__DefaultConnection`.
 
+### Database Schema (retrostoremanager/dbproj-mystore, development branch)
+
+**MANDATORY: Before writing any SQL query, check the exact column names in the schema.**
+
+```bash
+# Read the full schema for a specific table (example: sale table)
+GH_TOKEN="$GH_DISPATCH_TOKEN" gh api \
+  repos/retrostoremanager/dbproj-mystore/contents/PostgreSQL/006_create_sale_table.sql?ref=development \
+  --jq '.content' | base64 -d
+```
+
+Key migration files and the tables they define:
+- `001_create_company_table.sql` — company
+- `002_create_customer_table.sql` — customer
+- `004_create_game_table.sql` — game_encyclopedia (renamed in 034)
+- `005_create_inventory_item_table.sql` — game_inventory / inventory_item (renamed in 034)
+- `006_create_sale_table.sql` — sale (columns: id, company_id, customer_id, employee_id, **subtotal**, **tax**, **total**, payment_method, sale_date, notes)
+- `007_create_sale_item_table.sql` — sale_item (columns: id, sale_id, inventory_item_id, quantity, unit_price, **total_price**)
+- `015_create_payment_method_table.sql` — payment_method
+- `020_create_subscription_table.sql` — subscription
+- `025_create_location_table.sql` — location
+- `031_add_user_role_permission_schema.sql` — user, role, permission, role_permission, user_role
+
 ### MyStore.Models/
 - `ApiResponse.cs` — `ApiResponse<T>` wrapper with `SuccessResponse(data)` / `ErrorResponse(msg)`
 - `Company.cs` — Company, TrialStatusResponse, CompanyProfile, TrialConversionCandidate, SubscriptionStatusResponse
@@ -90,6 +113,7 @@ Read `AGENTS.md` for the full coding standards, architecture patterns, and step-
 - Wrap all responses in `ApiResponse<T>`
 - Repository → Service → Function layering; keep functions thin
 - Never use `.Result` / `.Wait()` — async all the way
+- **Before writing SQL:** read the relevant migration file in `retrostoremanager/dbproj-mystore` (development branch) to confirm exact column names — do not guess
 
 ## When Opening PRs
 
