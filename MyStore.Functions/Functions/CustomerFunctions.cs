@@ -184,7 +184,12 @@ public class CustomerFunctions
         ApiResponse<T> apiResponse,
         HttpStatusCode? statusCode = null)
     {
-        var response = req.CreateResponse(statusCode ?? (apiResponse.Success ? HttpStatusCode.OK : HttpStatusCode.BadRequest));
+        var resolvedStatus = statusCode ?? (apiResponse.Success ? HttpStatusCode.OK : HttpStatusCode.BadRequest);
+        var response = req.CreateResponse(resolvedStatus);
+
+        if (resolvedStatus == HttpStatusCode.NoContent)
+            return response;
+
         response.Headers.Add("Content-Type", "application/json; charset=utf-8");
 
         var json = JsonSerializer.Serialize(apiResponse, new JsonSerializerOptions
