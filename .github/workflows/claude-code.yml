@@ -124,6 +124,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
           BRANCH: ${{ github.event.inputs.branch || github.event.client_payload.branch || 'development' }}
+          PROMPT: ${{ github.event.inputs.prompt || github.event.client_payload.prompt || '' }}
         run: |
           STEP_OUTPUT="${{ steps.claude.outputs.output }}"
           if ! echo "$STEP_OUTPUT" | grep -q "Spending cap reached"; then
@@ -150,7 +151,11 @@ jobs:
           [ -z "$RESET_ISO" ] && RESET_ISO=$(date -u -d "+8 hours" +%Y-%m-%dT%H:%M:%SZ)
           ISSUE_N=$(echo "$BRANCH" | grep -oP 'feature/issue-\K[0-9]+' || true)
           if [ -z "$ISSUE_N" ]; then
-            echo "Cannot determine issue from branch: $BRANCH — no cap-wait label set"
+            # Branch is 'development' (stale-recovery dispatch) — extract from prompt
+            ISSUE_N=$(echo "$PROMPT" | grep -oP 'Issue #\K[0-9]+' | head -1 || true)
+          fi
+          if [ -z "$ISSUE_N" ]; then
+            echo "Cannot determine issue from branch or prompt — no cap-wait label set"
             exit 0
           fi
           GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue edit "$ISSUE_N" \
