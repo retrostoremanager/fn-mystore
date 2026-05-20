@@ -20,6 +20,17 @@ var host = new HostBuilder()
         services.AddApplicationInsightsTelemetryWorkerService();
         services.ConfigureFunctionsApplicationInsights();
 
+        // JWT authentication — fail fast if the signing key is absent
+        var jwtSecretKey = context.Configuration["JwtAuthentication__SecretKey"]
+            ?? context.Configuration["JwtSecret"];
+        if (string.IsNullOrWhiteSpace(jwtSecretKey))
+        {
+            throw new InvalidOperationException(
+                "JwtAuthentication__SecretKey is not configured. " +
+                "Add this setting to Azure Function App configuration (or local.settings.json for local dev). " +
+                "See local.settings.example.json for the required key name.");
+        }
+
         // Stripe configuration
         services.Configure<StripeOptions>(context.Configuration.GetSection(StripeOptions.SectionName));
         var stripeSecretKey = context.Configuration["Stripe:SecretKey"];
