@@ -43,7 +43,7 @@ public class SalesFunctions
 
     [Function("GetSaleById")]
     public async Task<HttpResponseData> GetSaleById(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "sales/{id}")] HttpRequestData req,
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "sales/{id:int}")] HttpRequestData req,
         int id)
     {
         try
@@ -112,6 +112,12 @@ public class SalesFunctions
         {
             var errorResponse = ApiResponse<List<Sale>>.ErrorResponse(ex.Message);
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unhandled exception in GetSalesByDateRange");
+            var errorResponse = ApiResponse<List<Sale>>.ErrorResponse("An unexpected error occurred");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
         }
     }
 
