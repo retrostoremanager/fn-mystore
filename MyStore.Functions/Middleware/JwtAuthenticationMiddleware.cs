@@ -187,6 +187,11 @@ public class JwtAuthenticationMiddleware : IFunctionsWorkerMiddleware
             _logger.LogWarning(ex, "JWT validation failed for function {FunctionName}.", functionName);
             return false;
         }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "JWT parsing failed for function {FunctionName}.", functionName);
+            return false;
+        }
     }
 
     private static bool IsAnonymousFunction(FunctionContext context, string functionName)
