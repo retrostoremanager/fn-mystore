@@ -1,6 +1,7 @@
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using MyStore.Functions.Middleware;
 using MyStore.Functions.Services;
 using MyStore.Repositories;
@@ -20,15 +21,16 @@ var host = new HostBuilder()
         services.AddApplicationInsightsTelemetryWorkerService();
         services.ConfigureFunctionsApplicationInsights();
 
-        // JWT authentication — fail fast if the signing key is absent.
-        // Azure deployment: set via `az functionapp config appsettings set --settings JwtAuthentication__SecretKey=<secret>`
-        // Local dev: set in local.settings.json (see local.settings.example.json).
         var jwtSecretKey = context.Configuration["JwtAuthentication__SecretKey"]
             ?? context.Configuration["JwtSecret"];
         if (string.IsNullOrWhiteSpace(jwtSecretKey))
         {
-            throw new InvalidOperationException(
+            var startupLogger = services.BuildServiceProvider()
+                .GetRequiredService<ILoggerFactory>()
+                .CreateLogger("Startup");
+            startupLogger.LogWarning(
                 "JwtAuthentication__SecretKey is not configured. " +
+                "All requests to protected endpoints will be rejected. " +
                 "Add this setting to Azure Function App configuration (or local.settings.json for local dev). " +
                 "See local.settings.example.json for the required key name.");
         }
