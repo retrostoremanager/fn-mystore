@@ -46,6 +46,13 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+    - name: Configure Azure Function App settings
+      run: |
+        az functionapp config appsettings set \
+          --resource-group mystore-rg-dev \
+          --name mystore-func-dev \
+          --settings "JwtAuthentication__SecretKey=${{ secrets.JWT_SECRET_KEY }}"
+
     - name: Deploy to Azure Function App
       run: |
         cd publish
