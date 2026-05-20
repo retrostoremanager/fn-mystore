@@ -38,8 +38,10 @@ STEP 4 — Integration tests
   Example: if settings were added, PUT them then confirm GET returns the updated values.
 
 STEP 5 — E2E tests with Playwright (for UI changes or complete user flows)
-  Playwright and Chromium are already installed on this runner.
-  Write the test to /tmp/e2e-test.spec.js, then run:
+  Only do this step if the PR includes frontend/UI changes. Skip for backend-only PRs.
+  Install Playwright first, then write and run the test:
+    npm install -D @playwright/test
+    npx playwright install chromium --with-deps
     npx playwright test /tmp/e2e-test.spec.js --reporter=line
 
   Tests must use the TEST_EMAIL/TEST_PASSWORD env vars for login.
