@@ -101,8 +101,8 @@ public class JwtAuthenticationMiddleware : IFunctionsWorkerMiddleware
 
         if (string.IsNullOrEmpty(authority) || string.IsNullOrEmpty(audience))
         {
-            _logger.LogWarning("JWT authentication not configured. Skipping validation for development.");
-            await next(context);
+            _logger.LogError("JWT authentication is not configured. Denying request to protected endpoint {FunctionName}.", functionName);
+            await ReturnUnauthorized(context, httpRequest, "Invalid or expired token.");
             return;
         }
 
