@@ -85,7 +85,7 @@ public class JwtAuthenticationMiddleware : IFunctionsWorkerMiddleware
             ?? _configuration["JwtSecret"];
         if (!string.IsNullOrEmpty(customSecretKey) && !string.IsNullOrEmpty(token))
         {
-            if (TryValidateCustomJwt(context, token!, customSecretKey))
+            if (TryValidateCustomJwt(context, token!, customSecretKey, functionName))
             {
                 await next(context);
                 return;
@@ -144,7 +144,7 @@ public class JwtAuthenticationMiddleware : IFunctionsWorkerMiddleware
         }
     }
 
-    private bool TryValidateCustomJwt(FunctionContext context, string token, string secretKey)
+    private bool TryValidateCustomJwt(FunctionContext context, string token, string secretKey, string functionName)
     {
         try
         {
@@ -168,8 +168,23 @@ public class JwtAuthenticationMiddleware : IFunctionsWorkerMiddleware
             context.Features.Set(new JwtPrincipalFeature(principal, companyId));
             return true;
         }
-        catch
+        catch (SecurityTokenSignatureKeyNotFoundException ex)
         {
+            _logger.LogError(ex,
+                "JWT signature verification failed for function {FunctionName}. " +
+                "The signing key used to issue the token does not match the key configured in " +
+                "JwtAuthentication__SecretKey. Ensure the app setting value matches the key used by the login service.",
+                functionName);
+            return false;
+        }
+        catch (SecurityTokenExpiredException ex)
+        {
+            _logger.LogWarning(ex, "JWT token has expired for function {FunctionName}.", functionName);
+            return false;
+        }
+        catch (SecurityTokenException ex)
+        {
+            _logger.LogWarning(ex, "JWT validation failed for function {FunctionName}.", functionName);
             return false;
         }
     }
