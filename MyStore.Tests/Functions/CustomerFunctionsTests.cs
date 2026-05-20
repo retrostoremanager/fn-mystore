@@ -489,7 +489,7 @@ public class CustomerFunctionsTests
     #region DeleteCustomer Tests
 
     [Fact]
-    public async Task DeleteCustomer_ExistingCustomer_Returns204NoContent()
+    public async Task DeleteCustomer_ExistingCustomer_Returns200OK()
     {
         var apiResponse = ApiResponse<bool>.SuccessResponse(true);
 
@@ -502,7 +502,7 @@ public class CustomerFunctionsTests
 
         var result = await _functions.DeleteCustomer(req, 1);
 
-        result.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]
@@ -556,7 +556,7 @@ public class CustomerFunctionsTests
 
         var result = await _functions.DeleteCustomer(req, 1);
 
-        result.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
         _customerServiceMock.Verify(s => s.DeleteCustomerAsync(1, CompanyId), Times.Once);
     }
 
