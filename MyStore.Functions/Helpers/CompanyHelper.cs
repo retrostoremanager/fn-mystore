@@ -59,11 +59,10 @@ public static class CompanyHelper
     public static int GetCompanyIdRequired(HttpRequestData request)
     {
         var companyId = GetCompanyId(request);
-        if (companyId.HasValue)
-            return companyId.Value;
-
-        throw new UnauthorizedAccessException(
-            "Company ID is required. Provide a valid X-Company-Id header.");
+        if (!companyId.HasValue)
+            throw new UnauthorizedAccessException(
+                "Company ID is required. Provide a valid JWT with CompanyId claim, or X-Company-Id header.");
+        return companyId.Value;
     }
 
     /// <summary>
