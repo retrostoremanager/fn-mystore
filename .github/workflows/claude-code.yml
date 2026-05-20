@@ -109,6 +109,15 @@ jobs:
           timeout_minutes: 30
           max_turns: 60
 
+      - name: Build and test (post-agent validation)
+        if: steps.claude.outcome == 'success'
+        id: validate
+        run: |
+          dotnet restore MyStore.sln
+          dotnet build MyStore.sln --configuration Release --no-restore
+          dotnet test MyStore.Tests/MyStore.Tests.csproj --configuration Release --no-build \
+            --logger "console;verbosity=normal"
+
       - name: Handle spending cap
         if: failure()
         env:
@@ -155,7 +164,7 @@ jobs:
           echo "Marked issue #$ISSUE_N with cap-wait (resets $RESET_ISO)"
 
       - name: Trigger code review for any new PR
-        if: always()
+        if: steps.validate.outcome == 'success' || steps.validate.outcome == 'skipped'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
