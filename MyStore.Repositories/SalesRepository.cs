@@ -23,7 +23,7 @@ public class SalesRepository : ISalesRepository
     public async Task<List<Sale>> GetAllAsync(int companyId)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
-        const string sql = @"SELECT id, company_id, customer_id, user_id, subtotal AS subtotal, 0 AS tax, subtotal AS total,
+        const string sql = @"SELECT id, company_id, customer_id, user_id, total AS subtotal, 0 AS tax, total,
                     payment_method, sale_date, notes
              FROM sale WHERE company_id = @p_company_id
              ORDER BY sale_date DESC";
@@ -45,7 +45,7 @@ public class SalesRepository : ISalesRepository
     public async Task<Sale?> GetByIdAsync(int id, int companyId)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
-        const string sql = @"SELECT id, company_id, customer_id, user_id, subtotal AS subtotal, 0 AS tax, subtotal AS total,
+        const string sql = @"SELECT id, company_id, customer_id, user_id, total AS subtotal, 0 AS tax, total,
                     payment_method, sale_date, notes
              FROM sale WHERE id = @p_id AND company_id = @p_company_id";
         var row = await connection.QuerySingleOrDefaultAsync<SaleRow>(sql, new { p_id = id, p_company_id = companyId });
@@ -63,7 +63,7 @@ public class SalesRepository : ISalesRepository
     public async Task<List<Sale>> GetByCustomerIdAsync(int customerId, int companyId)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
-        const string sql = @"SELECT id, company_id, customer_id, user_id, subtotal AS subtotal, 0 AS tax, subtotal AS total,
+        const string sql = @"SELECT id, company_id, customer_id, user_id, total AS subtotal, 0 AS tax, total,
                     payment_method, sale_date, notes
              FROM sale WHERE customer_id = @p_customer_id AND company_id = @p_company_id
              ORDER BY sale_date DESC";
@@ -74,7 +74,7 @@ public class SalesRepository : ISalesRepository
     public async Task<List<Sale>> GetByUserIdAsync(int userId, int companyId)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
-        const string sql = @"SELECT id, company_id, customer_id, user_id, subtotal AS subtotal, 0 AS tax, subtotal AS total,
+        const string sql = @"SELECT id, company_id, customer_id, user_id, total AS subtotal, 0 AS tax, total,
                     payment_method, sale_date, notes
              FROM sale WHERE user_id = @p_user_id AND company_id = @p_company_id
              ORDER BY sale_date DESC";
@@ -85,7 +85,7 @@ public class SalesRepository : ISalesRepository
     public async Task<List<Sale>> GetByDateRangeAsync(DateTime startDate, DateTime endDate, int companyId)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
-        const string sql = @"SELECT id, company_id, customer_id, user_id, subtotal AS subtotal, 0 AS tax, subtotal AS total,
+        const string sql = @"SELECT id, company_id, customer_id, user_id, total AS subtotal, 0 AS tax, total,
                     payment_method, sale_date, notes
              FROM sale WHERE company_id = @p_company_id
                AND sale_date >= @p_start AND sale_date <= @p_end
