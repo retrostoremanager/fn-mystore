@@ -5,6 +5,7 @@
     "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
     "ASPNETCORE_ENVIRONMENT": "Development",
     "ConnectionStrings__DefaultConnection": "Host=your-postgres-host;Port=5432;Database=mystore-db;Username=user;Password=pass;SSL Mode=Require",
+    "JwtAuthentication__SecretKey": "your-jwt-secret-key-min-32-chars-long",
     "Stripe__SecretKey": "sk_test_your_stripe_secret_key",
     "Stripe__PublishableKey": "pk_test_your_stripe_publishable_key",
     "Stripe__WebhookSecret": "whsec_your_webhook_signing_secret",
