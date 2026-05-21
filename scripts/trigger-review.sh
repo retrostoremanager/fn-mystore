@@ -72,6 +72,14 @@ ENDPROMPT
 
 echo "Dispatching review for PR #${PR_NUMBER} on branch ${HEAD_BRANCH}"
 
+# Idempotency guard: skip if a review comment already exists (prevents duplicate dispatches).
+EXISTING_REVIEW=$(gh api "repos/retrostoremanager/fn-mystore/issues/${PR_NUMBER}/comments" \
+  --jq '[.[] | select(.body | startswith("✅ **Code review passed"))] | length' 2>/dev/null || echo "0")
+if [ "${EXISTING_REVIEW:-0}" -gt "0" ]; then
+  echo "PR #${PR_NUMBER} already has a review comment — skipping duplicate dispatch"
+  exit 0
+fi
+
 # Flip orchestrator issue label: in-progress → code-review
 ISSUE_N=$(gh pr view "${PR_NUMBER}" --json body --jq '.body' \
   | grep -oP 'orchestrator-mystore#\K[0-9]+' | head -1 || true)
