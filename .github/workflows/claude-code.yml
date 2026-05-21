@@ -107,7 +107,7 @@ jobs:
           model: claude-sonnet-4-6
           allowed_tools: Bash,Edit,MultiEdit,Glob,Grep,LS,Read,Write,TodoWrite
           timeout_minutes: 30
-          max_turns: 60
+          max_turns: 20
 
       - name: Build and test (post-agent validation)
         if: steps.claude.outcome == 'success'
@@ -127,7 +127,7 @@ jobs:
           PROMPT: ${{ github.event.inputs.prompt || github.event.client_payload.prompt || '' }}
         run: |
           STEP_OUTPUT="${{ steps.claude.outputs.output }}"
-          if ! echo "$STEP_OUTPUT" | grep -q "Spending cap reached"; then
+          if ! echo "$STEP_OUTPUT" | grep -q "Spending cap reached resets"; then
             echo "Not a spending cap — stale recovery will handle it."
             exit 0
           fi
@@ -155,6 +155,9 @@ jobs:
             ISSUE_N=$(echo "$PROMPT" | grep -oP 'Issue #\K[0-9]+' | head -1 || true)
           fi
           if [ -z "$ISSUE_N" ]; then
+            ISSUE_N=$(echo "$PROMPT" | grep -oP 'orchestrator-mystore#\K[0-9]+' | head -1 || true)
+          fi
+          if [ -z "$ISSUE_N" ]; then
             echo "Cannot determine issue from branch or prompt — no cap-wait label set"
             exit 0
           fi
@@ -178,6 +181,9 @@ jobs:
           # First try: look for the PR belonging to THIS agent's specific issue (from prompt).
           # This prevents two concurrent agent runs both triggering a review for the same PR.
           ISSUE_N=$(echo "$PROMPT" | grep -oP 'Issue #\K[0-9]+' | head -1 || true)
+          if [ -z "$ISSUE_N" ]; then
+            ISSUE_N=$(echo "$PROMPT" | grep -oP 'orchestrator-mystore#\K[0-9]+' | head -1 || true)
+          fi
           if [ -n "$ISSUE_N" ]; then
             PR_DATA=$(gh pr list \
               --base development \

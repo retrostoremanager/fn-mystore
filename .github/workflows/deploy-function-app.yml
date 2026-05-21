@@ -80,6 +80,6 @@ jobs:
         ORCHESTRATOR_ISSUE=$(gh pr view "$PR_NUMBER" --repo retrostoremanager/fn-mystore --json body \
           --jq '.body' | grep -oP 'orchestrator-mystore#\K[0-9]+' | head -1 || true)
         jq -n --arg pr "$PR_NUMBER" --arg issue "${ORCHESTRATOR_ISSUE:-}" \
-          '{"ref":"main","inputs":{"pr_number":$pr,"target_repo":"fn-mystore","orchestrator_issue":$issue}}' | \
+          '{"ref":"main","inputs":{"pr_numbers":$pr,"target_repo":"fn-mystore","orchestrator_issues":$issue}}' | \
         gh api repos/retrostoremanager/fn-mystore/actions/workflows/test-agent.yml/dispatches \
           --method POST --input -
