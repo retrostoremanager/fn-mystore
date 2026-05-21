@@ -59,11 +59,14 @@ jobs:
     - name: Configure app settings
       env:
         JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+        POSTGRES_ADMIN_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
       run: |
         az functionapp config appsettings set \
           --resource-group mystore-rg-dev \
           --name mystore-func-dev \
-          --settings "JwtAuthentication__SecretKey=${JWT_SECRET_KEY}"
+          --settings \
+          "JwtAuthentication__SecretKey=${JWT_SECRET_KEY}" \
+          "ConnectionStrings__DefaultConnection=Host=mystore-postgres-dev.postgres.database.azure.com;Port=5432;Database=mystore-db;Username=sqladmin;Password=${POSTGRES_ADMIN_PASSWORD};SSL Mode=Require"
 
     - name: Deployment Complete
       run: |
