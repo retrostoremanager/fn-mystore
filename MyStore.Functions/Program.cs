@@ -36,6 +36,33 @@ var host = new HostBuilder()
                 "Add this setting to Azure Function App configuration (or local.settings.json for local dev). " +
                 "Verify the password in the connection string matches the current database user password.");
         }
+        else
+        {
+            var startupLogger = services.BuildServiceProvider()
+                .GetRequiredService<ILoggerFactory>()
+                .CreateLogger("Startup");
+            try
+            {
+                using var conn = new Npgsql.NpgsqlConnection(connectionString);
+                conn.Open();
+                conn.Close();
+            }
+            catch (Npgsql.PostgresException pgEx) when (pgEx.SqlState == "3D000")
+            {
+                startupLogger.LogError(
+                    "STARTUP ERROR: The database specified in ConnectionStrings__DefaultConnection does not exist " +
+                    "(PostgreSQL error 3D000: {Message}). " +
+                    "Create the database and run all migrations from retrostoremanager/dbproj-mystore before use.",
+                    pgEx.MessageText);
+            }
+            catch (Exception ex)
+            {
+                startupLogger.LogWarning(
+                    "Could not verify database connectivity at startup: {Message}. " +
+                    "Ensure ConnectionStrings__DefaultConnection points to an existing, accessible PostgreSQL database.",
+                    ex.Message);
+            }
+        }
 
         if (string.IsNullOrWhiteSpace(jwtSecretKey))
         {
