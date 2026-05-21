@@ -71,7 +71,7 @@ jobs:
           --resource-group mystore-rg-dev \
           --name mystore-func-dev \
           --settings \
-          "ConnectionStrings__DefaultConnection=Host=mystore-postgres-dev.postgres.database.azure.com;Port=5432;Database=mystore-db;Username=sqladmin;Password=${POSTGRES_ADMIN_PASSWORD};SSL Mode=Require" \
+          "ConnectionStrings__DefaultConnection=Host=mystore-postgres-dev.postgres.database.azure.com;Port=5432;Database=mystore-db-dev;Username=sqladmin;Password=${POSTGRES_ADMIN_PASSWORD};SSL Mode=Require" \
           "JwtAuthentication__SecretKey=${JWT_SECRET_KEY}" \
           "Stripe__SecretKey=${STRIPE_SECRET_KEY}" \
           "Stripe__PublishableKey=${STRIPE_PUBLISHABLE_KEY}" \
