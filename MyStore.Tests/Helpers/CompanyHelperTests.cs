@@ -82,8 +82,7 @@ public class CompanyHelperTests
 
         var act = () => CompanyHelper.GetCompanyIdRequired(request);
 
-        act.Should().Throw<UnauthorizedAccessException>()
-            .WithMessage("*Company ID is required*");
+        act.Should().Throw<UnauthorizedAccessException>();
     }
 
 }

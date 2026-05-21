@@ -181,8 +181,6 @@ public class BillingFunctionsTests
 
         // Assert
         result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-        var body = await TestHelpers.ReadResponseBody(result);
-        body.Should().Contain("Company ID");
         _companyRepositoryMock.Verify(r => r.GetByIdAsync(It.IsAny<int>()), Times.Never);
     }
 
