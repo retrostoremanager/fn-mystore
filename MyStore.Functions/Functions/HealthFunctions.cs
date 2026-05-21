@@ -25,7 +25,8 @@ public class HealthFunctions
     {
         _logger.LogInformation("Health check requested");
 
-        var connectionString = _configuration["ConnectionStrings__DefaultConnection"];
+        var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+            ?? _configuration.GetConnectionString("DefaultConnection");
 
         if (string.IsNullOrWhiteSpace(connectionString))
         {
