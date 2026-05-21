@@ -21,8 +21,22 @@ var host = new HostBuilder()
         services.AddApplicationInsightsTelemetryWorkerService();
         services.ConfigureFunctionsApplicationInsights();
 
+        var connectionString = context.Configuration["ConnectionStrings__DefaultConnection"];
         var jwtSecretKey = context.Configuration["JwtAuthentication__SecretKey"]
             ?? context.Configuration["JwtSecret"];
+
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            var startupLogger = services.BuildServiceProvider()
+                .GetRequiredService<ILoggerFactory>()
+                .CreateLogger("Startup");
+            startupLogger.LogWarning(
+                "ConnectionStrings__DefaultConnection is not configured. " +
+                "All endpoints that touch the database will fail. " +
+                "Add this setting to Azure Function App configuration (or local.settings.json for local dev). " +
+                "Verify the password in the connection string matches the current database user password.");
+        }
+
         if (string.IsNullOrWhiteSpace(jwtSecretKey))
         {
             var startupLogger = services.BuildServiceProvider()
