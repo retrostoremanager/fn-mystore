@@ -1,0 +1,189 @@
+using FluentAssertions;
+using Moq;
+using MyStore.Models;
+using MyStore.Repositories;
+using MyStore.Services;
+using Xunit;
+
+namespace MyStore.Tests.Services;
+
+public class SalesServiceTests
+{
+    private readonly Mock<ISalesRepository> _salesRepositoryMock;
+    private readonly Mock<ICustomerRepository> _customerRepositoryMock;
+    private readonly Mock<IUserRepository> _userRepositoryMock;
+    private readonly Mock<IInventoryRepository> _inventoryRepositoryMock;
+    private readonly SalesService _service;
+
+    private const int CompanyId = 1;
+
+    public SalesServiceTests()
+    {
+        _salesRepositoryMock = new Mock<ISalesRepository>();
+        _customerRepositoryMock = new Mock<ICustomerRepository>();
+        _userRepositoryMock = new Mock<IUserRepository>();
+        _inventoryRepositoryMock = new Mock<IInventoryRepository>();
+
+        _service = new SalesService(
+            _salesRepositoryMock.Object,
+            _customerRepositoryMock.Object,
+            _userRepositoryMock.Object,
+            _inventoryRepositoryMock.Object);
+    }
+
+    private static Sale CreateSaleWithStoredTotals(int id = 1, decimal subtotal = 80m, decimal tax = 8m, decimal total = 88m)
+    {
+        return new Sale
+        {
+            Id = id,
+            CompanyId = CompanyId,
+            CustomerId = 10,
+            Subtotal = subtotal,
+            Tax = tax,
+            Total = total,
+            PaymentMethod = "Cash",
+            SaleDate = DateTime.UtcNow,
+            Items = new List<SaleItem>
+            {
+                new SaleItem { Id = 1, SaleId = id, InventoryItemId = 100, Quantity = 2, UnitPrice = 25m, TotalPrice = 50m },
+                new SaleItem { Id = 2, SaleId = id, InventoryItemId = 101, Quantity = 1, UnitPrice = 30m, TotalPrice = 30m }
+            }
+        };
+    }
+
+    [Fact]
+    public async Task GetAllSalesAsync_ReturnsStoredSubtotalTaxTotal_NotComputedFromItems()
+    {
+        var storedSubtotal = 80m;
+        var storedTax = 8m;
+        var storedTotal = 88m;
+        var sale = CreateSaleWithStoredTotals(subtotal: storedSubtotal, tax: storedTax, total: storedTotal);
+
+        _salesRepositoryMock.Setup(r => r.GetAllAsync(CompanyId)).ReturnsAsync(new List<Sale> { sale });
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(new Customer { Id = 10, CompanyId = CompanyId });
+        _inventoryRepositoryMock.Setup(r => r.GetByIdAsync(It.IsAny<int>(), CompanyId)).ReturnsAsync((InventoryItem?)null);
+
+        var result = await _service.GetAllSalesAsync(CompanyId);
+
+        result.Success.Should().BeTrue();
+        result.Data.Should().HaveCount(1);
+        var returnedSale = result.Data![0];
+        returnedSale.Subtotal.Should().Be(storedSubtotal);
+        returnedSale.Tax.Should().Be(storedTax);
+        returnedSale.Total.Should().Be(storedTotal);
+    }
+
+    [Fact]
+    public async Task GetAllSalesAsync_SaleItemTotalPriceReflectsStoredValue()
+    {
+        var sale = CreateSaleWithStoredTotals();
+
+        _salesRepositoryMock.Setup(r => r.GetAllAsync(CompanyId)).ReturnsAsync(new List<Sale> { sale });
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(new Customer { Id = 10, CompanyId = CompanyId });
+        _inventoryRepositoryMock.Setup(r => r.GetByIdAsync(It.IsAny<int>(), CompanyId)).ReturnsAsync((InventoryItem?)null);
+
+        var result = await _service.GetAllSalesAsync(CompanyId);
+
+        result.Success.Should().BeTrue();
+        var items = result.Data![0].Items;
+        items.Should().HaveCount(2);
+        items[0].TotalPrice.Should().Be(50m);
+        items[1].TotalPrice.Should().Be(30m);
+    }
+
+    [Fact]
+    public async Task GetSaleByIdAsync_ReturnsStoredSubtotalTaxTotal_NotComputedFromItems()
+    {
+        var storedSubtotal = 80m;
+        var storedTax = 8m;
+        var storedTotal = 88m;
+        var sale = CreateSaleWithStoredTotals(subtotal: storedSubtotal, tax: storedTax, total: storedTotal);
+
+        _salesRepositoryMock.Setup(r => r.GetByIdAsync(1, CompanyId)).ReturnsAsync(sale);
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(new Customer { Id = 10, CompanyId = CompanyId });
+        _inventoryRepositoryMock.Setup(r => r.GetByIdAsync(It.IsAny<int>(), CompanyId)).ReturnsAsync((InventoryItem?)null);
+
+        var result = await _service.GetSaleByIdAsync(1, CompanyId);
+
+        result.Success.Should().BeTrue();
+        result.Data.Should().NotBeNull();
+        result.Data!.Subtotal.Should().Be(storedSubtotal);
+        result.Data.Tax.Should().Be(storedTax);
+        result.Data.Total.Should().Be(storedTotal);
+    }
+
+    [Fact]
+    public async Task GetSaleByIdAsync_IncludesLineItemsWithTotalPrice()
+    {
+        var sale = CreateSaleWithStoredTotals();
+
+        _salesRepositoryMock.Setup(r => r.GetByIdAsync(1, CompanyId)).ReturnsAsync(sale);
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(new Customer { Id = 10, CompanyId = CompanyId });
+        _inventoryRepositoryMock.Setup(r => r.GetByIdAsync(It.IsAny<int>(), CompanyId)).ReturnsAsync((InventoryItem?)null);
+
+        var result = await _service.GetSaleByIdAsync(1, CompanyId);
+
+        result.Success.Should().BeTrue();
+        result.Data!.Items.Should().HaveCount(2);
+        result.Data.Items.Should().AllSatisfy(item => item.TotalPrice.Should().BeGreaterThan(0));
+    }
+
+    [Fact]
+    public async Task GetSaleByIdAsync_NotFound_ReturnsErrorResponse()
+    {
+        _salesRepositoryMock.Setup(r => r.GetByIdAsync(999, CompanyId)).ReturnsAsync((Sale?)null);
+
+        var result = await _service.GetSaleByIdAsync(999, CompanyId);
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("not found");
+    }
+
+    [Fact]
+    public async Task GetSalesByCustomerIdAsync_Returns200WithCustomerSalesAndStoredTotals()
+    {
+        var sale = CreateSaleWithStoredTotals(subtotal: 100m, tax: 10m, total: 110m);
+
+        _salesRepositoryMock.Setup(r => r.GetByCustomerIdAsync(10, CompanyId)).ReturnsAsync(new List<Sale> { sale });
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(new Customer { Id = 10, CompanyId = CompanyId });
+        _inventoryRepositoryMock.Setup(r => r.GetByIdAsync(It.IsAny<int>(), CompanyId)).ReturnsAsync((InventoryItem?)null);
+
+        var result = await _service.GetSalesByCustomerIdAsync(10, CompanyId);
+
+        result.Success.Should().BeTrue();
+        result.Data.Should().HaveCount(1);
+        result.Data![0].Total.Should().Be(110m);
+    }
+
+    [Fact]
+    public async Task GetSalesByDateRangeAsync_ReturnsFilteredSalesWithStoredTotals()
+    {
+        var startDate = new DateTime(2024, 1, 1);
+        var endDate = new DateTime(2024, 1, 31);
+        var sale = CreateSaleWithStoredTotals(subtotal: 50m, tax: 5m, total: 55m);
+        sale.SaleDate = new DateTime(2024, 1, 15);
+
+        _salesRepositoryMock.Setup(r => r.GetByDateRangeAsync(startDate, endDate, CompanyId)).ReturnsAsync(new List<Sale> { sale });
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(new Customer { Id = 10, CompanyId = CompanyId });
+        _inventoryRepositoryMock.Setup(r => r.GetByIdAsync(It.IsAny<int>(), CompanyId)).ReturnsAsync((InventoryItem?)null);
+
+        var result = await _service.GetSalesByDateRangeAsync(startDate, endDate, CompanyId);
+
+        result.Success.Should().BeTrue();
+        result.Data.Should().HaveCount(1);
+        result.Data![0].Subtotal.Should().Be(50m);
+        result.Data[0].Tax.Should().Be(5m);
+        result.Data[0].Total.Should().Be(55m);
+    }
+
+    [Fact]
+    public async Task GetAllSalesAsync_EmptyList_ReturnsSuccessWithEmptyData()
+    {
+        _salesRepositoryMock.Setup(r => r.GetAllAsync(CompanyId)).ReturnsAsync(new List<Sale>());
+
+        var result = await _service.GetAllSalesAsync(CompanyId);
+
+        result.Success.Should().BeTrue();
+        result.Data.Should().BeEmpty();
+    }
+}
