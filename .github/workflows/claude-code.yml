@@ -127,7 +127,7 @@ jobs:
           PROMPT: ${{ github.event.inputs.prompt || github.event.client_payload.prompt || '' }}
         run: |
           STEP_OUTPUT="${{ steps.claude.outputs.output }}"
-          if ! echo "$STEP_OUTPUT" | grep -q "Spending cap reached"; then
+          if ! echo "$STEP_OUTPUT" | grep -q "Spending cap reached resets"; then
             echo "Not a spending cap — stale recovery will handle it."
             exit 0
           fi
