@@ -92,7 +92,7 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task GetAllCustomers_CompanyIdFromJwt_ReturnsSuccessWithoutHeader()
+    public async Task GetAllCustomers_JwtOnlyWithoutHeader_Returns401Unauthorized()
     {
         var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var req = TestHelpers.CreateHttpRequestData(context, null);
@@ -210,7 +210,7 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task GetCustomerById_CompanyIdFromJwt_ReturnsSuccessWithoutHeader()
+    public async Task GetCustomerById_JwtOnlyWithoutHeader_Returns401Unauthorized()
     {
         var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var req = TestHelpers.CreateHttpRequestData(context, null);
@@ -333,7 +333,7 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task CreateCustomer_CompanyIdFromJwt_ReturnsSuccessWithoutHeader()
+    public async Task CreateCustomer_JwtOnlyWithoutHeader_Returns401Unauthorized()
     {
         var request = new CreateCustomerRequest { FirstName = "Jane", LastName = "Smith", Email = "jane@example.com" };
         var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
@@ -451,7 +451,7 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task UpdateCustomer_CompanyIdFromJwt_ReturnsSuccessWithoutHeader()
+    public async Task UpdateCustomer_JwtOnlyWithoutHeader_Returns401Unauthorized()
     {
         var request = new UpdateCustomerRequest { FirstName = "Updated" };
         var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
@@ -524,7 +524,7 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task DeleteCustomer_CompanyIdFromJwt_ReturnsSuccessWithoutHeader()
+    public async Task DeleteCustomer_JwtOnlyWithoutHeader_Returns401Unauthorized()
     {
         var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var req = TestHelpers.CreateHttpRequestData(context, null);
@@ -622,7 +622,7 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task SearchCustomers_CompanyIdFromJwt_ReturnsSuccessWithoutHeader()
+    public async Task SearchCustomers_JwtOnlyWithoutHeader_Returns401Unauthorized()
     {
         var query = new NameValueCollection { { "q", "john" } };
         var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
