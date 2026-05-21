@@ -178,6 +178,12 @@ jobs:
           GH_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
           PROMPT: ${{ github.event.inputs.prompt || github.event.client_payload.prompt || '' }}
         run: |
+          # Review agents also run on claude-code.yml — skip to prevent review → review cascade.
+          if echo "$PROMPT" | grep -qF "You are a code reviewer"; then
+            echo "Current run is a code review agent — skipping chained review trigger"
+            exit 0
+          fi
+
           # First try: look for the PR belonging to THIS agent's specific issue (from prompt).
           # This prevents two concurrent agent runs both triggering a review for the same PR.
           ISSUE_N=$(echo "$PROMPT" | grep -oP 'Issue #\K[0-9]+' | head -1 || true)
