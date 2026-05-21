@@ -78,8 +78,7 @@ public class AccountFunctions
         {
             _logger.LogError(ex, "Error registering account");
             var errorResponse = ApiResponse<RegisterAccountResponse>.ErrorResponse(
-                "An error occurred while registering the account",
-                new List<string> { ex.Message }
+                "An error occurred while registering the account"
             );
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
         }
@@ -158,8 +157,7 @@ public class AccountFunctions
         {
             _logger.LogError(ex, "Error processing login");
             var errorResponse = ApiResponse<LoginResponse>.ErrorResponse(
-                "An error occurred during sign-in. Please try again.",
-                new List<string> { ex.Message }
+                "An error occurred during sign-in. Please try again."
             );
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
         }
@@ -213,8 +211,7 @@ public class AccountFunctions
         {
             _logger.LogError(ex, "Error verifying email");
             var errorResponse = ApiResponse<VerifyEmailResponse>.ErrorResponse(
-                "An unexpected error occurred while verifying your email. Please try again later.",
-                new List<string> { ex.Message }
+                "An unexpected error occurred while verifying your email. Please try again later."
             );
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
         }
@@ -293,8 +290,7 @@ public class AccountFunctions
         {
             _logger.LogError(ex, "Error resending verification email");
             var errorResponse = ApiResponse<ResendVerificationEmailResponse>.ErrorResponse(
-                "An unexpected error occurred while processing your request. Please try again later.",
-                new List<string> { ex.Message }
+                "An unexpected error occurred while processing your request. Please try again later."
             );
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
         }
@@ -344,8 +340,7 @@ public class AccountFunctions
         {
             _logger.LogError(ex, "Error processing forgot password");
             var errorResponse = ApiResponse<ForgotPasswordResponse>.ErrorResponse(
-                "An unexpected error occurred. Please try again later.",
-                new List<string> { ex.Message }
+                "An unexpected error occurred. Please try again later."
             );
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
         }
@@ -410,8 +405,7 @@ public class AccountFunctions
         {
             _logger.LogError(ex, "Error processing reset password");
             var errorResponse = ApiResponse<ResetPasswordResponse>.ErrorResponse(
-                "An unexpected error occurred. Please try again later.",
-                new List<string> { ex.Message }
+                "An unexpected error occurred. Please try again later."
             );
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
         }
@@ -461,8 +455,7 @@ public class AccountFunctions
         {
             _logger.LogError(ex, "Error processing set password from invite");
             var errorResponse = ApiResponse<SetPasswordFromInviteResponse>.ErrorResponse(
-                "An unexpected error occurred. Please try again later.",
-                new List<string> { ex.Message }
+                "An unexpected error occurred. Please try again later."
             );
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
         }
