@@ -10,9 +10,7 @@
     "Stripe__PublishableKey": "pk_test_your_stripe_publishable_key",
     "Stripe__WebhookSecret": "whsec_your_webhook_signing_secret",
     "Cors__AllowedOrigins": "http://localhost:5173,http://localhost:3000",
-    "CORS": "*",
-    "IGDB_CLIENT_ID": "your-igdb-client-id",
-    "IGDB_CLIENT_SECRET": "your-igdb-client-secret"
+    "CORS": "*"
   },
   "Host": {
     "CORS": "*"
