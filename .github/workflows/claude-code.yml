@@ -155,6 +155,9 @@ jobs:
             ISSUE_N=$(echo "$PROMPT" | grep -oP 'Issue #\K[0-9]+' | head -1 || true)
           fi
           if [ -z "$ISSUE_N" ]; then
+            ISSUE_N=$(echo "$PROMPT" | grep -oP 'orchestrator-mystore#\K[0-9]+' | head -1 || true)
+          fi
+          if [ -z "$ISSUE_N" ]; then
             echo "Cannot determine issue from branch or prompt — no cap-wait label set"
             exit 0
           fi
@@ -178,6 +181,9 @@ jobs:
           # First try: look for the PR belonging to THIS agent's specific issue (from prompt).
           # This prevents two concurrent agent runs both triggering a review for the same PR.
           ISSUE_N=$(echo "$PROMPT" | grep -oP 'Issue #\K[0-9]+' | head -1 || true)
+          if [ -z "$ISSUE_N" ]; then
+            ISSUE_N=$(echo "$PROMPT" | grep -oP 'orchestrator-mystore#\K[0-9]+' | head -1 || true)
+          fi
           if [ -n "$ISSUE_N" ]; then
             PR_DATA=$(gh pr list \
               --base development \
