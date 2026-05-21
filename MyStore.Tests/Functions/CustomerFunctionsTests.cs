@@ -636,6 +636,85 @@ public class CustomerFunctionsTests
 
     #endregion
 
+    #region Missing X-Company-Id Header Returns 401 Tests
+
+    [Fact]
+    public async Task GetAllCustomers_MissingCompanyIdHeader_Returns401()
+    {
+        var context = new Mock<FunctionContext>();
+        var req = TestHelpers.CreateHttpRequestData(context.Object, null);
+
+        var result = await _functions.GetAllCustomers(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        _customerServiceMock.Verify(s => s.GetAllCustomersAsync(It.IsAny<int>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetCustomerById_MissingCompanyIdHeader_Returns401()
+    {
+        var context = new Mock<FunctionContext>();
+        var req = TestHelpers.CreateHttpRequestData(context.Object, null);
+
+        var result = await _functions.GetCustomerById(req, 1);
+
+        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        _customerServiceMock.Verify(s => s.GetCustomerByIdAsync(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateCustomer_MissingCompanyIdHeader_Returns401()
+    {
+        var request = new CreateCustomerRequest { FirstName = "Jane", LastName = "Smith", Email = "jane@example.com" };
+        var context = new Mock<FunctionContext>();
+        var req = TestHelpers.CreateHttpRequestData(context.Object, request);
+
+        var result = await _functions.CreateCustomer(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        _customerServiceMock.Verify(s => s.CreateCustomerAsync(It.IsAny<CreateCustomerRequest>(), It.IsAny<int>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateCustomer_MissingCompanyIdHeader_Returns401()
+    {
+        var request = new UpdateCustomerRequest { FirstName = "Updated" };
+        var context = new Mock<FunctionContext>();
+        var req = TestHelpers.CreateHttpRequestData(context.Object, request);
+
+        var result = await _functions.UpdateCustomer(req, 1);
+
+        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        _customerServiceMock.Verify(s => s.UpdateCustomerAsync(It.IsAny<int>(), It.IsAny<UpdateCustomerRequest>(), It.IsAny<int>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DeleteCustomer_MissingCompanyIdHeader_Returns401()
+    {
+        var context = new Mock<FunctionContext>();
+        var req = TestHelpers.CreateHttpRequestData(context.Object, null);
+
+        var result = await _functions.DeleteCustomer(req, 1);
+
+        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        _customerServiceMock.Verify(s => s.DeleteCustomerAsync(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SearchCustomers_MissingCompanyIdHeader_Returns401()
+    {
+        var query = new NameValueCollection { { "q", "john" } };
+        var context = new Mock<FunctionContext>();
+        var req = TestHelpers.CreateHttpRequestData(context.Object, null, null, query);
+
+        var result = await _functions.SearchCustomers(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        _customerServiceMock.Verify(s => s.SearchCustomersAsync(It.IsAny<string>(), It.IsAny<int>()), Times.Never);
+    }
+
+    #endregion
+
     #region Response Shape Tests
 
     [Fact]
