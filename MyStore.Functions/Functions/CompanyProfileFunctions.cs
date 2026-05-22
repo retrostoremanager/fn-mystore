@@ -101,6 +101,12 @@ public class CompanyProfileFunctions
                 body = await reader.ReadToEndAsync();
             }
 
+            if (string.IsNullOrWhiteSpace(body))
+            {
+                var errorResponse = ApiResponse<CompanyProfile>.ErrorResponse("Invalid request body.");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+            }
+
             var request = JsonSerializer.Deserialize<CompanyProfileUpdateRequest>(body, JsonOptions);
             if (request == null)
             {
@@ -140,6 +146,12 @@ public class CompanyProfileFunctions
             using (var reader = new StreamReader(req.Body, Encoding.UTF8))
             {
                 body = await reader.ReadToEndAsync();
+            }
+
+            if (string.IsNullOrWhiteSpace(body))
+            {
+                var errorResponse = ApiResponse<CompanyProfile>.ErrorResponse("File and FileName are required.");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
             }
 
             var request = JsonSerializer.Deserialize<LogoUploadRequest>(body, JsonOptions);
