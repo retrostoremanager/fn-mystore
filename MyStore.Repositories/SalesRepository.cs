@@ -24,7 +24,7 @@ public class SalesRepository : ISalesRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         const string sql = @"SELECT s.id, s.company_id, s.customer_id, s.user_id,
-                    s.tax, s.total,
+                    s.tax, s.total_amount AS total,
                     s.payment_method, s.sale_date, s.notes
              FROM sale s
              WHERE s.company_id = @p_company_id
@@ -48,7 +48,7 @@ public class SalesRepository : ISalesRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         const string sql = @"SELECT s.id, s.company_id, s.customer_id, s.user_id,
-                    s.tax, s.total,
+                    s.tax, s.total_amount AS total,
                     s.payment_method, s.sale_date, s.notes
              FROM sale s
              WHERE s.id = @p_id AND s.company_id = @p_company_id";
@@ -68,7 +68,7 @@ public class SalesRepository : ISalesRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         const string sql = @"SELECT s.id, s.company_id, s.customer_id, s.user_id,
-                    s.tax, s.total,
+                    s.tax, s.total_amount AS total,
                     s.payment_method, s.sale_date, s.notes
              FROM sale s
              WHERE s.customer_id = @p_customer_id AND s.company_id = @p_company_id
@@ -81,7 +81,7 @@ public class SalesRepository : ISalesRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         const string sql = @"SELECT s.id, s.company_id, s.customer_id, s.user_id,
-                    s.tax, s.total,
+                    s.tax, s.total_amount AS total,
                     s.payment_method, s.sale_date, s.notes
              FROM sale s
              WHERE s.user_id = @p_user_id AND s.company_id = @p_company_id
@@ -94,7 +94,7 @@ public class SalesRepository : ISalesRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         const string sql = @"SELECT s.id, s.company_id, s.customer_id, s.user_id,
-                    s.tax, s.total,
+                    s.tax, s.total_amount AS total,
                     s.payment_method, s.sale_date, s.notes
              FROM sale s
              WHERE s.company_id = @p_company_id
@@ -120,7 +120,7 @@ public class SalesRepository : ISalesRepository
         try
         {
             const string insertSale = @"INSERT INTO sale (company_id, customer_id, user_id,
-                    subtotal, tax, total, payment_method, sale_date, notes)
+                    subtotal, tax, total_amount, payment_method, sale_date, notes)
                 VALUES (@CompanyId, @CustomerId, @UserId, @Subtotal, @Tax, @Total, @PaymentMethod, @SaleDate, @Notes)
                 RETURNING id";
 
