@@ -155,14 +155,7 @@ public class CompanyService : ICompanyService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error during login for email {Email}", request.Email);
-            var message = "An error occurred during sign-in. Please try again.";
-            // Include error detail in dev for debugging
-            var env = _configuration["ASPNETCORE_ENVIRONMENT"] ?? "";
-            if (env.StartsWith("dev", StringComparison.OrdinalIgnoreCase) || env.Equals("Development", StringComparison.OrdinalIgnoreCase))
-            {
-                message += $" ({ex.GetType().Name}: {ex.Message})";
-            }
-            return ApiResponse<LoginResponse>.ErrorResponse(message);
+            return ApiResponse<LoginResponse>.ErrorResponse("An error occurred during sign-in. Please try again.");
         }
     }
 
