@@ -128,7 +128,41 @@ jobs:
         run: |
           STEP_OUTPUT="${{ steps.claude.outputs.output }}"
           if ! echo "$STEP_OUTPUT" | grep -q "Spending cap reached resets"; then
-            echo "Not a spending cap — stale recovery will handle it."
+            echo "Not a spending cap — resetting issue to ready for immediate retry."
+            ISSUE_N=$(echo "$BRANCH" | grep -oP 'feature/issue-\K[0-9]+' || true)
+            if [ -z "$ISSUE_N" ]; then
+              ISSUE_N=$(echo "$PROMPT" | grep -oP 'Issue #\K[0-9]+' | head -1 || true)
+            fi
+            if [ -z "$ISSUE_N" ]; then
+              ISSUE_N=$(echo "$PROMPT" | grep -oP 'orchestrator-mystore#\K[0-9]+' | head -1 || true)
+            fi
+            if [ -z "$ISSUE_N" ]; then
+              echo "Cannot determine issue number — leaving for stale recovery"
+              exit 0
+            fi
+            RETRY_COUNT=$(GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue view "$ISSUE_N" \
+              --repo retrostoremanager/orchestrator-mystore \
+              --json labels \
+              --jq '[.labels[].name | select(startswith("retry-"))] | length' \
+              2>/dev/null || echo "0")
+            NEXT_RETRY=$(( ${RETRY_COUNT:-0} + 1 ))
+            if [ "${RETRY_COUNT:-0}" -ge 3 ]; then
+              GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue edit "$ISSUE_N" \
+                --repo retrostoremanager/orchestrator-mystore \
+                --remove-label in-progress --add-label agent-failed
+              GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue comment "$ISSUE_N" \
+                --repo retrostoremanager/orchestrator-mystore \
+                --body "Agent failed $RETRY_COUNT times — marking **agent-failed** ([run $GITHUB_RUN_ID](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID))."
+              echo "Issue #$ISSUE_N marked agent-failed after $RETRY_COUNT retries"
+            else
+              GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue edit "$ISSUE_N" \
+                --repo retrostoremanager/orchestrator-mystore \
+                --remove-label in-progress --add-label ready --add-label "retry-$NEXT_RETRY"
+              GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue comment "$ISSUE_N" \
+                --repo retrostoremanager/orchestrator-mystore \
+                --body "Agent workflow failed (retry $NEXT_RETRY/3, [run $GITHUB_RUN_ID](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)). Resetting to **ready**."
+              echo "Issue #$ISSUE_N reset to ready (retry $NEXT_RETRY/3)"
+            fi
             exit 0
           fi
           RESET_STR=$(echo "$STEP_OUTPUT" | grep -oP 'Spending cap reached resets \K[^\n]+' | head -1)

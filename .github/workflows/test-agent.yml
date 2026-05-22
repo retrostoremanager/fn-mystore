@@ -111,3 +111,76 @@ jobs:
           Will auto-resume after reset."
             echo "Marked issue #$ISSUE_N with cap-wait (resets $RESET_ISO)"
           done
+
+      - name: Re-trigger if agent produced no verdict (turn limit / silent failure)
+        if: steps.claude.outcome == 'success' && inputs.orchestrator_issues != ''
+        env:
+          GH_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
+          ISSUE_NUMBERS: ${{ inputs.orchestrator_issues }}
+          PR_NUMBERS: ${{ inputs.pr_numbers }}
+          REPO: ${{ inputs.target_repo }}
+        run: |
+          IFS=',' read -ra ISSUE_ARR <<< "$ISSUE_NUMBERS"
+          NEEDS_RETRY=""
+          for ISSUE_N in "${ISSUE_ARR[@]}"; do
+            ISSUE_N=$(echo "$ISSUE_N" | tr -d '[:space:]')
+            [ -z "$ISSUE_N" ] && continue
+
+            IS_OPEN=$(GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue view "$ISSUE_N" \
+              --repo retrostoremanager/orchestrator-mystore \
+              --json state --jq '.state' 2>/dev/null || echo "UNKNOWN")
+            [ "$IS_OPEN" != "OPEN" ] && echo "Issue #$ISSUE_N is closed — agent completed" && continue
+
+            HAS_IN_TEST=$(GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue view "$ISSUE_N" \
+              --repo retrostoremanager/orchestrator-mystore \
+              --json labels --jq '[.labels[].name] | any(. == "in-test")' \
+              2>/dev/null || echo "false")
+            [ "$HAS_IN_TEST" != "true" ] && echo "Issue #$ISSUE_N not in-test — agent completed" && continue
+
+            # Still in-test: check whether the agent filed new bugs in the last 15 minutes.
+            # New bugs = agent ran and intentionally kept issue in-test. No new bugs = silent failure.
+            CUTOFF=$(date -u -d '-15 minutes' +%Y-%m-%dT%H:%M:%SZ)
+            RECENT_BUGS=$(GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue list \
+              --repo retrostoremanager/orchestrator-mystore \
+              --label bug --label ready --state open \
+              --json number,body,createdAt \
+              --jq "[.[] | select(.body | contains(\"orchestrator-mystore#${ISSUE_N}\")) | select(.createdAt > \"$CUTOFF\")] | length" \
+              2>/dev/null || echo "0")
+
+            if [ "${RECENT_BUGS:-0}" -gt 0 ]; then
+              echo "Issue #$ISSUE_N: $RECENT_BUGS bug(s) filed recently — agent completed, keeping in-test"
+            else
+              echo "Issue #$ISSUE_N still in-test, no recent bugs — agent likely hit turn limit"
+              NEEDS_RETRY="$ISSUE_N"
+              break
+            fi
+          done
+
+          if [ -z "$NEEDS_RETRY" ]; then
+            echo "All issues resolved — no re-trigger needed"
+            exit 0
+          fi
+
+          # Guard against re-trigger loops: cap at 3 test runs per 2-hour window
+          RECENT_RUNS=$(GH_TOKEN="$GH_DISPATCH_TOKEN" gh run list \
+            --repo "retrostoremanager/$REPO" \
+            --workflow=test-agent.yml \
+            --json databaseId,createdAt \
+            --jq "[.[] | select(.createdAt > \"$(date -u -d '-2 hours' +%Y-%m-%dT%H:%M:%SZ)\")] | length" \
+            2>/dev/null || echo "0")
+
+          if [ "${RECENT_RUNS:-0}" -ge 4 ]; then
+            echo "$RECENT_RUNS test runs in past 2h — loop guard hit, skipping re-trigger"
+            GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue comment "$NEEDS_RETRY" \
+              --repo retrostoremanager/orchestrator-mystore \
+              --body "Test agent hit turn limit $RECENT_RUNS times in 2h — needs human review."
+            exit 0
+          fi
+
+          echo "Re-triggering test agent (run $((RECENT_RUNS + 1)) of 4 allowed per 2h)"
+          jq -n --arg pr "$PR_NUMBERS" --arg repo "$REPO" --arg issues "$ISSUE_NUMBERS" \
+            '{"ref":"main","inputs":{"pr_numbers":$pr,"target_repo":$repo,"orchestrator_issues":$issues}}' | \
+          GH_TOKEN="$GH_DISPATCH_TOKEN" gh api \
+            "repos/retrostoremanager/$REPO/actions/workflows/test-agent.yml/dispatches" \
+            --method POST --input -
+          echo "Re-triggered test agent for PRs $PR_NUMBERS / issues $ISSUE_NUMBERS"
