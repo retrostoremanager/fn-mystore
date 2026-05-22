@@ -194,7 +194,7 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task GetCustomerById_DifferentCompany_ServiceScopesQuery()
+    public async Task GetCustomerById_ServiceCall_ScopedToRequestCompanyId()
     {
         _customerServiceMock
             .Setup(s => s.GetCustomerByIdAsync(1, CompanyId))
