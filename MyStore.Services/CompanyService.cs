@@ -403,9 +403,9 @@ public class CompanyService : ICompanyService
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Error registering account");
             return ApiResponse<RegisterAccountResponse>.ErrorResponse(
-                "Failed to register account",
-                new List<string> { ex.Message }
+                "Failed to register account"
             );
         }
     }
@@ -590,8 +590,7 @@ public class CompanyService : ICompanyService
         {
             _logger.LogError(ex, "Error verifying email with token: {Token}", token);
             return ApiResponse<VerifyEmailResponse>.ErrorResponse(
-                "An unexpected error occurred while verifying your email. Please try again later.",
-                new List<string> { ex.Message }
+                "An unexpected error occurred while verifying your email. Please try again later."
             );
         }
     }
@@ -796,8 +795,7 @@ public class CompanyService : ICompanyService
         {
             _logger.LogError(ex, "Error resending verification email for email: {Email}", request.Email);
             return ApiResponse<ResendVerificationEmailResponse>.ErrorResponse(
-                "An unexpected error occurred while processing your request. Please try again later.",
-                new List<string> { ex.Message }
+                "An unexpected error occurred while processing your request. Please try again later."
             );
         }
     }
@@ -913,8 +911,7 @@ public class CompanyService : ICompanyService
         {
             _logger.LogError(ex, "Error processing forgot password for {Email}", request.Email);
             return ApiResponse<ForgotPasswordResponse>.ErrorResponse(
-                "An error occurred. Please try again later.",
-                new List<string> { ex.Message }
+                "An error occurred. Please try again later."
             );
         }
     }
@@ -991,8 +988,7 @@ public class CompanyService : ICompanyService
         {
             _logger.LogError(ex, "Error resetting password");
             return ApiResponse<ResetPasswordResponse>.ErrorResponse(
-                "An unexpected error occurred. Please try again later.",
-                new List<string> { ex.Message }
+                "An unexpected error occurred. Please try again later."
             );
         }
     }

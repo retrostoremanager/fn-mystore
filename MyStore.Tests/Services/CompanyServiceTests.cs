@@ -429,7 +429,7 @@ public class CompanyServiceTests
         // Assert
         result.Success.Should().BeFalse();
         result.Message.Should().Contain("Failed to register account", because: "Exception should return error message");
-        result.Errors.Should().NotBeEmpty();
+        result.Errors.Should().BeEmpty();
         result.Data.Should().BeNull();
     }
 
@@ -1033,7 +1033,7 @@ public class CompanyServiceTests
         // Assert
         result.Success.Should().BeFalse();
         result.Message.Should().ContainEquivalentOf("unexpected error");
-        result.Errors.Should().NotBeEmpty();
+        result.Errors.Should().BeEmpty();
     }
 
     [Fact]
