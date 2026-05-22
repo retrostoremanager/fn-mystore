@@ -24,10 +24,13 @@ public class SalesRepository : ISalesRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         const string sql = @"SELECT s.id, s.company_id, s.customer_id, s.user_id,
-                    s.tax, s.total,
+                    COALESCE(SUM(si.quantity * si.unit_price), 0) AS subtotal, 0 AS tax,
+                    COALESCE(SUM(si.quantity * si.unit_price), 0) AS total,
                     s.payment_method, s.sale_date, s.notes
              FROM sale s
+             LEFT JOIN sale_item si ON si.sale_id = s.id
              WHERE s.company_id = @p_company_id
+             GROUP BY s.id, s.company_id, s.customer_id, s.user_id, s.payment_method, s.sale_date, s.notes
              ORDER BY s.sale_date DESC";
         var rows = (await connection.QueryAsync<SaleRow>(sql, new { p_company_id = companyId })).ToList();
         if (rows.Count == 0)
@@ -36,7 +39,7 @@ public class SalesRepository : ISalesRepository
         }
 
         var saleIds = rows.Select(r => r.Id).ToArray();
-        const string itemsSql = @"SELECT id, sale_id, inventory_item_id, quantity, unit_price, total_price
+        const string itemsSql = @"SELECT id, sale_id, inventory_item_id, quantity, unit_price, (quantity * unit_price) AS total_price
             FROM sale_item WHERE sale_id = ANY(@p_sale_ids)";
         var itemRows = (await connection.QueryAsync<SaleItemRow>(itemsSql, new { p_sale_ids = saleIds })).ToList();
         var itemsBySale = itemRows.GroupBy(r => r.SaleId).ToDictionary(g => g.Key, g => g.ToList());
@@ -48,17 +51,20 @@ public class SalesRepository : ISalesRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         const string sql = @"SELECT s.id, s.company_id, s.customer_id, s.user_id,
-                    s.tax, s.total,
+                    COALESCE(SUM(si.quantity * si.unit_price), 0) AS subtotal, 0 AS tax,
+                    COALESCE(SUM(si.quantity * si.unit_price), 0) AS total,
                     s.payment_method, s.sale_date, s.notes
              FROM sale s
-             WHERE s.id = @p_id AND s.company_id = @p_company_id";
+             LEFT JOIN sale_item si ON si.sale_id = s.id
+             WHERE s.id = @p_id AND s.company_id = @p_company_id
+             GROUP BY s.id, s.company_id, s.customer_id, s.user_id, s.payment_method, s.sale_date, s.notes";
         var row = await connection.QuerySingleOrDefaultAsync<SaleRow>(sql, new { p_id = id, p_company_id = companyId });
         if (row == null)
         {
             return null;
         }
 
-        const string itemsSql = @"SELECT id, sale_id, inventory_item_id, quantity, unit_price, total_price
+        const string itemsSql = @"SELECT id, sale_id, inventory_item_id, quantity, unit_price, (quantity * unit_price) AS total_price
             FROM sale_item WHERE sale_id = @p_sale_id";
         var itemRows = (await connection.QueryAsync<SaleItemRow>(itemsSql, new { p_sale_id = id })).ToList();
         return MapSale(row, itemRows);
@@ -68,10 +74,13 @@ public class SalesRepository : ISalesRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         const string sql = @"SELECT s.id, s.company_id, s.customer_id, s.user_id,
-                    s.tax, s.total,
+                    COALESCE(SUM(si.quantity * si.unit_price), 0) AS subtotal, 0 AS tax,
+                    COALESCE(SUM(si.quantity * si.unit_price), 0) AS total,
                     s.payment_method, s.sale_date, s.notes
              FROM sale s
+             LEFT JOIN sale_item si ON si.sale_id = s.id
              WHERE s.customer_id = @p_customer_id AND s.company_id = @p_company_id
+             GROUP BY s.id, s.company_id, s.customer_id, s.user_id, s.payment_method, s.sale_date, s.notes
              ORDER BY s.sale_date DESC";
         var rows = (await connection.QueryAsync<SaleRow>(sql, new { p_customer_id = customerId, p_company_id = companyId })).ToList();
         return await HydrateItemsAsync(connection, rows);
@@ -81,10 +90,13 @@ public class SalesRepository : ISalesRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         const string sql = @"SELECT s.id, s.company_id, s.customer_id, s.user_id,
-                    s.tax, s.total,
+                    COALESCE(SUM(si.quantity * si.unit_price), 0) AS subtotal, 0 AS tax,
+                    COALESCE(SUM(si.quantity * si.unit_price), 0) AS total,
                     s.payment_method, s.sale_date, s.notes
              FROM sale s
+             LEFT JOIN sale_item si ON si.sale_id = s.id
              WHERE s.user_id = @p_user_id AND s.company_id = @p_company_id
+             GROUP BY s.id, s.company_id, s.customer_id, s.user_id, s.payment_method, s.sale_date, s.notes
              ORDER BY s.sale_date DESC";
         var rows = (await connection.QueryAsync<SaleRow>(sql, new { p_user_id = userId, p_company_id = companyId })).ToList();
         return await HydrateItemsAsync(connection, rows);
@@ -94,11 +106,14 @@ public class SalesRepository : ISalesRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         const string sql = @"SELECT s.id, s.company_id, s.customer_id, s.user_id,
-                    s.tax, s.total,
+                    COALESCE(SUM(si.quantity * si.unit_price), 0) AS subtotal, 0 AS tax,
+                    COALESCE(SUM(si.quantity * si.unit_price), 0) AS total,
                     s.payment_method, s.sale_date, s.notes
              FROM sale s
+             LEFT JOIN sale_item si ON si.sale_id = s.id
              WHERE s.company_id = @p_company_id
                AND s.sale_date >= @p_start AND s.sale_date <= @p_end
+             GROUP BY s.id, s.company_id, s.customer_id, s.user_id, s.payment_method, s.sale_date, s.notes
              ORDER BY s.sale_date DESC";
         var rows = (await connection.QueryAsync<SaleRow>(sql, new
         {
@@ -120,8 +135,8 @@ public class SalesRepository : ISalesRepository
         try
         {
             const string insertSale = @"INSERT INTO sale (company_id, customer_id, user_id,
-                    subtotal, tax, total, payment_method, sale_date, notes)
-                VALUES (@CompanyId, @CustomerId, @UserId, @Subtotal, @Tax, @Total, @PaymentMethod, @SaleDate, @Notes)
+                    payment_method, sale_date, notes)
+                VALUES (@CompanyId, @CustomerId, @UserId, @PaymentMethod, @SaleDate, @Notes)
                 RETURNING id";
 
             var saleId = await connection.ExecuteScalarAsync<int>(insertSale, new
@@ -129,9 +144,6 @@ public class SalesRepository : ISalesRepository
                 sale.CompanyId,
                 sale.CustomerId,
                 UserId = sale.UserId,
-                sale.Subtotal,
-                sale.Tax,
-                sale.Total,
                 sale.PaymentMethod,
                 SaleDate = saleDate,
                 sale.Notes,
@@ -185,7 +197,7 @@ public class SalesRepository : ISalesRepository
         }
 
         var saleIds = rows.Select(r => r.Id).ToArray();
-        const string itemsSql = @"SELECT id, sale_id, inventory_item_id, quantity, unit_price, total_price
+        const string itemsSql = @"SELECT id, sale_id, inventory_item_id, quantity, unit_price, (quantity * unit_price) AS total_price
             FROM sale_item WHERE sale_id = ANY(@p_sale_ids)";
         var itemRows = (await connection.QueryAsync<SaleItemRow>(itemsSql, new { p_sale_ids = saleIds })).ToList();
         var itemsBySale = itemRows.GroupBy(r => r.SaleId).ToDictionary(g => g.Key, g => g.ToList());
@@ -232,6 +244,7 @@ public class SalesRepository : ISalesRepository
         public int CompanyId { get; set; }
         public int CustomerId { get; set; }
         public int? UserId { get; set; }
+        public decimal Subtotal { get; set; }
         public decimal Tax { get; set; }
         public decimal Total { get; set; }
         public string PaymentMethod { get; set; } = string.Empty;
