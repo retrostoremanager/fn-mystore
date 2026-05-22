@@ -1,0 +1,184 @@
+name: Test Agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_numbers:
+        description: 'PR number(s) to test — comma-separated for batching'
+        required: true
+        type: string
+      target_repo:
+        description: 'Repo that was deployed (fn-mystore or web-mystore)'
+        required: true
+        type: string
+        default: 'fn-mystore'
+      orchestrator_issues:
+        description: 'Orchestrator issue number(s) — comma-separated, matches pr_numbers order'
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: development
+          fetch-depth: 1
+
+      - name: Build test prompt
+        id: prompt
+        env:
+          PR_NUMBERS: ${{ inputs.pr_numbers }}
+          REPO: ${{ inputs.target_repo }}
+          ISSUE_NUMBERS: ${{ inputs.orchestrator_issues }}
+        run: |
+          python3 scripts/build-test-prompt.py
+          {
+            echo 'value<<QA_PROMPT_DELIMITER'
+            cat /tmp/test-prompt.txt
+            echo 'QA_PROMPT_DELIMITER'
+          } >> "$GITHUB_OUTPUT"
+
+      - id: claude
+        uses: anthropics/claude-code-action@beta
+        env:
+          GH_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
+          TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
+          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+          TEST_COMPANY_SLUG: ${{ secrets.TEST_COMPANY_SLUG }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          mode: agent
+          model: claude-sonnet-4-6
+          allowed_tools: Bash,Read,Write,Edit,Glob,Grep
+          timeout_minutes: 45
+          max_turns: 35
+          direct_prompt: ${{ steps.prompt.outputs.value }}
+
+      - name: Handle spending cap
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
+          ISSUE_NUMBERS: ${{ inputs.orchestrator_issues }}
+        run: |
+          STEP_OUTPUT="${{ steps.claude.outputs.output }}"
+          if ! echo "$STEP_OUTPUT" | grep -q "Spending cap reached"; then
+            echo "Not a spending cap — stale recovery will handle it."
+            exit 0
+          fi
+          if [ -z "$ISSUE_NUMBERS" ]; then
+            echo "No orchestrator issues — skipping cap-wait label"
+            exit 0
+          fi
+          RESET_STR=$(echo "$STEP_OUTPUT" | grep -oP 'Spending cap reached resets \K[^\n]+' | head -1)
+          RESET_ISO=""
+          if [ -n "$RESET_STR" ]; then
+            if echo "$RESET_STR" | grep -qP '^\d+:\d+(am|pm)'; then
+              RESET_EPOCH=$(TZ=America/New_York date -d "$RESET_STR" +%s 2>/dev/null || echo "")
+              if [ -n "$RESET_EPOCH" ]; then
+                CURRENT=$(date +%s)
+                if [ "$RESET_EPOCH" -le "$CURRENT" ]; then
+                  RESET_EPOCH=$(TZ=America/New_York date -d "tomorrow $RESET_STR" +%s 2>/dev/null || echo "")
+                fi
+                [ -n "$RESET_EPOCH" ] && RESET_ISO=$(date -u -d "@$RESET_EPOCH" +%Y-%m-%dT%H:%M:%SZ)
+              fi
+            else
+              RESET_EPOCH=$(TZ=America/New_York date -d "$RESET_STR" +%s 2>/dev/null || echo "")
+              [ -n "$RESET_EPOCH" ] && RESET_ISO=$(date -u -d "@$RESET_EPOCH" +%Y-%m-%dT%H:%M:%SZ)
+            fi
+          fi
+          [ -z "$RESET_ISO" ] && RESET_ISO=$(date -u -d "+8 hours" +%Y-%m-%dT%H:%M:%SZ)
+          IFS=',' read -ra ISSUES_ARR <<< "$ISSUE_NUMBERS"
+          for ISSUE_N in "${ISSUES_ARR[@]}"; do
+            ISSUE_N=$(echo "$ISSUE_N" | tr -d '[:space:]')
+            [ -z "$ISSUE_N" ] && continue
+            GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue edit "$ISSUE_N" \
+              --repo retrostoremanager/orchestrator-mystore \
+              --add-label "cap-wait"
+            GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue comment "$ISSUE_N" \
+              --repo retrostoremanager/orchestrator-mystore \
+              --body "Spending cap reached. RESET_ISO: ${RESET_ISO}
+          Raw message: $RESET_STR
+          Will auto-resume after reset."
+            echo "Marked issue #$ISSUE_N with cap-wait (resets $RESET_ISO)"
+          done
+
+      - name: Re-trigger if agent produced no verdict (turn limit / silent failure)
+        if: steps.claude.outcome == 'success' && inputs.orchestrator_issues != ''
+        env:
+          GH_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
+          ISSUE_NUMBERS: ${{ inputs.orchestrator_issues }}
+          PR_NUMBERS: ${{ inputs.pr_numbers }}
+          REPO: ${{ inputs.target_repo }}
+        run: |
+          IFS=',' read -ra ISSUE_ARR <<< "$ISSUE_NUMBERS"
+          NEEDS_RETRY=""
+          for ISSUE_N in "${ISSUE_ARR[@]}"; do
+            ISSUE_N=$(echo "$ISSUE_N" | tr -d '[:space:]')
+            [ -z "$ISSUE_N" ] && continue
+
+            IS_OPEN=$(GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue view "$ISSUE_N" \
+              --repo retrostoremanager/orchestrator-mystore \
+              --json state --jq '.state' 2>/dev/null || echo "UNKNOWN")
+            [ "$IS_OPEN" != "OPEN" ] && echo "Issue #$ISSUE_N is closed — agent completed" && continue
+
+            HAS_IN_TEST=$(GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue view "$ISSUE_N" \
+              --repo retrostoremanager/orchestrator-mystore \
+              --json labels --jq '[.labels[].name] | any(. == "in-test")' \
+              2>/dev/null || echo "false")
+            [ "$HAS_IN_TEST" != "true" ] && echo "Issue #$ISSUE_N not in-test — agent completed" && continue
+
+            CUTOFF=$(date -u -d '-15 minutes' +%Y-%m-%dT%H:%M:%SZ)
+            RECENT_BUGS=$(GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue list \
+              --repo retrostoremanager/orchestrator-mystore \
+              --label bug --label ready --state open \
+              --json number,body,createdAt \
+              --jq "[.[] | select(.body | contains(\"orchestrator-mystore#${ISSUE_N}\")) | select(.createdAt > \"$CUTOFF\")] | length" \
+              2>/dev/null || echo "0")
+
+            if [ "${RECENT_BUGS:-0}" -gt 0 ]; then
+              echo "Issue #$ISSUE_N: $RECENT_BUGS bug(s) filed recently — agent completed, keeping in-test"
+            else
+              echo "Issue #$ISSUE_N still in-test, no recent bugs — agent likely hit turn limit"
+              NEEDS_RETRY="$ISSUE_N"
+              break
+            fi
+          done
+
+          if [ -z "$NEEDS_RETRY" ]; then
+            echo "All issues resolved — no re-trigger needed"
+            exit 0
+          fi
+
+          # Guard against re-trigger loops: cap at 4 test runs per 2-hour window
+          RECENT_RUNS=$(GH_TOKEN="$GH_DISPATCH_TOKEN" gh run list \
+            --repo "retrostoremanager/fn-mystore" \
+            --workflow=test-agent.yml \
+            --json databaseId,createdAt \
+            --jq "[.[] | select(.createdAt > \"$(date -u -d '-2 hours' +%Y-%m-%dT%H:%M:%SZ)\")] | length" \
+            2>/dev/null || echo "0")
+
+          if [ "${RECENT_RUNS:-0}" -ge 4 ]; then
+            echo "$RECENT_RUNS test runs in past 2h — loop guard hit, skipping re-trigger"
+            GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue comment "$NEEDS_RETRY" \
+              --repo retrostoremanager/orchestrator-mystore \
+              --body "Test agent hit turn limit $RECENT_RUNS times in 2h — needs human review."
+            exit 0
+          fi
+
+          echo "Re-triggering test agent (run $((RECENT_RUNS + 1)) of 4 allowed per 2h)"
+          jq -n --arg pr "$PR_NUMBERS" --arg repo "$REPO" --arg issues "$ISSUE_NUMBERS" \
+            '{"ref":"main","inputs":{"pr_numbers":$pr,"target_repo":$repo,"orchestrator_issues":$issues}}' | \
+          GH_TOKEN="$GH_DISPATCH_TOKEN" gh api \
+            "repos/retrostoremanager/fn-mystore/actions/workflows/test-agent.yml/dispatches" \
+            --method POST --input -
+          echo "Re-triggered test agent for PRs $PR_NUMBERS / issues $ISSUE_NUMBERS"
