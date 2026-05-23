@@ -93,7 +93,7 @@ if [ -n "$ISSUE_N" ]; then
     --add-label code-review
 fi
 
-jq -n --arg prompt "$(cat /tmp/review-prompt.txt)" --arg branch "$HEAD_BRANCH" \
+jq -n --arg prompt "$(cat /tmp/review-prompt.txt)" --arg branch "development" \
   '{"ref":"main","inputs":{"prompt":$prompt,"branch":$branch}}' | \
 GH_TOKEN="$GH_DISPATCH_TOKEN" gh api \
   repos/retrostoremanager/fn-mystore/actions/workflows/claude-code.yml/dispatches \
