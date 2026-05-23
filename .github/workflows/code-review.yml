@@ -26,6 +26,7 @@ jobs:
           fetch-depth: 1
       - name: Dispatch review to Claude Code Agent
         env:
+          GH_TOKEN: ${{ github.token }}
           GH_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr_number }}
           HEAD_BRANCH: ${{ github.head_ref || github.event.inputs.head_branch }}
