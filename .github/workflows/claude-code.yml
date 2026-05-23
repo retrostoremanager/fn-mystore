@@ -127,6 +127,11 @@ jobs:
           PROMPT: ${{ github.event.inputs.prompt || github.event.client_payload.prompt || '' }}
         run: |
           STEP_OUTPUT="${{ steps.claude.outputs.output }}"
+          # Skip retry logic for code review runs — they should not reset to ready
+          if echo "$PROMPT" | grep -qF "You are a code reviewer"; then
+            echo "Code review agent failure — skipping retry logic"
+            exit 0
+          fi
           if ! echo "$STEP_OUTPUT" | grep -q "Spending cap reached resets"; then
             echo "Not a spending cap — resetting issue to ready for immediate retry."
             ISSUE_N=$(echo "$BRANCH" | grep -oP 'feature/issue-\K[0-9]+' || true)
