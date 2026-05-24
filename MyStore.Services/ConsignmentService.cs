@@ -151,6 +151,13 @@ public class ConsignmentService : IConsignmentService
                     $"Cannot process payout: item status is '{item.Status}'. Only sold items can receive a payout.");
             }
 
+            var existingPayouts = await _repository.GetPayoutsAsync(itemId, companyId);
+            if (existingPayouts.Count > 0)
+            {
+                return ApiResponse<ConsignmentPayout>.ErrorResponse(
+                    $"Payout has already been processed for consignment item {itemId}");
+            }
+
             if (item.SalePrice == null)
             {
                 return ApiResponse<ConsignmentPayout>.ErrorResponse("Cannot process payout: item has no recorded sale price");
