@@ -254,6 +254,21 @@ jobs:
               )] | first // empty')
           fi
 
+          # Fallback: check dbproj-mystore (dev agent may open SQL migration PRs there)
+          if ([ -z "$PR_DATA" ] || [ "$PR_DATA" = "null" ]) && [ -n "$ISSUE_N" ]; then
+            PR_DATA=$(GH_TOKEN="$GH_DISPATCH_TOKEN" gh pr list \
+              --repo retrostoremanager/dbproj-mystore \
+              --base development --state open \
+              --json number,headRefName,labels \
+              --jq "[.[] | select(
+                .headRefName == \"feature/issue-${ISSUE_N}\" and
+                (.labels | map(.name) | any(startswith(\"review-retry-\") or . == \"needs-human-review\") | not)
+              )] | first // empty" 2>/dev/null || true)
+            if [ -n "$PR_DATA" ] && [ "$PR_DATA" != "null" ]; then
+              export GITHUB_REPOSITORY="retrostoremanager/dbproj-mystore"
+            fi
+          fi
+
           if [ -z "$PR_DATA" ] || [ "$PR_DATA" = "null" ]; then
             echo "No open feature PRs awaiting review — skipping"
             exit 0
