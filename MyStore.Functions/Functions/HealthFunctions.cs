@@ -38,6 +38,17 @@ public class HealthFunctions
             return degradedResponse;
         }
 
+        string? configuredHost = null;
+        try
+        {
+            var builder = new NpgsqlConnectionStringBuilder(connectionString);
+            configuredHost = builder.Host;
+        }
+        catch
+        {
+            // ignore parse errors; we'll surface the raw connection error below
+        }
+
         try
         {
             await using var connection = new NpgsqlConnection(connectionString);
@@ -61,8 +72,9 @@ public class HealthFunctions
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Health check failed: database connection error");
-            var errorBody = new { status = "unhealthy", version = "1.0", database = $"connection failed: {ex.Message}" };
+            var hostDetail = configuredHost is not null ? $" (host: {configuredHost})" : string.Empty;
+            _logger.LogError(ex, "Health check failed: database connection error{HostDetail}", hostDetail);
+            var errorBody = new { status = "unhealthy", version = "1.0", database = $"connection failed{hostDetail}: {ex.Message}" };
             var errorResponse = req.CreateResponse(HttpStatusCode.ServiceUnavailable);
             errorResponse.Headers.Add("Content-Type", "application/json; charset=utf-8");
             await errorResponse.WriteStringAsync(JsonSerializer.Serialize(errorBody, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
