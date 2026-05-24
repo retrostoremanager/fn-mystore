@@ -411,6 +411,33 @@ public class BillingFunctionsTests
     }
 
     [Fact]
+    public async Task GetInvoices_StripeException_Returns200WithEmptyList()
+    {
+        var companyId = 1;
+        var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+        var stripeCustomerId = "cus_test123";
+
+        _paymentRepositoryMock.Setup(p => p.GetByCompanyIdAsync(companyId))
+            .ReturnsAsync(new List<Models.PaymentMethod>
+            {
+                new Models.PaymentMethod { Id = 1, CompanyId = companyId, StripeCustomerId = stripeCustomerId }
+            });
+
+        _invoiceServiceMock
+            .Setup(s => s.ListAsync(It.IsAny<InvoiceListOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new StripeException("No such customer"));
+
+        var result = await _functions.GetInvoices(request);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await TestHelpers.ReadResponseBody(result);
+        var parsed = JsonSerializer.Deserialize<JsonElement>(body);
+        parsed.GetProperty("success").GetBoolean().Should().BeTrue();
+        parsed.GetProperty("data").GetArrayLength().Should().Be(0);
+    }
+
+    [Fact]
     public async Task GetInvoices_MissingCompanyId_Returns401()
     {
         var request = TestHelpers.CreateHttpRequestDataWithRawBody("");
