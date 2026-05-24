@@ -230,15 +230,29 @@ jobs:
           if [ -z "$ISSUE_N" ]; then
             ISSUE_N=$(echo "$PROMPT" | grep -oP 'orchestrator-mystore#\K[0-9]+' | head -1 || true)
           fi
+          IS_REVISION=false
+          echo "$PROMPT" | grep -qF "REVISION REQUEST" && IS_REVISION=true || true
+
           if [ -n "$ISSUE_N" ]; then
-            PR_DATA=$(gh pr list \
-              --base development \
-              --state open \
-              --json number,headRefName,labels \
-              --jq "[.[] | select(
-                .headRefName == \"feature/issue-${ISSUE_N}\" and
-                (.labels | map(.name) | any(startswith(\"review-retry-\") or . == \"needs-human-review\") | not)
-              )] | first // empty")
+            if [ "$IS_REVISION" = "true" ]; then
+              PR_DATA=$(gh pr list \
+                --base development \
+                --state open \
+                --json number,headRefName,labels \
+                --jq "[.[] | select(
+                  .headRefName == \"feature/issue-${ISSUE_N}\" and
+                  (.labels | map(.name) | any(. == \"needs-human-review\") | not)
+                )] | first // empty")
+            else
+              PR_DATA=$(gh pr list \
+                --base development \
+                --state open \
+                --json number,headRefName,labels \
+                --jq "[.[] | select(
+                  .headRefName == \"feature/issue-${ISSUE_N}\" and
+                  (.labels | map(.name) | any(startswith(\"review-retry-\") or . == \"needs-human-review\") | not)
+                )] | first // empty")
+            fi
           fi
 
           # Fallback: scan for any open feature PR not yet in a review cycle.
