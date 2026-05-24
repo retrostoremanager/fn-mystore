@@ -94,6 +94,7 @@ var host = new HostBuilder()
         services.AddScoped<ICompanyRepository, CompanyRepository>();
         services.AddScoped<ILocationRepository, LocationRepository>();
         services.AddScoped<IPaymentRepository, PaymentRepository>();
+        services.AddScoped<IConsignmentRepository, ConsignmentRepository>();
         
         // Register services
         services.AddHttpClient<IIgdbService, IgdbService>();
