@@ -406,11 +406,21 @@ public class BillingFunctions
                 return await CreateHttpResponse(req, emptyResponse, HttpStatusCode.OK);
             }
 
-            var invoices = await _invoiceService.ListAsync(new InvoiceListOptions
+            StripeList<Invoice> invoices;
+            try
             {
-                Customer = stripeCustomerId,
-                Limit = limit,
-            });
+                invoices = await _invoiceService.ListAsync(new InvoiceListOptions
+                {
+                    Customer = stripeCustomerId,
+                    Limit = limit,
+                });
+            }
+            catch (StripeException ex)
+            {
+                _logger.LogWarning(ex, "Failed to fetch Stripe invoices for customer {StripeCustomerId}", stripeCustomerId);
+                var emptyResponse = ApiResponse<List<InvoiceSummary>>.SuccessResponse(new List<InvoiceSummary>());
+                return await CreateHttpResponse(req, emptyResponse, HttpStatusCode.OK);
+            }
 
             var summaries = invoices.Data.Select(inv => new InvoiceSummary
             {
