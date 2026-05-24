@@ -94,6 +94,7 @@ jobs:
         run: dotnet restore MyStore.sln
 
       - id: claude
+        continue-on-error: true
         uses: anthropics/claude-code-action@beta
         env:
           GH_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
@@ -119,7 +120,7 @@ jobs:
             --logger "console;verbosity=normal"
 
       - name: Handle spending cap
-        if: failure()
+        if: steps.claude.outcome == 'failure'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
@@ -168,7 +169,7 @@ jobs:
                 --body "Agent workflow failed (retry $NEXT_RETRY/3, [run $GITHUB_RUN_ID](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)). Resetting to **ready**."
               echo "Issue #$ISSUE_N reset to ready (retry $NEXT_RETRY/3)"
             fi
-            exit 0
+            exit 1
           fi
           RESET_STR=$(echo "$STEP_OUTPUT" | grep -oP 'Spending cap reached resets \K[^\n]+' | head -1)
           RESET_ISO=""
@@ -211,7 +212,7 @@ jobs:
           echo "Marked issue #$ISSUE_N with cap-wait (resets $RESET_ISO)"
 
       - name: Trigger code review for any new PR
-        if: steps.validate.outcome == 'success' || steps.validate.outcome == 'skipped'
+        if: steps.claude.outcome == 'success' && (steps.validate.outcome == 'success' || steps.validate.outcome == 'skipped')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
