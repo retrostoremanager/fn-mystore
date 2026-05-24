@@ -108,7 +108,7 @@ jobs:
           model: claude-sonnet-4-6
           allowed_tools: Bash,Edit,MultiEdit,Glob,Grep,LS,Read,Write,TodoWrite
           timeout_minutes: 30
-          max_turns: 30
+          max_turns: 50
 
       - name: Build and test (post-agent validation)
         if: steps.claude.outcome == 'success'
