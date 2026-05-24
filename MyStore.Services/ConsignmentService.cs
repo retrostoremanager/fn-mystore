@@ -109,7 +109,7 @@ public class ConsignmentService : IConsignmentService
 
             if (existing.Status != "active")
             {
-                throw new InvalidOperationException(
+                return ApiResponse<ConsignmentItem>.ErrorResponse(
                     $"Cannot mark item as sold: current status is '{existing.Status}'. Only active items can be marked as sold.");
             }
 
@@ -125,10 +125,6 @@ public class ConsignmentService : IConsignmentService
             return ApiResponse<ConsignmentItem>.SuccessResponse(
                 updated,
                 $"Item marked as sold. Customer payout: {payoutAmount:C}, store keeps: {storeAmount:C}");
-        }
-        catch (InvalidOperationException)
-        {
-            throw;
         }
         catch (Exception ex)
         {
@@ -151,7 +147,7 @@ public class ConsignmentService : IConsignmentService
 
             if (item.Status != "sold")
             {
-                throw new InvalidOperationException(
+                return ApiResponse<ConsignmentPayout>.ErrorResponse(
                     $"Cannot process payout: item status is '{item.Status}'. Only sold items can receive a payout.");
             }
 
@@ -172,10 +168,6 @@ public class ConsignmentService : IConsignmentService
 
             var created = await _repository.CreatePayoutAsync(payout);
             return ApiResponse<ConsignmentPayout>.SuccessResponse(created, "Payout processed successfully");
-        }
-        catch (InvalidOperationException)
-        {
-            throw;
         }
         catch (Exception ex)
         {
@@ -198,7 +190,7 @@ public class ConsignmentService : IConsignmentService
 
             if (existing.Status != "active")
             {
-                throw new InvalidOperationException(
+                return ApiResponse<ConsignmentItem>.ErrorResponse(
                     $"Cannot return item: current status is '{existing.Status}'. Only active items can be returned.");
             }
 
@@ -212,10 +204,6 @@ public class ConsignmentService : IConsignmentService
             }
 
             return ApiResponse<ConsignmentItem>.SuccessResponse(updated, "Item returned to customer successfully");
-        }
-        catch (InvalidOperationException)
-        {
-            throw;
         }
         catch (Exception ex)
         {
