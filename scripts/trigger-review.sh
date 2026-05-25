@@ -8,6 +8,40 @@ GH_DISPATCH_TOKEN="${GH_DISPATCH_TOKEN:?}"
 # review agent (which always runs in fn-mystore) operates on the correct PR.
 PR_REPO="${GITHUB_REPOSITORY:-retrostoremanager/fn-mystore}"
 
+# ── Idempotency guards ────────────────────────────────────────────────────────
+# These run FIRST, before building the prompt, to minimise the race window
+# between two concurrent workflow runs both trying to dispatch a review.
+
+# Guard 1: claim the code-review slot on the orchestrator issue.
+# If the label is already set, another dispatch beat us here — exit immediately.
+ISSUE_N=$(gh pr view "${PR_NUMBER}" --repo "${PR_REPO}" --json body --jq '.body' \
+  | grep -oP 'orchestrator-mystore#\K[0-9]+' | head -1 || true)
+if [ -n "$ISSUE_N" ]; then
+  CURRENT_LABELS=$(GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue view "$ISSUE_N" \
+    --repo retrostoremanager/orchestrator-mystore \
+    --json labels --jq '[.labels[].name]' 2>/dev/null || echo "[]")
+  if echo "$CURRENT_LABELS" | grep -q '"code-review"'; then
+    echo "Issue #$ISSUE_N already in code-review — skipping duplicate dispatch"
+    exit 0
+  fi
+  # Claim the slot before building the prompt
+  GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue edit "$ISSUE_N" \
+    --repo retrostoremanager/orchestrator-mystore \
+    --remove-label in-progress \
+    --add-label code-review
+fi
+
+# Guard 2: skip if any review comment already exists on the PR
+# (catches both passed reviews "✅ **Code review" and failed "## Review findings")
+EXISTING_REVIEW=$(gh api "repos/${PR_REPO}/issues/${PR_NUMBER}/comments" \
+  --jq '[.[] | select(.body | (startswith("✅ **Code review") or startswith("## Review findings") or startswith("⚠️ Max revision")))] | length' \
+  2>/dev/null || echo "0")
+if [ "${EXISTING_REVIEW:-0}" -gt "0" ]; then
+  echo "PR #${PR_NUMBER} already has a review comment — skipping duplicate dispatch"
+  exit 0
+fi
+# ─────────────────────────────────────────────────────────────────────────────
+
 cat > /tmp/review-prompt.txt << ENDPROMPT
 You are a code reviewer. Execute these steps in order. You MUST run the commands in step 4 or 5 before finishing — do not stop at analysis.
 
@@ -74,24 +108,6 @@ Push fixes to the EXISTING branch ${HEAD_BRANCH}. Do NOT create a new branch. Co
 ENDPROMPT
 
 echo "Dispatching review for PR #${PR_NUMBER} on branch ${HEAD_BRANCH} in ${PR_REPO}"
-
-# Idempotency guard: skip if a review comment already exists (prevents duplicate dispatches).
-EXISTING_REVIEW=$(gh api "repos/${PR_REPO}/issues/${PR_NUMBER}/comments" \
-  --jq '[.[] | select(.body | startswith("✅ **Code review passed"))] | length' 2>/dev/null || echo "0")
-if [ "${EXISTING_REVIEW:-0}" -gt "0" ]; then
-  echo "PR #${PR_NUMBER} already has a review comment — skipping duplicate dispatch"
-  exit 0
-fi
-
-# Flip orchestrator issue label: in-progress → code-review
-ISSUE_N=$(gh pr view "${PR_NUMBER}" --json body --jq '.body' \
-  | grep -oP 'orchestrator-mystore#\K[0-9]+' | head -1 || true)
-if [ -n "$ISSUE_N" ]; then
-  GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue edit "$ISSUE_N" \
-    --repo retrostoremanager/orchestrator-mystore \
-    --remove-label in-progress \
-    --add-label code-review
-fi
 
 jq -n --arg prompt "$(cat /tmp/review-prompt.txt)" --arg branch "development" \
   '{"ref":"main","inputs":{"prompt":$prompt,"branch":$branch}}' | \
