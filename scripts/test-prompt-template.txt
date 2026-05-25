@@ -66,20 +66,32 @@ STEP 6 — Report results
     Identify a short keyword from the failing endpoint or feature (e.g. "sales", "customers", "login").
     KEYWORD="[the keyword]"
 
-    # Search open bugs
+    # Search open bugs across ALL repos — no repo filter so cross-repo duplicates are caught
     EXISTING=$(GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue list \
       --repo retrostoremanager/orchestrator-mystore \
-      --label bug --label "repo:{{REPO}}" \
-      --state open --limit 50 \
+      --label bug \
+      --state open --limit 100 \
       --json number,title \
       --jq "[.[] | select(.title | ascii_downcase | contains(\"$KEYWORD\"))] | .[0].number // empty" \
       2>/dev/null || echo "")
 
+    # Secondary check: if no title match, search bug bodies for this orchestrator issue reference.
+    # Catches race-condition duplicates where two test runs fire simultaneously for the same PR.
+    if [ -z "$EXISTING" ]; then
+      EXISTING=$(GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue list \
+        --repo retrostoremanager/orchestrator-mystore \
+        --label bug \
+        --state open --limit 100 \
+        --json number,body \
+        --jq "[.[] | select(.body | contains(\"{{ISSUE_REF}}\"))] | .[0].number // empty" \
+        2>/dev/null || echo "")
+    fi
+
     # Also check recently-resolved bugs (closed with done label) — skip if already fixed
     RESOLVED=$(GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue list \
       --repo retrostoremanager/orchestrator-mystore \
-      --label bug --label "done" --label "repo:{{REPO}}" \
-      --state closed --limit 50 \
+      --label bug --label "done" \
+      --state closed --limit 100 \
       --json number,title \
       --jq "[.[] | select(.title | ascii_downcase | contains(\"$KEYWORD\"))] | .[0].number // empty" \
       2>/dev/null || echo "")
