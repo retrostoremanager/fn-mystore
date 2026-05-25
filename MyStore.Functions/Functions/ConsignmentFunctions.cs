@@ -158,7 +158,7 @@ public class ConsignmentFunctions
     [Function("MarkConsignmentItemSold")]
     [RequirePermission("consignment.edit")]
     public async Task<HttpResponseData> MarkConsignmentItemSold(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "consignment/{id:int}/sold")] HttpRequestData req,
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "consignment/{id:int}/mark-sold")] HttpRequestData req,
         int id)
     {
         int companyId;
