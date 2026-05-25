@@ -425,7 +425,7 @@ public class SalesFunctionsTests
     }
 
     [Fact]
-    public async Task GetSaleById_NotFound_ReturnsBadRequest()
+    public async Task GetSaleById_NotFound_ReturnsNotFound()
     {
         var apiResponse = ApiResponse<Sale>.ErrorResponse("Sale not found");
 
@@ -438,7 +438,7 @@ public class SalesFunctionsTests
 
         var result = await _functions.GetSaleById(httpRequest, 999);
 
-        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        result.StatusCode.Should().Be(HttpStatusCode.NotFound);
 
         var body = await TestHelpers.ReadResponseBody(result);
         var deserialized = JsonSerializer.Deserialize<ApiResponse<Sale>>(body,
@@ -462,7 +462,7 @@ public class SalesFunctionsTests
 
         var result = await _functions.GetSaleById(httpRequest, 1);
 
-        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        result.StatusCode.Should().Be(HttpStatusCode.NotFound);
 
         var body = await TestHelpers.ReadResponseBody(result);
         var deserialized = JsonSerializer.Deserialize<ApiResponse<Sale>>(body,

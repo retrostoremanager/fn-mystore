@@ -52,7 +52,8 @@ public class SalesFunctions
             _logger.LogInformation("Getting sale with ID: {Id} for company {CompanyId}", id, companyId);
 
             var response = await _salesService.GetSaleByIdAsync(id, companyId);
-            return await CreateHttpResponse(req, response);
+            var statusCode = response.Success ? HttpStatusCode.OK : HttpStatusCode.NotFound;
+            return await CreateHttpResponse(req, response, statusCode);
         }
         catch (UnauthorizedAccessException ex)
         {
