@@ -33,6 +33,11 @@ public class LogoStorageService
         _containerClient = blobServiceClient.GetBlobContainerClient(ContainerName);
     }
 
+    protected LogoStorageService(BlobContainerClient containerClient)
+    {
+        _containerClient = containerClient;
+    }
+
     /// <summary>
     /// Uploads logo bytes to blob storage and returns the blob URL.
     /// </summary>
@@ -41,7 +46,7 @@ public class LogoStorageService
     /// <param name="fileName">Original file name (for extension)</param>
     /// <param name="contentType">MIME type</param>
     /// <returns>Blob URL on success</returns>
-    public async Task<string> UploadAsync(int companyId, byte[] fileBytes, string fileName, string contentType)
+    public virtual async Task<string> UploadAsync(int companyId, byte[] fileBytes, string fileName, string contentType)
     {
         if (fileBytes.Length > MaxFileSizeBytes)
             throw new ArgumentException($"File exceeds 5MB limit. Size: {fileBytes.Length} bytes.");
@@ -71,7 +76,7 @@ public class LogoStorageService
     /// <summary>
     /// Deletes the company logo blob if it exists.
     /// </summary>
-    public async Task DeleteAsync(int companyId)
+    public virtual async Task DeleteAsync(int companyId)
     {
         foreach (var ext in AllowedExtensions)
         {
