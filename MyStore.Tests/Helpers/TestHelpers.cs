@@ -65,6 +65,23 @@ public static class TestHelpers
         return request;
     }
 
+    /// <summary>
+    /// Creates HttpRequestData with raw body string, optional headers, and a query string appended to the URL.
+    /// </summary>
+    public static HttpRequestData CreateHttpRequestDataWithRawBody(
+        string rawBody,
+        IReadOnlyDictionary<string, string>? headers,
+        string queryString,
+        FunctionContext? context = null)
+    {
+        var functionContext = context ?? CreateMockFunctionContext();
+        var url = new Uri("https://localhost/api/" + queryString);
+        var request = new MockHttpRequestData(functionContext, headers, null, url);
+        var bytes = Encoding.UTF8.GetBytes(rawBody);
+        request.SetBody(bytes);
+        return request;
+    }
+
     public static FunctionContext CreateMockFunctionContext()
     {
         var mock = new Mock<FunctionContext>();
@@ -113,7 +130,8 @@ public class MockHttpRequestData : HttpRequestData
     public MockHttpRequestData(
         FunctionContext functionContext,
         IReadOnlyDictionary<string, string>? headers = null,
-        NameValueCollection? query = null) : base(functionContext)
+        NameValueCollection? query = null,
+        Uri? url = null) : base(functionContext)
     {
         _body = new MemoryStream();
         _headers = new HttpHeadersCollection();
@@ -123,6 +141,7 @@ public class MockHttpRequestData : HttpRequestData
                 _headers.TryAddWithoutValidation(key, value);
         }
         _query = query ?? new NameValueCollection();
+        Url = url ?? new Uri("https://localhost/api/");
     }
 
     public override Stream Body => _body;
@@ -131,7 +150,7 @@ public class MockHttpRequestData : HttpRequestData
     
     public override IReadOnlyCollection<IHttpCookie> Cookies => new List<IHttpCookie>();
     
-    public override Uri Url { get; } = new Uri("https://localhost/api/");
+    public override Uri Url { get; }
     
     public override NameValueCollection Query => _query;
     

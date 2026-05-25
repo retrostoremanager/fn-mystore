@@ -352,7 +352,8 @@ public class BillingFunctionsTests
         var parsed = JsonSerializer.Deserialize<JsonElement>(body);
         parsed.GetProperty("success").GetBoolean().Should().BeTrue();
         var data = parsed.GetProperty("data");
-        data.GetArrayLength().Should().Be(0);
+        data.GetProperty("invoices").GetArrayLength().Should().Be(0);
+        data.GetProperty("hasMore").GetBoolean().Should().BeFalse();
         _invoiceServiceMock.Verify(s => s.ListAsync(It.IsAny<InvoiceListOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -401,8 +402,10 @@ public class BillingFunctionsTests
         var parsed = JsonSerializer.Deserialize<JsonElement>(body);
         parsed.GetProperty("success").GetBoolean().Should().BeTrue();
         var data = parsed.GetProperty("data");
-        data.GetArrayLength().Should().Be(1);
-        var inv = data[0];
+        data.GetProperty("hasMore").GetBoolean().Should().BeFalse();
+        var invoices = data.GetProperty("invoices");
+        invoices.GetArrayLength().Should().Be(1);
+        var inv = invoices[0];
         inv.GetProperty("id").GetString().Should().Be("in_test1");
         inv.GetProperty("number").GetString().Should().Be("INV-0001");
         inv.GetProperty("amount").GetInt64().Should().Be(2999);
@@ -434,7 +437,50 @@ public class BillingFunctionsTests
         var body = await TestHelpers.ReadResponseBody(result);
         var parsed = JsonSerializer.Deserialize<JsonElement>(body);
         parsed.GetProperty("success").GetBoolean().Should().BeTrue();
-        parsed.GetProperty("data").GetArrayLength().Should().Be(0);
+        var data = parsed.GetProperty("data");
+        data.GetProperty("invoices").GetArrayLength().Should().Be(0);
+        data.GetProperty("hasMore").GetBoolean().Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetInvoices_PaginationParams_ForwardedToStripe()
+    {
+        var companyId = 1;
+        var stripeCustomerId = "cus_test123";
+        var startingAfter = "in_prev";
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody(
+            "",
+            new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } },
+            $"?limit=5&startingAfter={startingAfter}");
+
+        _paymentRepositoryMock.Setup(p => p.GetByCompanyIdAsync(companyId))
+            .ReturnsAsync(new List<Models.PaymentMethod>
+            {
+                new Models.PaymentMethod { Id = 1, CompanyId = companyId, StripeCustomerId = stripeCustomerId }
+            });
+
+        var stripeList = new StripeList<Invoice>
+        {
+            Data = new List<Invoice>(),
+            HasMore = true,
+        };
+
+        InvoiceListOptions? capturedOptions = null;
+        _invoiceServiceMock
+            .Setup(s => s.ListAsync(It.IsAny<InvoiceListOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()))
+            .Callback<InvoiceListOptions, RequestOptions, CancellationToken>((opts, _, _) => capturedOptions = opts)
+            .ReturnsAsync(stripeList);
+
+        var result = await _functions.GetInvoices(request);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        capturedOptions.Should().NotBeNull();
+        capturedOptions!.Limit.Should().Be(5);
+        capturedOptions.StartingAfter.Should().Be(startingAfter);
+        capturedOptions.Customer.Should().Be(stripeCustomerId);
+        var body = await TestHelpers.ReadResponseBody(result);
+        var parsed = JsonSerializer.Deserialize<JsonElement>(body);
+        parsed.GetProperty("data").GetProperty("hasMore").GetBoolean().Should().BeTrue();
     }
 
     [Fact]
