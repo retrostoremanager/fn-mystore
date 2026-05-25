@@ -65,6 +65,11 @@ public class ConsignmentServiceTests
         result.Success.Should().BeTrue();
         result.Message.Should().Contain("60.00");
         result.Message.Should().Contain("40.00");
+        result.Data.Should().NotBeNull();
+        result.Data.PayoutAmount.Should().Be(60m);
+        result.Data.StoreAmount.Should().Be(40m);
+        result.Data.Item.Should().NotBeNull();
+        result.Data.Item.Should().Be(updated);
     }
 
     [Fact]
@@ -122,6 +127,9 @@ public class ConsignmentServiceTests
         result.Success.Should().BeTrue();
         result.Message.Should().Contain(expectedPayout.ToString("F2"));
         result.Message.Should().Contain(expectedStore.ToString("F2"));
+        result.Data.Should().NotBeNull();
+        result.Data.PayoutAmount.Should().Be(expectedPayout);
+        result.Data.StoreAmount.Should().Be(expectedStore);
     }
 
     [Fact]
