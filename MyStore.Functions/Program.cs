@@ -36,54 +36,6 @@ var host = new HostBuilder()
                 "Add this setting to Azure Function App configuration (or local.settings.json for local dev). " +
                 "Verify the password in the connection string matches the current database user password.");
         }
-        else
-        {
-            var startupLogger = services.BuildServiceProvider()
-                .GetRequiredService<ILoggerFactory>()
-                .CreateLogger("Startup");
-            try
-            {
-                using var conn = new Npgsql.NpgsqlConnection(connectionString);
-                conn.Open();
-
-                using var cmd = conn.CreateCommand();
-                cmd.CommandText = @"
-INSERT INTO permission (name, description) VALUES
-    ('consignment.view', 'View consignment items and payouts'),
-    ('consignment.edit', 'Create, update, and manage consignment items and payouts')
-ON CONFLICT (name) DO NOTHING;
-
-INSERT INTO role_permission (role_id, permission_id)
-SELECT r.id, p.id FROM role r CROSS JOIN permission p
-WHERE r.company_id IS NULL AND r.name IN ('Owner', 'Manager', 'Employee', 'Cashier')
-  AND p.name = 'consignment.view'
-ON CONFLICT (role_id, permission_id) DO NOTHING;
-
-INSERT INTO role_permission (role_id, permission_id)
-SELECT r.id, p.id FROM role r CROSS JOIN permission p
-WHERE r.company_id IS NULL AND r.name IN ('Owner', 'Manager', 'Employee')
-  AND p.name = 'consignment.edit'
-ON CONFLICT (role_id, permission_id) DO NOTHING;";
-                cmd.ExecuteNonQuery();
-
-                conn.Close();
-            }
-            catch (Npgsql.PostgresException pgEx) when (pgEx.SqlState == "3D000")
-            {
-                startupLogger.LogError(
-                    "STARTUP ERROR: The database specified in ConnectionStrings__DefaultConnection does not exist " +
-                    "(PostgreSQL error 3D000: {Message}). " +
-                    "Create the database and run all migrations from retrostoremanager/dbproj-mystore before use.",
-                    pgEx.MessageText);
-            }
-            catch (Exception ex)
-            {
-                startupLogger.LogWarning(
-                    "Could not verify database connectivity at startup: {Message}. " +
-                    "Ensure ConnectionStrings__DefaultConnection points to an existing, accessible PostgreSQL database.",
-                    ex.Message);
-            }
-        }
 
         if (string.IsNullOrWhiteSpace(jwtSecretKey))
         {
