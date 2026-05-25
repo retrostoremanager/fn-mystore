@@ -45,6 +45,27 @@ var host = new HostBuilder()
             {
                 using var conn = new Npgsql.NpgsqlConnection(connectionString);
                 conn.Open();
+
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = @"
+INSERT INTO permission (name, description) VALUES
+    ('consignment.view', 'View consignment items and payouts'),
+    ('consignment.edit', 'Create, update, and manage consignment items and payouts')
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id FROM role r CROSS JOIN permission p
+WHERE r.company_id IS NULL AND r.name IN ('Owner', 'Manager', 'Employee', 'Cashier')
+  AND p.name = 'consignment.view'
+ON CONFLICT (role_id, permission_id) DO NOTHING;
+
+INSERT INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id FROM role r CROSS JOIN permission p
+WHERE r.company_id IS NULL AND r.name IN ('Owner', 'Manager', 'Employee')
+  AND p.name = 'consignment.edit'
+ON CONFLICT (role_id, permission_id) DO NOTHING;";
+                cmd.ExecuteNonQuery();
+
                 conn.Close();
             }
             catch (Npgsql.PostgresException pgEx) when (pgEx.SqlState == "3D000")
