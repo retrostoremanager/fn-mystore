@@ -32,7 +32,7 @@ public class ConsignmentServiceTests
     [Fact]
     public async Task GetByIdAsync_ItemFound_ReturnsSuccess()
     {
-        var item = new ConsignmentItem { Id = 1, CompanyId = 1, Status = "active" };
+        var item = new ConsignmentItem { Id = 1, CompanyId = 1, Status = "pending" };
         _repositoryMock.Setup(r => r.GetByIdAsync(1, 1)).ReturnsAsync(item);
 
         var result = await _service.GetByIdAsync(1, 1);
@@ -54,7 +54,7 @@ public class ConsignmentServiceTests
     [Fact]
     public async Task MarkSoldAsync_ActiveItem_CalculatesPayoutCorrectly()
     {
-        var existing = new ConsignmentItem { Id = 1, CompanyId = 1, Status = "active", SplitPercent = 60m };
+        var existing = new ConsignmentItem { Id = 1, CompanyId = 1, Status = "pending", SplitPercent = 60m };
         var updated = new ConsignmentItem { Id = 1, CompanyId = 1, Status = "sold", SplitPercent = 60m, SalePrice = 100m };
 
         _repositoryMock.Setup(r => r.GetByIdAsync(1, 1)).ReturnsAsync(existing);
@@ -118,7 +118,7 @@ public class ConsignmentServiceTests
     public async Task MarkSoldAsync_PayoutCalculation_IsCorrect(
         decimal salePrice, decimal splitPercent, decimal expectedPayout, decimal expectedStore)
     {
-        var existing = new ConsignmentItem { Id = 1, CompanyId = 1, Status = "active", SplitPercent = splitPercent };
+        var existing = new ConsignmentItem { Id = 1, CompanyId = 1, Status = "pending", SplitPercent = splitPercent };
         var updated = new ConsignmentItem { Id = 1, CompanyId = 1, Status = "sold", SplitPercent = splitPercent, SalePrice = salePrice };
 
         _repositoryMock.Setup(r => r.GetByIdAsync(1, 1)).ReturnsAsync(existing);
@@ -170,7 +170,7 @@ public class ConsignmentServiceTests
     [Fact]
     public async Task ProcessPayoutAsync_NonSoldItem_ReturnsError()
     {
-        var item = new ConsignmentItem { Id = 1, CompanyId = 1, Status = "active", SplitPercent = 60m };
+        var item = new ConsignmentItem { Id = 1, CompanyId = 1, Status = "pending", SplitPercent = 60m };
 
         _repositoryMock.Setup(r => r.GetByIdAsync(1, 1)).ReturnsAsync(item);
 
@@ -209,7 +209,7 @@ public class ConsignmentServiceTests
     [Fact]
     public async Task ReturnToCustomerAsync_ActiveItem_ReturnsSuccess()
     {
-        var existing = new ConsignmentItem { Id = 1, CompanyId = 1, Status = "active" };
+        var existing = new ConsignmentItem { Id = 1, CompanyId = 1, Status = "pending" };
         var updated = new ConsignmentItem { Id = 1, CompanyId = 1, Status = "returned" };
 
         _repositoryMock.Setup(r => r.GetByIdAsync(1, 1)).ReturnsAsync(existing);
@@ -230,7 +230,7 @@ public class ConsignmentServiceTests
         var result = await _service.ReturnToCustomerAsync(1, 1);
 
         result.Success.Should().BeFalse();
-        result.Message.Should().Contain("Only active items");
+        result.Message.Should().Contain("Only pending items");
         _repositoryMock.Verify(r => r.UpdateAsync(It.IsAny<ConsignmentItem>()), Times.Never);
     }
 
@@ -248,7 +248,7 @@ public class ConsignmentServiceTests
     [Fact]
     public async Task ReturnToCustomerAsync_SetsStatusToReturned()
     {
-        var existing = new ConsignmentItem { Id = 1, CompanyId = 1, Status = "active" };
+        var existing = new ConsignmentItem { Id = 1, CompanyId = 1, Status = "pending" };
         ConsignmentItem? captured = null;
 
         _repositoryMock.Setup(r => r.GetByIdAsync(1, 1)).ReturnsAsync(existing);

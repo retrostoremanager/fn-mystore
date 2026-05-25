@@ -54,7 +54,7 @@ public class ConsignmentService : IConsignmentService
         try
         {
             item.CompanyId = companyId;
-            item.Status = "active";
+            item.Status = "pending";
             item.CreatedAt = DateTime.UtcNow;
 
             var created = await _repository.CreateAsync(item);
@@ -107,10 +107,10 @@ public class ConsignmentService : IConsignmentService
                 return ApiResponse<MarkSoldResponse>.ErrorResponse($"Consignment item with ID {id} not found");
             }
 
-            if (existing.Status != "active")
+            if (existing.Status != "pending")
             {
                 return ApiResponse<MarkSoldResponse>.ErrorResponse(
-                    $"Cannot mark item as sold: current status is '{existing.Status}'. Only active items can be marked as sold.");
+                    $"Cannot mark item as sold: current status is '{existing.Status}'. Only pending items can be marked as sold.");
             }
 
             var updated = await _repository.MarkSoldAsync(id, salePrice, companyId);
@@ -202,10 +202,10 @@ public class ConsignmentService : IConsignmentService
                 return ApiResponse<ConsignmentItem>.ErrorResponse($"Consignment item with ID {id} not found");
             }
 
-            if (existing.Status != "active")
+            if (existing.Status != "pending")
             {
                 return ApiResponse<ConsignmentItem>.ErrorResponse(
-                    $"Cannot return item: current status is '{existing.Status}'. Only active items can be returned.");
+                    $"Cannot return item: current status is '{existing.Status}'. Only pending items can be returned.");
             }
 
             existing.Status = "returned";
