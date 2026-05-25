@@ -97,38 +97,45 @@ public class ConsignmentService : IConsignmentService
         }
     }
 
-    public async Task<ApiResponse<ConsignmentItem>> MarkSoldAsync(int id, decimal salePrice, int companyId)
+    public async Task<ApiResponse<MarkSoldResponse>> MarkSoldAsync(int id, decimal salePrice, int companyId)
     {
         try
         {
             var existing = await _repository.GetByIdAsync(id, companyId);
             if (existing == null)
             {
-                return ApiResponse<ConsignmentItem>.ErrorResponse($"Consignment item with ID {id} not found");
+                return ApiResponse<MarkSoldResponse>.ErrorResponse($"Consignment item with ID {id} not found");
             }
 
             if (existing.Status != "active")
             {
-                return ApiResponse<ConsignmentItem>.ErrorResponse(
+                return ApiResponse<MarkSoldResponse>.ErrorResponse(
                     $"Cannot mark item as sold: current status is '{existing.Status}'. Only active items can be marked as sold.");
             }
 
             var updated = await _repository.MarkSoldAsync(id, salePrice, companyId);
             if (updated == null)
             {
-                return ApiResponse<ConsignmentItem>.ErrorResponse($"Failed to mark consignment item {id} as sold");
+                return ApiResponse<MarkSoldResponse>.ErrorResponse($"Failed to mark consignment item {id} as sold");
             }
 
             var payoutAmount = salePrice * updated.SplitPercent / 100m;
             var storeAmount = salePrice - payoutAmount;
 
-            return ApiResponse<ConsignmentItem>.SuccessResponse(
-                updated,
+            var response = new MarkSoldResponse
+            {
+                Item = updated,
+                PayoutAmount = payoutAmount,
+                StoreAmount = storeAmount
+            };
+
+            return ApiResponse<MarkSoldResponse>.SuccessResponse(
+                response,
                 $"Item marked as sold. Customer payout: {payoutAmount:C}, store keeps: {storeAmount:C}");
         }
         catch (Exception ex)
         {
-            return ApiResponse<ConsignmentItem>.ErrorResponse(
+            return ApiResponse<MarkSoldResponse>.ErrorResponse(
                 "Failed to mark consignment item as sold",
                 new List<string> { ex.Message }
             );
