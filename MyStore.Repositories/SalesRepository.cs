@@ -140,8 +140,8 @@ public class SalesRepository : ISalesRepository
             sale.Id = saleId;
             sale.SaleDate = saleDate;
 
-            const string insertItem = @"INSERT INTO sale_item (sale_id, inventory_item_id, quantity, unit_price, total_price)
-                VALUES (@SaleId, @InventoryItemId, @Quantity, @UnitPrice, @TotalPrice)
+            const string insertItem = @"INSERT INTO sale_item (sale_id, inventory_item_id, quantity, unit_price, subtotal, total_price)
+                VALUES (@SaleId, @InventoryItemId, @Quantity, @UnitPrice, @Subtotal, @TotalPrice)
                 RETURNING id";
 
             foreach (var item in sale.Items)
@@ -152,6 +152,7 @@ public class SalesRepository : ISalesRepository
                     item.InventoryItemId,
                     item.Quantity,
                     item.UnitPrice,
+                    Subtotal = item.Quantity * item.UnitPrice,
                     item.TotalPrice,
                 }, tx);
                 item.Id = itemId;
