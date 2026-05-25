@@ -390,7 +390,8 @@ public class BillingFunctions
                 .Split('&')
                 .Select(p => p.Split('='))
                 .Where(p => p.Length == 2)
-                .ToDictionary(p => p[0].ToLowerInvariant(), p => p[1]);
+                .GroupBy(p => p[0].ToLowerInvariant())
+                .ToDictionary(g => g.Key, g => g.First()[1]);
 
             var limit = 10;
             if (queryParams.TryGetValue("limit", out var limitParam) && int.TryParse(limitParam, out var parsedLimit))
