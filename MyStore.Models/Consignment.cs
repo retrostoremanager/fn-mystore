@@ -14,6 +14,13 @@ public class ConsignmentItem
     public DateTime? UpdatedAt { get; set; }
 }
 
+public class MarkSoldResponse
+{
+    public ConsignmentItem Item { get; set; } = null!;
+    public decimal PayoutAmount { get; set; }
+    public decimal StoreAmount { get; set; }
+}
+
 public class ConsignmentPayout
 {
     public int Id { get; set; }
