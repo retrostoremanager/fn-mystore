@@ -11,6 +11,9 @@ public class Sale
     public List<SaleItem> Items { get; set; } = new();
     public decimal Subtotal { get; set; }
     public decimal Tax { get; set; }
+    public decimal TaxAmount { get; set; }
+    public decimal TaxRate { get; set; }
+    public string? TaxLabel { get; set; }
     public decimal Total { get; set; }
     public string PaymentMethod { get; set; } = string.Empty;
     public DateTime SaleDate { get; set; }

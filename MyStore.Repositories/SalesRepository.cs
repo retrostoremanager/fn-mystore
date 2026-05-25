@@ -24,7 +24,7 @@ public class SalesRepository : ISalesRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         const string sql = @"SELECT s.id, s.company_id, s.customer_id, s.user_id,
-                    s.tax, s.total_amount AS total,
+                    s.subtotal, s.tax, s.total,
                     s.payment_method, s.sale_date, s.notes
              FROM sale s
              WHERE s.company_id = @p_company_id
@@ -48,7 +48,7 @@ public class SalesRepository : ISalesRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         const string sql = @"SELECT s.id, s.company_id, s.customer_id, s.user_id,
-                    s.tax, s.total_amount AS total,
+                    s.subtotal, s.tax, s.total,
                     s.payment_method, s.sale_date, s.notes
              FROM sale s
              WHERE s.id = @p_id AND s.company_id = @p_company_id";
@@ -68,7 +68,7 @@ public class SalesRepository : ISalesRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         const string sql = @"SELECT s.id, s.company_id, s.customer_id, s.user_id,
-                    s.tax, s.total_amount AS total,
+                    s.subtotal, s.tax, s.total,
                     s.payment_method, s.sale_date, s.notes
              FROM sale s
              WHERE s.customer_id = @p_customer_id AND s.company_id = @p_company_id
@@ -81,7 +81,7 @@ public class SalesRepository : ISalesRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         const string sql = @"SELECT s.id, s.company_id, s.customer_id, s.user_id,
-                    s.tax, s.total_amount AS total,
+                    s.subtotal, s.tax, s.total,
                     s.payment_method, s.sale_date, s.notes
              FROM sale s
              WHERE s.user_id = @p_user_id AND s.company_id = @p_company_id
@@ -94,7 +94,7 @@ public class SalesRepository : ISalesRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         const string sql = @"SELECT s.id, s.company_id, s.customer_id, s.user_id,
-                    s.tax, s.total_amount AS total,
+                    s.subtotal, s.tax, s.total,
                     s.payment_method, s.sale_date, s.notes
              FROM sale s
              WHERE s.company_id = @p_company_id
@@ -195,15 +195,17 @@ public class SalesRepository : ISalesRepository
 
     private static Sale MapSale(SaleRow row, List<SaleItemRow> itemRows)
     {
-        var subtotal = itemRows.Sum(i => i.Quantity * i.UnitPrice);
         var sale = new Sale
         {
             Id = row.Id,
             CompanyId = row.CompanyId,
             CustomerId = row.CustomerId,
             UserId = row.UserId,
-            Subtotal = subtotal,
+            Subtotal = row.Subtotal,
             Tax = row.Tax,
+            TaxAmount = row.Tax,
+            TaxRate = 0m,
+            TaxLabel = null,
             Total = row.Total,
             PaymentMethod = row.PaymentMethod,
             SaleDate = row.SaleDate,
@@ -232,6 +234,7 @@ public class SalesRepository : ISalesRepository
         public int CompanyId { get; set; }
         public int CustomerId { get; set; }
         public int? UserId { get; set; }
+        public decimal Subtotal { get; set; }
         public decimal Tax { get; set; }
         public decimal Total { get; set; }
         public string PaymentMethod { get; set; } = string.Empty;

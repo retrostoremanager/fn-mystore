@@ -858,6 +858,94 @@ public class SalesFunctionsTests
         body.Should().NotContain("\"Total\"", because: "PascalCase field names must not appear");
     }
 
+    [Fact]
+    public async Task CreateSale_Response_IncludesTaxAmountTaxRateTaxLabelFields()
+    {
+        var sale = new Sale
+        {
+            Id = 1,
+            CompanyId = CompanyId,
+            CustomerId = 10,
+            PaymentMethod = "Cash",
+            SaleDate = DateTime.UtcNow,
+            Subtotal = 100m,
+            Tax = 8m,
+            TaxAmount = 8m,
+            TaxRate = 0m,
+            TaxLabel = null,
+            Total = 108m,
+            Items = new List<SaleItem>()
+        };
+        var apiResponse = ApiResponse<Sale>.SuccessResponse(sale);
+
+        _salesServiceMock
+            .Setup(s => s.CreateSaleAsync(It.IsAny<CreateSaleRequest>(), CompanyId))
+            .ReturnsAsync(apiResponse);
+
+        var context = new Mock<FunctionContext>();
+        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, CreateValidSaleRequest(), CompanyHeaders);
+
+        var result = await _functions.CreateSale(httpRequest);
+
+        result.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        body.Should().Contain("\"taxAmount\"", because: "taxAmount field must be present in JSON response");
+        body.Should().Contain("\"taxRate\"", because: "taxRate field must be present in JSON response");
+        body.Should().Contain("\"taxLabel\"", because: "taxLabel field must be present in JSON response");
+
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<Sale>>(body,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Data!.TaxAmount.Should().Be(8m, because: "taxAmount must equal the tax value");
+        deserialized.Data.TaxRate.Should().Be(0m, because: "taxRate must be present and default to 0");
+        deserialized.Data.TaxLabel.Should().BeNull(because: "taxLabel must be present and null when not set");
+    }
+
+    [Fact]
+    public async Task GetAllSales_Response_IncludesTaxAmountTaxRateTaxLabelFields()
+    {
+        var sale = new Sale
+        {
+            Id = 1,
+            CompanyId = CompanyId,
+            CustomerId = 10,
+            PaymentMethod = "Cash",
+            SaleDate = DateTime.UtcNow,
+            Subtotal = 50m,
+            Tax = 4m,
+            TaxAmount = 4m,
+            TaxRate = 0m,
+            TaxLabel = null,
+            Total = 54m,
+            Items = new List<SaleItem>()
+        };
+        var apiResponse = ApiResponse<List<Sale>>.SuccessResponse(new List<Sale> { sale });
+
+        _salesServiceMock
+            .Setup(s => s.GetAllSalesAsync(CompanyId))
+            .ReturnsAsync(apiResponse);
+
+        var context = new Mock<FunctionContext>();
+        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+
+        var result = await _functions.GetAllSales(httpRequest);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        body.Should().Contain("\"taxAmount\"", because: "taxAmount must be present in list response");
+        body.Should().Contain("\"taxRate\"", because: "taxRate must be present in list response");
+        body.Should().Contain("\"taxLabel\"", because: "taxLabel must be present in list response");
+
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<List<Sale>>>(body,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Data![0].TaxAmount.Should().Be(4m);
+        deserialized.Data[0].TaxRate.Should().Be(0m);
+        deserialized.Data[0].TaxLabel.Should().BeNull();
+    }
+
     #endregion
 
     #region DeleteSale Tests
