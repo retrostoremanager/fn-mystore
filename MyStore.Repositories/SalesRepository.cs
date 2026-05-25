@@ -120,8 +120,8 @@ public class SalesRepository : ISalesRepository
         try
         {
             const string insertSale = @"INSERT INTO sale (company_id, customer_id, user_id,
-                    subtotal, tax, total_amount, payment_method, sale_date, notes)
-                VALUES (@CompanyId, @CustomerId, @UserId, @Subtotal, @Tax, @Total, @PaymentMethod, @SaleDate, @Notes)
+                    subtotal, tax, total_amount, payment_method, sale_date, notes, created_date)
+                VALUES (@CompanyId, @CustomerId, @UserId, @Subtotal, @Tax, @Total, @PaymentMethod, @SaleDate, @Notes, NOW())
                 RETURNING id";
 
             var saleId = await connection.ExecuteScalarAsync<int>(insertSale, new
