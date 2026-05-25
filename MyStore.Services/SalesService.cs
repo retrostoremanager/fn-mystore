@@ -105,6 +105,11 @@ public class SalesService : ISalesService
                 return ApiResponse<Sale>.ErrorResponse("Sale must have at least one item");
             }
 
+            if (request.CustomerId == 0)
+            {
+                return ApiResponse<Sale>.ErrorResponse("customerId is required");
+            }
+
             // Verify customer exists and belongs to company
             var customer = await _customerRepository.GetByIdAsync(request.CustomerId);
             if (customer == null || customer.CompanyId != companyId)

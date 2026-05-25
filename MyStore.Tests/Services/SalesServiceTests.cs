@@ -186,4 +186,25 @@ public class SalesServiceTests
         result.Success.Should().BeTrue();
         result.Data.Should().BeEmpty();
     }
+
+    [Fact]
+    public async Task CreateSaleAsync_NullCustomerId_ReturnsErrorWithoutCallingRepository()
+    {
+        var request = new CreateSaleRequest
+        {
+            CustomerId = 0,
+            PaymentMethod = "Cash",
+            Items = new List<CreateSaleItemRequest>
+            {
+                new CreateSaleItemRequest { InventoryItemId = 100, Quantity = 1, UnitPrice = 24.99m }
+            }
+        };
+
+        var result = await _service.CreateSaleAsync(request, CompanyId);
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Be("customerId is required");
+        _salesRepositoryMock.Verify(r => r.CreateAsync(It.IsAny<Sale>()), Times.Never);
+        _customerRepositoryMock.Verify(r => r.GetByIdAsync(It.IsAny<int>()), Times.Never);
+    }
 }

@@ -236,6 +236,40 @@ public class SalesFunctionsTests
     }
 
     [Fact]
+    public async Task CreateSale_NullCustomerId_Returns400WithDescriptiveMessage()
+    {
+        var request = new CreateSaleRequest
+        {
+            CustomerId = 0,
+            PaymentMethod = "Cash",
+            Items = new List<CreateSaleItemRequest>
+            {
+                new CreateSaleItemRequest { InventoryItemId = 57, Quantity = 1, UnitPrice = 24.99m }
+            }
+        };
+
+        var apiResponse = ApiResponse<Sale>.ErrorResponse("customerId is required");
+
+        _salesServiceMock
+            .Setup(s => s.CreateSaleAsync(It.IsAny<CreateSaleRequest>(), CompanyId))
+            .ReturnsAsync(apiResponse);
+
+        var context = new Mock<FunctionContext>();
+        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, request, CompanyHeaders);
+
+        var result = await _functions.CreateSale(httpRequest);
+
+        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<Sale>>(body,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Success.Should().BeFalse();
+        deserialized.Message.Should().Be("customerId is required");
+    }
+
+    [Fact]
     public async Task CreateSale_MissingCompanyId_Returns401Unauthorized()
     {
         var request = CreateValidSaleRequest();
