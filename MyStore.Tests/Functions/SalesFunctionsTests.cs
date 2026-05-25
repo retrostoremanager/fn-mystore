@@ -681,6 +681,185 @@ public class SalesFunctionsTests
 
     #endregion
 
+    #region Financial Field Regression Tests (bugs #82–#87)
+
+    [Fact]
+    public async Task CreateSale_Response_IncludesSubtotalTaxAndTotalFields()
+    {
+        var sale = new Sale
+        {
+            Id = 1,
+            CompanyId = CompanyId,
+            CustomerId = 10,
+            PaymentMethod = "Cash",
+            SaleDate = DateTime.UtcNow,
+            Subtotal = 100m,
+            Tax = 8m,
+            Total = 108m,
+            Items = new List<SaleItem>()
+        };
+        var apiResponse = ApiResponse<Sale>.SuccessResponse(sale);
+
+        _salesServiceMock
+            .Setup(s => s.CreateSaleAsync(It.IsAny<CreateSaleRequest>(), CompanyId))
+            .ReturnsAsync(apiResponse);
+
+        var context = new Mock<FunctionContext>();
+        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, CreateValidSaleRequest(), CompanyHeaders);
+
+        var result = await _functions.CreateSale(httpRequest);
+
+        result.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<Sale>>(body,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Data!.Subtotal.Should().Be(100m, because: "subtotal field must not be lost or renamed");
+        deserialized.Data.Tax.Should().Be(8m, because: "tax field must be present in response");
+        deserialized.Data.Total.Should().Be(108m, because: "total field must not be confused with subtotal");
+        deserialized.Data.Total.Should().Be(deserialized.Data.Subtotal + deserialized.Data.Tax,
+            because: "total must equal subtotal + tax");
+    }
+
+    [Fact]
+    public async Task CreateSale_ZeroTax_SubtotalEqualsTotal()
+    {
+        var sale = new Sale
+        {
+            Id = 1,
+            CompanyId = CompanyId,
+            CustomerId = 10,
+            PaymentMethod = "Cash",
+            SaleDate = DateTime.UtcNow,
+            Subtotal = 50m,
+            Tax = 0m,
+            Total = 50m,
+            Items = new List<SaleItem>()
+        };
+        var apiResponse = ApiResponse<Sale>.SuccessResponse(sale);
+
+        _salesServiceMock
+            .Setup(s => s.CreateSaleAsync(It.IsAny<CreateSaleRequest>(), CompanyId))
+            .ReturnsAsync(apiResponse);
+
+        var context = new Mock<FunctionContext>();
+        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, CreateValidSaleRequest(), CompanyHeaders);
+
+        var result = await _functions.CreateSale(httpRequest);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<Sale>>(body,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Data!.Tax.Should().Be(0m, because: "tax field must be zero when no tax applied");
+        deserialized.Data.Subtotal.Should().Be(deserialized.Data.Total,
+            because: "when tax is zero, subtotal equals total");
+    }
+
+    [Fact]
+    public async Task GetAllSales_SubtotalNotMappedToTotalAmount_ValueIsCorrect()
+    {
+        var sale = new Sale
+        {
+            Id = 1,
+            CompanyId = CompanyId,
+            CustomerId = 10,
+            PaymentMethod = "Cash",
+            SaleDate = DateTime.UtcNow,
+            Subtotal = 75m,
+            Tax = 6m,
+            Total = 81m,
+            Items = new List<SaleItem>()
+        };
+        var apiResponse = ApiResponse<List<Sale>>.SuccessResponse(new List<Sale> { sale });
+
+        _salesServiceMock
+            .Setup(s => s.GetAllSalesAsync(CompanyId))
+            .ReturnsAsync(apiResponse);
+
+        var context = new Mock<FunctionContext>();
+        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+
+        var result = await _functions.GetAllSales(httpRequest);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<List<Sale>>>(body,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        var returnedSale = deserialized!.Data![0];
+        returnedSale.Subtotal.Should().Be(75m, because: "subtotal must not be merged with total_amount column");
+        returnedSale.Total.Should().Be(81m, because: "total must not be the same value as subtotal");
+        returnedSale.Subtotal.Should().NotBe(returnedSale.Total, because: "subtotal and total must be distinct when tax > 0");
+    }
+
+    [Fact]
+    public async Task GetSaleById_Response_IncludesSubtotalTaxAndTotalFields()
+    {
+        var sale = new Sale
+        {
+            Id = 1,
+            CompanyId = CompanyId,
+            CustomerId = 10,
+            PaymentMethod = "Cash",
+            SaleDate = DateTime.UtcNow,
+            Subtotal = 200m,
+            Tax = 16m,
+            Total = 216m,
+            Items = new List<SaleItem>
+            {
+                new SaleItem { Id = 1, SaleId = 1, InventoryItemId = 100, Quantity = 4, UnitPrice = 50m, TotalPrice = 200m }
+            }
+        };
+        var apiResponse = ApiResponse<Sale>.SuccessResponse(sale);
+
+        _salesServiceMock
+            .Setup(s => s.GetSaleByIdAsync(1, CompanyId))
+            .ReturnsAsync(apiResponse);
+
+        var context = new Mock<FunctionContext>();
+        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+
+        var result = await _functions.GetSaleById(httpRequest, 1);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<Sale>>(body,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Data!.Subtotal.Should().Be(200m, because: "subtotal field must be returned correctly");
+        deserialized.Data.Tax.Should().Be(16m, because: "tax field must be returned correctly");
+        deserialized.Data.Total.Should().Be(216m, because: "total field must equal subtotal + tax");
+        deserialized.Data.Items[0].TotalPrice.Should().Be(200m, because: "line item totalPrice must be present");
+        deserialized.Data.Items[0].UnitPrice.Should().Be(50m, because: "line item unitPrice must be present");
+    }
+
+    [Fact]
+    public async Task CreateSale_ResponseJson_ContainsCamelCaseFinancialFieldNames()
+    {
+        var apiResponse = ApiResponse<Sale>.SuccessResponse(CreateSale());
+
+        _salesServiceMock
+            .Setup(s => s.CreateSaleAsync(It.IsAny<CreateSaleRequest>(), CompanyId))
+            .ReturnsAsync(apiResponse);
+
+        var context = new Mock<FunctionContext>();
+        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, CreateValidSaleRequest(), CompanyHeaders);
+
+        var result = await _functions.CreateSale(httpRequest);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+
+        body.Should().Contain("\"subtotal\"", because: "subtotal must be camelCase in JSON");
+        body.Should().Contain("\"tax\"", because: "tax must be camelCase in JSON");
+        body.Should().Contain("\"total\"", because: "total must be camelCase in JSON");
+        body.Should().NotContain("\"Subtotal\"", because: "PascalCase field names must not appear");
+        body.Should().NotContain("\"Total\"", because: "PascalCase field names must not appear");
+    }
+
+    #endregion
+
     #region DeleteSale Tests
 
     [Fact]
