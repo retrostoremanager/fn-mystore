@@ -385,24 +385,25 @@ public class BillingFunctions
         {
             var companyId = CompanyHelper.GetCompanyIdRequired(req);
 
-            var limitParam = req.Url.Query
+            var queryParams = req.Url.Query
                 .TrimStart('?')
                 .Split('&')
                 .Select(p => p.Split('='))
-                .Where(p => p.Length == 2 && p[0].Equals("limit", StringComparison.OrdinalIgnoreCase))
-                .Select(p => p[1])
-                .FirstOrDefault();
+                .Where(p => p.Length == 2)
+                .ToDictionary(p => p[0].ToLowerInvariant(), p => p[1]);
 
             var limit = 10;
-            if (!string.IsNullOrEmpty(limitParam) && int.TryParse(limitParam, out var parsedLimit))
+            if (queryParams.TryGetValue("limit", out var limitParam) && int.TryParse(limitParam, out var parsedLimit))
                 limit = Math.Clamp(parsedLimit, 1, 100);
+
+            queryParams.TryGetValue("startingafter", out var startingAfter);
 
             var paymentMethods = await _paymentRepository.GetByCompanyIdAsync(companyId);
             var stripeCustomerId = paymentMethods.FirstOrDefault()?.StripeCustomerId;
 
             if (string.IsNullOrEmpty(stripeCustomerId))
             {
-                var emptyResponse = ApiResponse<List<InvoiceSummary>>.SuccessResponse(new List<InvoiceSummary>());
+                var emptyResponse = ApiResponse<InvoiceListResponse>.SuccessResponse(new InvoiceListResponse());
                 return await CreateHttpResponse(req, emptyResponse, HttpStatusCode.OK);
             }
 
@@ -413,12 +414,13 @@ public class BillingFunctions
                 {
                     Customer = stripeCustomerId,
                     Limit = limit,
+                    StartingAfter = string.IsNullOrEmpty(startingAfter) ? null : startingAfter,
                 });
             }
             catch (StripeException ex)
             {
                 _logger.LogWarning(ex, "Failed to fetch Stripe invoices for customer {StripeCustomerId}", stripeCustomerId);
-                var emptyResponse = ApiResponse<List<InvoiceSummary>>.SuccessResponse(new List<InvoiceSummary>());
+                var emptyResponse = ApiResponse<InvoiceListResponse>.SuccessResponse(new InvoiceListResponse());
                 return await CreateHttpResponse(req, emptyResponse, HttpStatusCode.OK);
             }
 
@@ -436,19 +438,25 @@ public class BillingFunctions
                 InvoicePdf = inv.InvoicePdf,
             }).ToList();
 
-            var response = ApiResponse<List<InvoiceSummary>>.SuccessResponse(summaries);
+            var result = new InvoiceListResponse
+            {
+                Invoices = summaries,
+                HasMore = invoices.HasMore,
+            };
+
+            var response = ApiResponse<InvoiceListResponse>.SuccessResponse(result);
             return await CreateHttpResponse(req, response, HttpStatusCode.OK);
         }
         catch (UnauthorizedAccessException ex)
         {
             _logger.LogWarning(ex, "Unauthorized invoice retrieval attempt");
-            var errorResponse = ApiResponse<List<InvoiceSummary>>.ErrorResponse(ex.Message);
+            var errorResponse = ApiResponse<InvoiceListResponse>.ErrorResponse(ex.Message);
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving invoices");
-            var errorResponse = ApiResponse<List<InvoiceSummary>>.ErrorResponse(
+            var errorResponse = ApiResponse<InvoiceListResponse>.ErrorResponse(
                 "An error occurred while retrieving invoices.");
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
         }

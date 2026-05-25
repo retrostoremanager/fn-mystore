@@ -36,6 +36,15 @@ public class InvoiceSummary
 }
 
 /// <summary>
+/// Paginated invoice list response for GET /billing/invoices.
+/// </summary>
+public class InvoiceListResponse
+{
+    public List<InvoiceSummary> Invoices { get; set; } = new();
+    public bool HasMore { get; set; }
+}
+
+/// <summary>
 /// Request to store a payment method from the frontend.
 /// Frontend creates PaymentMethod via Stripe.js and sends only the ID.
 /// </summary>
