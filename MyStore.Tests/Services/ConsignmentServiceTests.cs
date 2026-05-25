@@ -113,6 +113,8 @@ public class ConsignmentServiceTests
     [InlineData(100, 60, 60, 40)]
     [InlineData(200, 70, 140, 60)]
     [InlineData(50, 50, 25, 25)]
+    [InlineData(100, 70, 70, 30)]
+    [InlineData(100, 100, 100, 0)]
     public async Task MarkSoldAsync_PayoutCalculation_IsCorrect(
         decimal salePrice, decimal splitPercent, decimal expectedPayout, decimal expectedStore)
     {
