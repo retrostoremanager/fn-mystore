@@ -1,6 +1,7 @@
--- Seed consignment.view and consignment.edit permissions
--- consignment.view → Cashier, Employee, Manager, Owner
--- consignment.edit → Employee, Manager, Owner
+-- Issue #138: consignment.view/consignment.edit permissions not assigned to any role.
+-- Seed consignment permissions and assign to system roles.
+-- consignment.view → Owner, Manager, Employee, Cashier
+-- consignment.edit → Owner, Manager, Employee (Cashier: view only)
 
 INSERT INTO permission (name, description) VALUES
     ('consignment.view', 'View consignment items and payouts'),
