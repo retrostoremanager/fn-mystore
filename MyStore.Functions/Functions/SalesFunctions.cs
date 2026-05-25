@@ -153,6 +153,11 @@ public class SalesFunctions
             var errorResponse = ApiResponse<Sale>.ErrorResponse(ex.Message);
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
         }
+        catch (JsonException)
+        {
+            var errorResponse = ApiResponse<Sale>.ErrorResponse("Invalid request body: customerId is required");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unhandled exception in CreateSale");
