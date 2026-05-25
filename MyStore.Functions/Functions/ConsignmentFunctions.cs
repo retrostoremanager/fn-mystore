@@ -94,6 +94,24 @@ public class ConsignmentFunctions
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
         }
 
+        if (item.CustomerId <= 0)
+        {
+            var errorResponse = ApiResponse<ConsignmentItem>.ErrorResponse("CustomerId is required");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+        }
+
+        if (string.IsNullOrWhiteSpace(item.Description))
+        {
+            var errorResponse = ApiResponse<ConsignmentItem>.ErrorResponse("Description is required");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+        }
+
+        if (item.AskingPrice <= 0)
+        {
+            var errorResponse = ApiResponse<ConsignmentItem>.ErrorResponse("AskingPrice must be greater than zero");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+        }
+
         _logger.LogInformation("Creating consignment item for company {CompanyId}", companyId);
         var response = await _consignmentService.CreateAsync(item, companyId);
         var statusCode = response.Success ? HttpStatusCode.Created : HttpStatusCode.BadRequest;
@@ -140,7 +158,7 @@ public class ConsignmentFunctions
     [Function("MarkConsignmentItemSold")]
     [RequirePermission("consignment.edit")]
     public async Task<HttpResponseData> MarkConsignmentItemSold(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "consignment/{id:int}/mark-sold")] HttpRequestData req,
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "consignment/{id:int}/sold")] HttpRequestData req,
         int id)
     {
         int companyId;
@@ -160,16 +178,19 @@ public class ConsignmentFunctions
             PropertyNameCaseInsensitive = true
         });
 
-        if (request == null)
+        if (request == null || request.SalePrice <= 0)
         {
-            var errorResponse = ApiResponse<MarkSoldResponse>.ErrorResponse("Invalid request body");
+            var errorResponse = ApiResponse<MarkSoldResponse>.ErrorResponse("salePrice is required and must be greater than zero");
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
         }
 
         _logger.LogInformation("Marking consignment item {Id} as sold for company {CompanyId}", id, companyId);
         var response = await _consignmentService.MarkSoldAsync(id, request.SalePrice, companyId);
         if (!response.Success)
-            return await CreateHttpResponse(req, response, HttpStatusCode.NotFound);
+        {
+            var statusCode = IsStatusConflict(response.Message) ? HttpStatusCode.Conflict : HttpStatusCode.NotFound;
+            return await CreateHttpResponse(req, response, statusCode);
+        }
         return await CreateHttpResponse(req, response);
     }
 
@@ -199,7 +220,10 @@ public class ConsignmentFunctions
         _logger.LogInformation("Processing payout for consignment item {Id} for company {CompanyId}", id, companyId);
         var response = await _consignmentService.ProcessPayoutAsync(id, request?.Notes, companyId);
         if (!response.Success)
-            return await CreateHttpResponse(req, response, HttpStatusCode.NotFound);
+        {
+            var statusCode = IsStatusConflict(response.Message) ? HttpStatusCode.Conflict : HttpStatusCode.NotFound;
+            return await CreateHttpResponse(req, response, statusCode);
+        }
         return await CreateHttpResponse(req, response);
     }
 
@@ -223,8 +247,21 @@ public class ConsignmentFunctions
         _logger.LogInformation("Returning consignment item {Id} to customer for company {CompanyId}", id, companyId);
         var response = await _consignmentService.ReturnToCustomerAsync(id, companyId);
         if (!response.Success)
-            return await CreateHttpResponse(req, response, HttpStatusCode.NotFound);
+        {
+            var statusCode = IsStatusConflict(response.Message) ? HttpStatusCode.Conflict : HttpStatusCode.NotFound;
+            return await CreateHttpResponse(req, response, statusCode);
+        }
         return await CreateHttpResponse(req, response);
+    }
+
+    private static bool IsStatusConflict(string? message)
+    {
+        if (string.IsNullOrEmpty(message)) return false;
+        return message.Contains("status is", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("Cannot mark", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("Cannot process", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("Cannot return", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("already been processed", StringComparison.OrdinalIgnoreCase);
     }
 
     private static async Task<HttpResponseData> CreateHttpResponse<T>(
