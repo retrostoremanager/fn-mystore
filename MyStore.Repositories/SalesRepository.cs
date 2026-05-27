@@ -160,6 +160,7 @@ public class SalesRepository : ISalesRepository
             }
 
             await tx.CommitAsync();
+            sale.TaxAmount = sale.Tax;
             return sale;
         }
         catch
