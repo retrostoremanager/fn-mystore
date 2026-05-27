@@ -165,15 +165,18 @@ public class ConsignmentFunctions
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
         }
 
-        if (!string.IsNullOrWhiteSpace(item.Status))
+        if (string.IsNullOrWhiteSpace(item.Status))
         {
-            var allowedStatuses = new[] { "pending", "sold", "returned", "cancelled" };
-            if (!allowedStatuses.Contains(item.Status, StringComparer.OrdinalIgnoreCase))
-            {
-                var errorResponse = ApiResponse<ConsignmentItem>.ErrorResponse(
-                    "Invalid status value. Allowed values: pending, sold, returned, cancelled");
-                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
-            }
+            var errorResponse = ApiResponse<ConsignmentItem>.ErrorResponse("Status is required");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+        }
+
+        var allowedStatuses = new[] { "pending", "sold", "returned", "cancelled" };
+        if (!allowedStatuses.Contains(item.Status, StringComparer.OrdinalIgnoreCase))
+        {
+            var errorResponse = ApiResponse<ConsignmentItem>.ErrorResponse(
+                "Invalid status value. Allowed values: pending, sold, returned, cancelled");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
         }
 
         item.Id = id;

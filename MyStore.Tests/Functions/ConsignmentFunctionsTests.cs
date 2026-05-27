@@ -362,6 +362,32 @@ public class ConsignmentFunctionsTests
         _serviceMock.Verify(s => s.UpdateAsync(It.IsAny<ConsignmentItem>(), It.IsAny<int>()), Times.Never);
     }
 
+    [Fact]
+    public async Task UpdateConsignmentItem_MissingStatus_Returns400WithoutCallingService()
+    {
+        var item = new ConsignmentItem
+        {
+            CustomerId = 5,
+            Description = "Test",
+            AskingPrice = 50m,
+            SplitPercent = 60m
+        };
+
+        var context = new Mock<FunctionContext>();
+        var req = TestHelpers.CreateHttpRequestData(context.Object, item, _companyHeaders);
+
+        var result = await _functions.UpdateConsignmentItem(req, 1);
+
+        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<ConsignmentItem>>(
+            body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Success.Should().BeFalse();
+        deserialized.Message.Should().Contain("Status is required");
+        _serviceMock.Verify(s => s.UpdateAsync(It.IsAny<ConsignmentItem>(), It.IsAny<int>()), Times.Never);
+    }
+
     [Theory]
     [InlineData("pending")]
     [InlineData("sold")]
