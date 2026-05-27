@@ -83,10 +83,19 @@ public class ConsignmentFunctions
         }
 
         var requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-        var item = JsonSerializer.Deserialize<ConsignmentItem>(requestBody, new JsonSerializerOptions
+        ConsignmentItem? item;
+        try
         {
-            PropertyNameCaseInsensitive = true
-        });
+            item = JsonSerializer.Deserialize<ConsignmentItem>(requestBody, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+        }
+        catch (JsonException)
+        {
+            var errorResponse = ApiResponse<ConsignmentItem>.ErrorResponse("Invalid request body");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+        }
 
         if (item == null)
         {
@@ -136,10 +145,19 @@ public class ConsignmentFunctions
         }
 
         var requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-        var item = JsonSerializer.Deserialize<ConsignmentItem>(requestBody, new JsonSerializerOptions
+        ConsignmentItem? item;
+        try
         {
-            PropertyNameCaseInsensitive = true
-        });
+            item = JsonSerializer.Deserialize<ConsignmentItem>(requestBody, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+        }
+        catch (JsonException)
+        {
+            var errorResponse = ApiResponse<ConsignmentItem>.ErrorResponse("Invalid request body");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+        }
 
         if (item == null)
         {
@@ -173,10 +191,19 @@ public class ConsignmentFunctions
         }
 
         var requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-        var request = JsonSerializer.Deserialize<MarkSoldRequest>(requestBody, new JsonSerializerOptions
+        MarkSoldRequest? request;
+        try
         {
-            PropertyNameCaseInsensitive = true
-        });
+            request = JsonSerializer.Deserialize<MarkSoldRequest>(requestBody, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+        }
+        catch (JsonException)
+        {
+            var errorResponse = ApiResponse<MarkSoldResponse>.ErrorResponse("Invalid request body");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+        }
 
         if (request == null || request.SalePrice <= 0)
         {
