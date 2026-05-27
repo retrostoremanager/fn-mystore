@@ -173,10 +173,24 @@ public class SalesRepository : ISalesRepository
     public async Task<bool> DeleteAsync(int id, int companyId)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
-        var rows = await connection.ExecuteAsync(
-            "DELETE FROM sale WHERE id = @p_id AND company_id = @p_company_id",
-            new { p_id = id, p_company_id = companyId });
-        return rows > 0;
+        await connection.OpenAsync();
+        await using var tx = await connection.BeginTransactionAsync();
+        try
+        {
+            await connection.ExecuteAsync(
+                "DELETE FROM sale_item WHERE sale_id = @p_id",
+                new { p_id = id }, tx);
+            var rows = await connection.ExecuteAsync(
+                "DELETE FROM sale WHERE id = @p_id AND company_id = @p_company_id",
+                new { p_id = id, p_company_id = companyId }, tx);
+            await tx.CommitAsync();
+            return rows > 0;
+        }
+        catch
+        {
+            await tx.RollbackAsync();
+            throw;
+        }
     }
 
     private static async Task<List<Sale>> HydrateItemsAsync(NpgsqlConnection connection, List<SaleRow> rows)
