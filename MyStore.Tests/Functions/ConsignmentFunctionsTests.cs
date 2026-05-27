@@ -37,7 +37,7 @@ public class ConsignmentFunctionsTests
         _functions = new ConsignmentFunctions(_serviceMock.Object, _loggerFactoryMock.Object);
     }
 
-    private static ConsignmentItem CreateItem(int id = 1, string status = "active", decimal splitPercent = 60m) =>
+    private static ConsignmentItem CreateItem(int id = 1, string status = "pending", decimal splitPercent = 60m) =>
         new ConsignmentItem
         {
             Id = id,
@@ -334,6 +334,70 @@ public class ConsignmentFunctionsTests
         var result = await _functions.UpdateConsignmentItem(req, 99);
 
         result.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<ConsignmentItem>>(
+            body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Success.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateConsignmentItem_InvalidStatus_Returns400WithoutCallingService()
+    {
+        var item = CreateItem();
+        item.Status = "badstatus";
+
+        var context = new Mock<FunctionContext>();
+        var req = TestHelpers.CreateHttpRequestData(context.Object, item, _companyHeaders);
+
+        var result = await _functions.UpdateConsignmentItem(req, 1);
+
+        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<ConsignmentItem>>(
+            body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Success.Should().BeFalse();
+        deserialized.Message.Should().Contain("Invalid status value");
+        _serviceMock.Verify(s => s.UpdateAsync(It.IsAny<ConsignmentItem>(), It.IsAny<int>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData("pending")]
+    [InlineData("sold")]
+    [InlineData("returned")]
+    [InlineData("cancelled")]
+    public async Task UpdateConsignmentItem_ValidStatus_CallsService(string status)
+    {
+        var item = CreateItem();
+        item.Status = status;
+        _serviceMock
+            .Setup(s => s.UpdateAsync(It.IsAny<ConsignmentItem>(), CompanyId))
+            .ReturnsAsync(ApiResponse<ConsignmentItem>.SuccessResponse(item));
+
+        var context = new Mock<FunctionContext>();
+        var req = TestHelpers.CreateHttpRequestData(context.Object, item, _companyHeaders);
+
+        var result = await _functions.UpdateConsignmentItem(req, 1);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        _serviceMock.Verify(s => s.UpdateAsync(It.IsAny<ConsignmentItem>(), CompanyId), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateConsignmentItem_ServiceFailureNonNotFound_Returns400()
+    {
+        var item = CreateItem();
+        _serviceMock
+            .Setup(s => s.UpdateAsync(It.IsAny<ConsignmentItem>(), CompanyId))
+            .ReturnsAsync(ApiResponse<ConsignmentItem>.ErrorResponse("Failed to update consignment item"));
+
+        var context = new Mock<FunctionContext>();
+        var req = TestHelpers.CreateHttpRequestData(context.Object, item, _companyHeaders);
+
+        var result = await _functions.UpdateConsignmentItem(req, 1);
+
+        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         var body = await TestHelpers.ReadResponseBody(result);
         var deserialized = JsonSerializer.Deserialize<ApiResponse<ConsignmentItem>>(
             body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });

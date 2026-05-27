@@ -165,11 +165,25 @@ public class ConsignmentFunctions
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
         }
 
+        if (!string.IsNullOrWhiteSpace(item.Status))
+        {
+            var allowedStatuses = new[] { "pending", "sold", "returned", "cancelled" };
+            if (!allowedStatuses.Contains(item.Status, StringComparer.OrdinalIgnoreCase))
+            {
+                var errorResponse = ApiResponse<ConsignmentItem>.ErrorResponse(
+                    "Invalid status value. Allowed values: pending, sold, returned, cancelled");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+            }
+        }
+
         item.Id = id;
         _logger.LogInformation("Updating consignment item {Id} for company {CompanyId}", id, companyId);
         var response = await _consignmentService.UpdateAsync(item, companyId);
         if (!response.Success)
-            return await CreateHttpResponse(req, response, HttpStatusCode.NotFound);
+        {
+            var statusCode = IsNotFound(response.Message) ? HttpStatusCode.NotFound : HttpStatusCode.BadRequest;
+            return await CreateHttpResponse(req, response, statusCode);
+        }
         return await CreateHttpResponse(req, response);
     }
 
@@ -279,6 +293,12 @@ public class ConsignmentFunctions
             return await CreateHttpResponse(req, response, statusCode);
         }
         return await CreateHttpResponse(req, response);
+    }
+
+    private static bool IsNotFound(string? message)
+    {
+        if (string.IsNullOrEmpty(message)) return false;
+        return message.Contains("not found", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsStatusConflict(string? message)
