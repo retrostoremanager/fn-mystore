@@ -57,6 +57,10 @@ public static class CompanyHelper
     /// <exception cref="UnauthorizedAccessException">Thrown when company ID is not provided</exception>
     public static int GetCompanyIdRequired(HttpRequestData request)
     {
+        var jwtCompanyId = GetCompanyIdFromJwt(request);
+        if (jwtCompanyId.HasValue)
+            return jwtCompanyId.Value;
+
         if (request.Headers.TryGetValues(CompanyIdHeader, out var headerValues))
         {
             var headerValue = headerValues.FirstOrDefault();
