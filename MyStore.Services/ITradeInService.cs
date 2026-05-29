@@ -11,4 +11,5 @@ public interface ITradeInService
     Task<ApiResponse<TradeIn>> RejectAsync(int id, int companyId);
     Task<ApiResponse<List<TradeIn>>> GetAllAsync(int companyId, string? status = null, DateTime? dateFrom = null, DateTime? dateTo = null);
     Task<ApiResponse<TradeIn>> GetByIdAsync(int id, int companyId);
+    Task<ApiResponse<TradeIn>> UpdateTradeInAsync(int id, int companyId, string? notes, int? customerId, List<TradeInItem> items);
 }

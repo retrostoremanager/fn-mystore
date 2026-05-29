@@ -179,6 +179,49 @@ public class TradeInService : ITradeInService
         }
     }
 
+    public async Task<ApiResponse<TradeIn>> UpdateTradeInAsync(int id, int companyId, string? notes, int? customerId, List<TradeInItem> items)
+    {
+        try
+        {
+            var tradeIn = await _tradeInRepository.GetByIdAsync(id, companyId);
+            if (tradeIn is null)
+                return ApiResponse<TradeIn>.ErrorResponse($"Trade-in with ID {id} not found");
+
+            if (tradeIn.Status != "draft")
+                return ApiResponse<TradeIn>.ErrorResponse(
+                    $"Cannot update a trade-in with status '{tradeIn.Status}'. Only draft trade-ins can be modified.");
+
+            tradeIn.Notes = notes;
+            tradeIn.CustomerId = customerId;
+
+            await _tradeInRepository.UpdateAsync(tradeIn);
+
+            var existingIds = tradeIn.Items.Select(i => i.Id).ToHashSet();
+            foreach (var item in items)
+            {
+                item.TradeInId = id;
+                if (item.Id > 0 && existingIds.Contains(item.Id))
+                {
+                    await _tradeInRepository.UpdateItemAsync(item);
+                }
+                else
+                {
+                    item.CreatedAt = DateTime.UtcNow;
+                    await _tradeInRepository.AddItemAsync(item);
+                }
+            }
+
+            var updated = await _tradeInRepository.GetByIdAsync(id, companyId);
+            return ApiResponse<TradeIn>.SuccessResponse(updated!, "Trade-in updated successfully");
+        }
+        catch (Exception ex)
+        {
+            return ApiResponse<TradeIn>.ErrorResponse(
+                "Failed to update trade-in",
+                new List<string> { ex.Message });
+        }
+    }
+
     public async Task<ApiResponse<TradeIn>> RejectAsync(int id, int companyId)
     {
         try
