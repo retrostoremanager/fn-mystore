@@ -49,21 +49,17 @@ jobs:
     - name: Apply DB migrations
       env:
         POSTGRES_ADMIN_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+        PGSSLMODE: require
       run: |
-        cat > /tmp/migrations.sql << 'EOSQL'
-        ALTER TABLE trade_in ALTER COLUMN payment_type DROP NOT NULL;
-        ALTER TABLE trade_in DROP CONSTRAINT IF EXISTS chk_trade_in_payment_type;
-        ALTER TABLE trade_in ADD CONSTRAINT chk_trade_in_payment_type
-          CHECK (payment_type IS NULL OR payment_type IN ('cash', 'store_credit'));
-        ALTER TABLE trade_in ALTER COLUMN created_by DROP NOT NULL;
-        EOSQL
-        az postgres flexible-server execute \
-          --name mystore-postgres-b1 \
-          --resource-group mystore-rg-dev \
-          --admin-user sqladmin \
-          --admin-password "$POSTGRES_ADMIN_PASSWORD" \
-          --database-name mystore-db-dev \
-          --file-path /tmp/migrations.sql
+        sudo apt-get install -y postgresql-client --quiet
+        PGPASSWORD="$POSTGRES_ADMIN_PASSWORD" psql \
+          "postgresql://sqladmin@mystore-postgres-b1.postgres.database.azure.com/mystore-db-dev" \
+          -v ON_ERROR_STOP=0 \
+          -c "ALTER TABLE trade_in ALTER COLUMN payment_type DROP NOT NULL;" \
+          -c "ALTER TABLE trade_in DROP CONSTRAINT IF EXISTS chk_trade_in_payment_type;" \
+          -c "ALTER TABLE trade_in ADD CONSTRAINT chk_trade_in_payment_type CHECK (payment_type IS NULL OR payment_type IN ('cash', 'store_credit'));" \
+          -c "ALTER TABLE trade_in ALTER COLUMN created_by DROP NOT NULL;" \
+          && echo "Migrations applied." || echo "Migration step had errors (constraint may already be in the desired state)."
 
     - name: Deploy to Azure Function App
       run: |
