@@ -6,6 +6,7 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using Moq;
 using MyStore.Functions;
+using MyStore.Functions.Attributes;
 using MyStore.Models;
 using MyStore.Services;
 using MyStore.Tests.Helpers;
@@ -585,6 +586,69 @@ public class TradeInFunctionsTests
 
         result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         _serviceMock.Verify(s => s.RejectAsync(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
+    }
+
+    #endregion
+
+    #region Permission Attribute Tests
+
+    [Fact]
+    public void TradeInFunctions_ClassLevel_RequiresTradeInViewPermission()
+    {
+        var attrs = typeof(TradeInFunctions)
+            .GetCustomAttributes(typeof(RequirePermissionAttribute), inherit: false)
+            .Cast<RequirePermissionAttribute>()
+            .ToList();
+
+        attrs.Should().ContainSingle(a => a.Permission == "trade_in.view");
+    }
+
+    [Fact]
+    public void CreateTradeIn_MethodLevel_RequiresTradeInCreatePermission()
+    {
+        var method = typeof(TradeInFunctions).GetMethod(nameof(TradeInFunctions.CreateTradeIn));
+        var attrs = method!
+            .GetCustomAttributes(typeof(RequirePermissionAttribute), inherit: false)
+            .Cast<RequirePermissionAttribute>()
+            .ToList();
+
+        attrs.Should().ContainSingle(a => a.Permission == "trade_in.create");
+    }
+
+    [Fact]
+    public void UpdateTradeIn_MethodLevel_RequiresTradeInCreatePermission()
+    {
+        var method = typeof(TradeInFunctions).GetMethod(nameof(TradeInFunctions.UpdateTradeIn));
+        var attrs = method!
+            .GetCustomAttributes(typeof(RequirePermissionAttribute), inherit: false)
+            .Cast<RequirePermissionAttribute>()
+            .ToList();
+
+        attrs.Should().ContainSingle(a => a.Permission == "trade_in.create");
+    }
+
+    [Fact]
+    public void CompleteTradeIn_MethodLevel_RequiresTradeInCompletePermission()
+    {
+        var method = typeof(TradeInFunctions).GetMethod(nameof(TradeInFunctions.CompleteTradeIn));
+        var attrs = method!
+            .GetCustomAttributes(typeof(RequirePermissionAttribute), inherit: false)
+            .Cast<RequirePermissionAttribute>()
+            .ToList();
+
+        attrs.Should().ContainSingle(a => a.Permission == "trade_in.complete");
+    }
+
+    [Fact]
+    public void RejectTradeIn_MethodLevel_RequiresTradeInCompletePermission()
+    {
+        var method = typeof(TradeInFunctions).GetMethod(nameof(TradeInFunctions.RejectTradeIn));
+        var attrs = method!
+            .GetCustomAttributes(typeof(RequirePermissionAttribute), inherit: false)
+            .Cast<RequirePermissionAttribute>()
+            .ToList();
+
+        attrs.Should().ContainSingle(a => a.Permission == "trade_in.complete");
     }
 
     #endregion
