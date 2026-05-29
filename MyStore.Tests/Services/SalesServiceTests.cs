@@ -13,6 +13,7 @@ public class SalesServiceTests
     private readonly Mock<ICustomerRepository> _customerRepositoryMock;
     private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<IInventoryRepository> _inventoryRepositoryMock;
+    private readonly Mock<ICompanyRepository> _companyRepositoryMock;
     private readonly SalesService _service;
 
     private const int CompanyId = 1;
@@ -23,12 +24,18 @@ public class SalesServiceTests
         _customerRepositoryMock = new Mock<ICustomerRepository>();
         _userRepositoryMock = new Mock<IUserRepository>();
         _inventoryRepositoryMock = new Mock<IInventoryRepository>();
+        _companyRepositoryMock = new Mock<ICompanyRepository>();
+
+        _companyRepositoryMock
+            .Setup(r => r.GetTaxSettingsAsync(It.IsAny<int>()))
+            .ReturnsAsync(new TaxSettingsResponse { TaxEnabled = false, TaxRate = 0m, TaxLabel = "Sales Tax" });
 
         _service = new SalesService(
             _salesRepositoryMock.Object,
             _customerRepositoryMock.Object,
             _userRepositoryMock.Object,
-            _inventoryRepositoryMock.Object);
+            _inventoryRepositoryMock.Object,
+            _companyRepositoryMock.Object);
     }
 
     private static Sale CreateSaleWithStoredTotals(int id = 1, decimal subtotal = 80m, decimal tax = 8m, decimal total = 88m)

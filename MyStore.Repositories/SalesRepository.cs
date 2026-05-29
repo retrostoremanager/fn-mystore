@@ -25,6 +25,7 @@ public class SalesRepository : ISalesRepository
         await using var connection = new NpgsqlConnection(_connectionString);
         const string sql = @"SELECT s.id, s.company_id, s.customer_id, s.user_id,
                     s.subtotal, s.tax, s.total_amount AS total,
+                    s.subtotal_amount, s.tax_amount,
                     s.payment_method, s.sale_date, s.notes
              FROM sale s
              WHERE s.company_id = @p_company_id
@@ -49,6 +50,7 @@ public class SalesRepository : ISalesRepository
         await using var connection = new NpgsqlConnection(_connectionString);
         const string sql = @"SELECT s.id, s.company_id, s.customer_id, s.user_id,
                     s.subtotal, s.tax, s.total_amount AS total,
+                    s.subtotal_amount, s.tax_amount,
                     s.payment_method, s.sale_date, s.notes
              FROM sale s
              WHERE s.id = @p_id AND s.company_id = @p_company_id";
@@ -69,6 +71,7 @@ public class SalesRepository : ISalesRepository
         await using var connection = new NpgsqlConnection(_connectionString);
         const string sql = @"SELECT s.id, s.company_id, s.customer_id, s.user_id,
                     s.subtotal, s.tax, s.total_amount AS total,
+                    s.subtotal_amount, s.tax_amount,
                     s.payment_method, s.sale_date, s.notes
              FROM sale s
              WHERE s.customer_id = @p_customer_id AND s.company_id = @p_company_id
@@ -82,6 +85,7 @@ public class SalesRepository : ISalesRepository
         await using var connection = new NpgsqlConnection(_connectionString);
         const string sql = @"SELECT s.id, s.company_id, s.customer_id, s.user_id,
                     s.subtotal, s.tax, s.total_amount AS total,
+                    s.subtotal_amount, s.tax_amount,
                     s.payment_method, s.sale_date, s.notes
              FROM sale s
              WHERE s.user_id = @p_user_id AND s.company_id = @p_company_id
@@ -95,6 +99,7 @@ public class SalesRepository : ISalesRepository
         await using var connection = new NpgsqlConnection(_connectionString);
         const string sql = @"SELECT s.id, s.company_id, s.customer_id, s.user_id,
                     s.subtotal, s.tax, s.total_amount AS total,
+                    s.subtotal_amount, s.tax_amount,
                     s.payment_method, s.sale_date, s.notes
              FROM sale s
              WHERE s.company_id = @p_company_id
@@ -120,8 +125,8 @@ public class SalesRepository : ISalesRepository
         try
         {
             const string insertSale = @"INSERT INTO sale (company_id, customer_id, user_id,
-                    subtotal, tax, total_amount, payment_method, sale_date, notes, created_date)
-                VALUES (@CompanyId, @CustomerId, @UserId, @Subtotal, @Tax, @Total, @PaymentMethod, @SaleDate, @Notes, NOW())
+                    subtotal, tax, total_amount, subtotal_amount, tax_amount, payment_method, sale_date, notes, created_date)
+                VALUES (@CompanyId, @CustomerId, @UserId, @Subtotal, @Tax, @Total, @SubtotalAmount, @TaxAmount, @PaymentMethod, @SaleDate, @Notes, NOW())
                 RETURNING id";
 
             var saleId = await connection.ExecuteScalarAsync<int>(insertSale, new
@@ -132,6 +137,8 @@ public class SalesRepository : ISalesRepository
                 sale.Subtotal,
                 sale.Tax,
                 sale.Total,
+                SubtotalAmount = sale.Subtotal,
+                TaxAmount = sale.TaxAmount,
                 sale.PaymentMethod,
                 SaleDate = saleDate,
                 sale.Notes,
@@ -160,7 +167,6 @@ public class SalesRepository : ISalesRepository
             }
 
             await tx.CommitAsync();
-            sale.TaxAmount = sale.Tax;
             return sale;
         }
         catch
@@ -217,9 +223,9 @@ public class SalesRepository : ISalesRepository
             CompanyId = row.CompanyId,
             CustomerId = row.CustomerId,
             UserId = row.UserId,
-            Subtotal = row.Subtotal,
+            Subtotal = row.SubtotalAmount ?? row.Subtotal,
             Tax = row.Tax,
-            TaxAmount = row.Tax,
+            TaxAmount = row.TaxAmount ?? row.Tax,
             TaxRate = 0m,
             TaxLabel = null,
             Total = row.Total,
@@ -253,6 +259,8 @@ public class SalesRepository : ISalesRepository
         public decimal Subtotal { get; set; }
         public decimal Tax { get; set; }
         public decimal Total { get; set; }
+        public decimal? SubtotalAmount { get; set; }
+        public decimal? TaxAmount { get; set; }
         public string PaymentMethod { get; set; } = string.Empty;
         public DateTime SaleDate { get; set; }
         public string? Notes { get; set; }
