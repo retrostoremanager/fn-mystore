@@ -9,17 +9,20 @@ public class SalesService : ISalesService
     private readonly ICustomerRepository _customerRepository;
     private readonly IUserRepository _userRepository;
     private readonly IInventoryRepository _inventoryRepository;
+    private readonly ICompanyRepository _companyRepository;
 
     public SalesService(
         ISalesRepository salesRepository,
         ICustomerRepository customerRepository,
         IUserRepository userRepository,
-        IInventoryRepository inventoryRepository)
+        IInventoryRepository inventoryRepository,
+        ICompanyRepository companyRepository)
     {
         _salesRepository = salesRepository;
         _customerRepository = customerRepository;
         _userRepository = userRepository;
         _inventoryRepository = inventoryRepository;
+        _companyRepository = companyRepository;
     }
 
     public async Task<ApiResponse<List<Sale>>> GetAllSalesAsync(int companyId)
@@ -127,6 +130,8 @@ public class SalesService : ISalesService
                 }
             }
 
+            var taxSettings = await _companyRepository.GetTaxSettingsAsync(companyId);
+
             var sale = new Sale
             {
                 CompanyId = companyId,
@@ -134,7 +139,6 @@ public class SalesService : ISalesService
                 UserId = request.UserId,
                 PaymentMethod = request.PaymentMethod,
                 Notes = request.Notes,
-                Tax = request.Tax
             };
 
             decimal subtotal = 0;
@@ -171,8 +175,29 @@ public class SalesService : ISalesService
                 await _inventoryRepository.UpdateQuantityAsync(itemRequest.InventoryItemId, -itemRequest.Quantity, companyId);
             }
 
+            decimal taxAmount;
+            decimal taxRate;
+            string? taxLabel;
+
+            if (taxSettings is { TaxEnabled: true })
+            {
+                taxRate = taxSettings.TaxRate;
+                taxLabel = taxSettings.TaxLabel;
+                taxAmount = Math.Round(subtotal * taxRate, 2, MidpointRounding.AwayFromZero);
+            }
+            else
+            {
+                taxRate = 0m;
+                taxLabel = null;
+                taxAmount = 0m;
+            }
+
             sale.Subtotal = subtotal;
-            sale.Total = subtotal + request.Tax;
+            sale.TaxAmount = taxAmount;
+            sale.TaxRate = taxRate;
+            sale.TaxLabel = taxLabel;
+            sale.Tax = taxAmount;
+            sale.Total = subtotal + taxAmount;
 
             var created = await _salesRepository.CreateAsync(sale);
             await LoadRelatedDataAsync(new List<Sale> { created }, companyId);

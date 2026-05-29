@@ -982,6 +982,139 @@ public class SalesFunctionsTests
 
     #endregion
 
+    #region Tax Calculation Tests (Issue #164)
+
+    [Fact]
+    public async Task CreateSale_TaxDisabled_TaxAmountIsZeroAndSubtotalEqualsTotal()
+    {
+        var sale = new Sale
+        {
+            Id = 1,
+            CompanyId = CompanyId,
+            CustomerId = 10,
+            PaymentMethod = "Cash",
+            SaleDate = DateTime.UtcNow,
+            Subtotal = 50m,
+            Tax = 0m,
+            TaxAmount = 0m,
+            TaxRate = 0m,
+            TaxLabel = null,
+            Total = 50m,
+            Items = new List<SaleItem>()
+        };
+        var apiResponse = ApiResponse<Sale>.SuccessResponse(sale, "Sale created successfully");
+
+        _salesServiceMock
+            .Setup(s => s.CreateSaleAsync(It.IsAny<CreateSaleRequest>(), CompanyId))
+            .ReturnsAsync(apiResponse);
+
+        var context = new Mock<FunctionContext>();
+        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, CreateValidSaleRequest(), CompanyHeaders);
+
+        var result = await _functions.CreateSale(httpRequest);
+
+        result.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<Sale>>(body,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Data!.TaxAmount.Should().Be(0m, because: "tax is disabled so taxAmount must be zero");
+        deserialized.Data.TaxRate.Should().Be(0m, because: "tax is disabled so taxRate must be zero");
+        deserialized.Data.Subtotal.Should().Be(deserialized.Data.Total, because: "when tax is disabled subtotal equals total");
+    }
+
+    [Fact]
+    public async Task CreateSale_TaxEnabled_StandardRate_TaxAmountCalculatedCorrectly()
+    {
+        var subtotal = 100m;
+        var taxRate = 0.08m;
+        var expectedTaxAmount = 8m;
+
+        var sale = new Sale
+        {
+            Id = 1,
+            CompanyId = CompanyId,
+            CustomerId = 10,
+            PaymentMethod = "Cash",
+            SaleDate = DateTime.UtcNow,
+            Subtotal = subtotal,
+            Tax = expectedTaxAmount,
+            TaxAmount = expectedTaxAmount,
+            TaxRate = taxRate,
+            TaxLabel = "Sales Tax",
+            Total = subtotal + expectedTaxAmount,
+            Items = new List<SaleItem>()
+        };
+        var apiResponse = ApiResponse<Sale>.SuccessResponse(sale, "Sale created successfully");
+
+        _salesServiceMock
+            .Setup(s => s.CreateSaleAsync(It.IsAny<CreateSaleRequest>(), CompanyId))
+            .ReturnsAsync(apiResponse);
+
+        var context = new Mock<FunctionContext>();
+        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, CreateValidSaleRequest(), CompanyHeaders);
+
+        var result = await _functions.CreateSale(httpRequest);
+
+        result.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<Sale>>(body,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Data!.TaxAmount.Should().Be(expectedTaxAmount, because: "8% of $100 = $8.00");
+        deserialized.Data.TaxRate.Should().Be(taxRate, because: "taxRate must be returned in the response");
+        deserialized.Data.TaxLabel.Should().Be("Sales Tax", because: "taxLabel must be returned in the response");
+        deserialized.Data.Total.Should().Be(108m, because: "total = subtotal + taxAmount = $100 + $8 = $108");
+    }
+
+    [Fact]
+    public async Task CreateSale_TaxEnabled_RoundingEdgeCase_RoundsAwayFromZero()
+    {
+        // $1.005 * 8% = $0.0804 rounds to $0.08 (AwayFromZero), not $0.07
+        var subtotal = 1.005m;
+        var taxRate = 0.08m;
+        var expectedTaxAmount = Math.Round(subtotal * taxRate, 2, MidpointRounding.AwayFromZero);
+
+        var sale = new Sale
+        {
+            Id = 1,
+            CompanyId = CompanyId,
+            CustomerId = 10,
+            PaymentMethod = "Cash",
+            SaleDate = DateTime.UtcNow,
+            Subtotal = subtotal,
+            Tax = expectedTaxAmount,
+            TaxAmount = expectedTaxAmount,
+            TaxRate = taxRate,
+            TaxLabel = "Sales Tax",
+            Total = subtotal + expectedTaxAmount,
+            Items = new List<SaleItem>()
+        };
+        var apiResponse = ApiResponse<Sale>.SuccessResponse(sale, "Sale created successfully");
+
+        _salesServiceMock
+            .Setup(s => s.CreateSaleAsync(It.IsAny<CreateSaleRequest>(), CompanyId))
+            .ReturnsAsync(apiResponse);
+
+        var context = new Mock<FunctionContext>();
+        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, CreateValidSaleRequest(), CompanyHeaders);
+
+        var result = await _functions.CreateSale(httpRequest);
+
+        result.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<Sale>>(body,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Data!.TaxAmount.Should().Be(0.08m, because: "$1.005 * 8% = $0.0804, rounds to $0.08 not $0.07 with AwayFromZero");
+        deserialized.Data.TaxAmount.Should().NotBe(0.07m, because: "must not truncate/round down");
+    }
+
+    #endregion
+
     #region DeleteSale Tests
 
     [Fact]
