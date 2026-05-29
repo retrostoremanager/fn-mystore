@@ -46,6 +46,25 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+    - name: Apply DB migrations
+      env:
+        POSTGRES_ADMIN_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+      run: |
+        cat > /tmp/migrations.sql << 'EOSQL'
+        ALTER TABLE trade_in ALTER COLUMN payment_type DROP NOT NULL;
+        ALTER TABLE trade_in DROP CONSTRAINT IF EXISTS chk_trade_in_payment_type;
+        ALTER TABLE trade_in ADD CONSTRAINT chk_trade_in_payment_type
+          CHECK (payment_type IS NULL OR payment_type IN ('cash', 'store_credit'));
+        ALTER TABLE trade_in ALTER COLUMN created_by DROP NOT NULL;
+        EOSQL
+        az postgres flexible-server execute \
+          --name mystore-postgres-b1 \
+          --resource-group mystore-rg-dev \
+          --admin-user sqladmin \
+          --admin-password "$POSTGRES_ADMIN_PASSWORD" \
+          --database-name mystore-db-dev \
+          --file-path /tmp/migrations.sql
+
     - name: Deploy to Azure Function App
       run: |
         cd publish
