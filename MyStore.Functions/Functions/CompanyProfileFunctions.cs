@@ -232,6 +232,93 @@ public class CompanyProfileFunctions
         }
     }
 
+    [RequirePermission("company.view")]
+    [Function("GetTaxSettings")]
+    public async Task<HttpResponseData> GetTaxSettings(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "company/tax")] HttpRequestData req)
+    {
+        try
+        {
+            var companyId = CompanyHelper.GetCompanyIdRequired(req);
+
+            var taxSettings = await _companyRepository.GetTaxSettingsAsync(companyId);
+            if (taxSettings == null)
+            {
+                var errorResponse = ApiResponse<TaxSettingsResponse>.ErrorResponse("Company not found.");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.NotFound);
+            }
+
+            var response = ApiResponse<TaxSettingsResponse>.SuccessResponse(taxSettings);
+            return await CreateHttpResponse(req, response, HttpStatusCode.OK);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized tax settings retrieval");
+            var errorResponse = ApiResponse<TaxSettingsResponse>.ErrorResponse(ex.Message);
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving tax settings");
+            var errorResponse = ApiResponse<TaxSettingsResponse>.ErrorResponse("An error occurred while retrieving tax settings.");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
+        }
+    }
+
+    [RequirePermission("company.edit")]
+    [Function("UpdateTaxSettings")]
+    public async Task<HttpResponseData> UpdateTaxSettings(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "company/tax")] HttpRequestData req)
+    {
+        try
+        {
+            var companyId = CompanyHelper.GetCompanyIdRequired(req);
+
+            string body;
+            using (var reader = new StreamReader(req.Body, Encoding.UTF8))
+            {
+                body = await reader.ReadToEndAsync();
+            }
+
+            if (string.IsNullOrWhiteSpace(body))
+            {
+                var errorResponse = ApiResponse<TaxSettingsResponse>.ErrorResponse("Invalid request body.");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+            }
+
+            var request = JsonSerializer.Deserialize<TaxSettingsRequest>(body, JsonOptions);
+            if (request == null)
+            {
+                var errorResponse = ApiResponse<TaxSettingsResponse>.ErrorResponse("Invalid request body.");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+            }
+
+            if (request.TaxRate < 0 || request.TaxRate >= 1)
+            {
+                var errorResponse = ApiResponse<TaxSettingsResponse>.ErrorResponse("taxRate must be between 0 and 1 (exclusive).");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+            }
+
+            await _companyRepository.UpdateTaxSettingsAsync(companyId, request);
+
+            var taxSettings = await _companyRepository.GetTaxSettingsAsync(companyId);
+            var response = ApiResponse<TaxSettingsResponse>.SuccessResponse(taxSettings!, "Tax settings updated successfully.");
+            return await CreateHttpResponse(req, response, HttpStatusCode.OK);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized tax settings update");
+            var errorResponse = ApiResponse<TaxSettingsResponse>.ErrorResponse(ex.Message);
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating tax settings");
+            var errorResponse = ApiResponse<TaxSettingsResponse>.ErrorResponse("An error occurred while updating tax settings.");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
+        }
+    }
+
     [Function("GetLocations")]
     public async Task<HttpResponseData> GetLocations(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "company/locations")] HttpRequestData req)

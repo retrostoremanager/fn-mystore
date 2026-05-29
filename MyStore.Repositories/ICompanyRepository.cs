@@ -43,6 +43,14 @@ public interface ICompanyRepository
     /// Updates company profile fields (EPIC-0-007).
     /// </summary>
     Task UpdateProfileAsync(int companyId, CompanyProfileUpdateRequest request);
+    /// <summary>
+    /// Gets tax settings for a company (Issue #163).
+    /// </summary>
+    Task<TaxSettingsResponse?> GetTaxSettingsAsync(int companyId);
+    /// <summary>
+    /// Updates tax settings for a company (Issue #163).
+    /// </summary>
+    Task UpdateTaxSettingsAsync(int companyId, TaxSettingsRequest request);
     Task<Company?> GetByVerificationTokenAsync(string token);
     Task<Company?> GetByPasswordResetTokenAsync(string token);
     Task<Company> CreateAsync(Company company);

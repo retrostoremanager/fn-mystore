@@ -199,4 +199,26 @@ public class CompanyRepository : ICompanyRepository
                 p_logo_url = request.LogoUrl
             });
     }
+
+    public async Task<TaxSettingsResponse?> GetTaxSettingsAsync(int companyId)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        return await connection.QueryFirstOrDefaultAsync<TaxSettingsResponse>(
+            "SELECT * FROM company_get_tax_settings(@p_id)",
+            new { p_id = companyId });
+    }
+
+    public async Task UpdateTaxSettingsAsync(int companyId, TaxSettingsRequest request)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.ExecuteAsync(
+            "SELECT company_update_tax_settings(@p_id, @p_tax_enabled, @p_tax_rate, @p_tax_label)",
+            new
+            {
+                p_id = companyId,
+                p_tax_enabled = request.TaxEnabled,
+                p_tax_rate = request.TaxRate,
+                p_tax_label = request.TaxLabel
+            });
+    }
 }
