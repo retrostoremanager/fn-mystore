@@ -92,15 +92,20 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task GetAllCustomers_JwtOnlyWithoutHeader_Returns401Unauthorized()
+    public async Task GetAllCustomers_JwtOnlyWithoutHeader_ReturnsSuccessWithJwtCompanyId()
     {
+        var customers = new List<Customer> { CreateCustomer(1) };
+        _customerServiceMock
+            .Setup(s => s.GetAllCustomersAsync(CompanyId))
+            .ReturnsAsync(ApiResponse<List<Customer>>.SuccessResponse(customers));
+
         var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var req = TestHelpers.CreateHttpRequestData(context, null);
 
         var result = await _functions.GetAllCustomers(req);
 
-        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-        _customerServiceMock.Verify(s => s.GetAllCustomersAsync(It.IsAny<int>()), Times.Never);
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        _customerServiceMock.Verify(s => s.GetAllCustomersAsync(CompanyId), Times.Once);
     }
 
     [Fact]
@@ -210,15 +215,20 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task GetCustomerById_JwtOnlyWithoutHeader_Returns401Unauthorized()
+    public async Task GetCustomerById_JwtOnlyWithoutHeader_ReturnsSuccessWithJwtCompanyId()
     {
+        var customer = CreateCustomer(1);
+        _customerServiceMock
+            .Setup(s => s.GetCustomerByIdAsync(1, CompanyId))
+            .ReturnsAsync(ApiResponse<Customer>.SuccessResponse(customer));
+
         var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var req = TestHelpers.CreateHttpRequestData(context, null);
 
         var result = await _functions.GetCustomerById(req, 1);
 
-        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-        _customerServiceMock.Verify(s => s.GetCustomerByIdAsync(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        _customerServiceMock.Verify(s => s.GetCustomerByIdAsync(1, CompanyId), Times.Once);
     }
 
     [Fact]
@@ -333,16 +343,21 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task CreateCustomer_JwtOnlyWithoutHeader_Returns401Unauthorized()
+    public async Task CreateCustomer_JwtOnlyWithoutHeader_ReturnsSuccessWithJwtCompanyId()
     {
         var request = new CreateCustomerRequest { FirstName = "Jane", LastName = "Smith", Email = "jane@example.com" };
+        var created = new Customer { Id = 10, CompanyId = CompanyId, FirstName = "Jane", LastName = "Smith", Email = "jane@example.com", CreatedDate = DateTime.UtcNow };
+        _customerServiceMock
+            .Setup(s => s.CreateCustomerAsync(It.IsAny<CreateCustomerRequest>(), CompanyId))
+            .ReturnsAsync(ApiResponse<Customer>.SuccessResponse(created));
+
         var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var req = TestHelpers.CreateHttpRequestData(context, request);
 
         var result = await _functions.CreateCustomer(req);
 
-        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-        _customerServiceMock.Verify(s => s.CreateCustomerAsync(It.IsAny<CreateCustomerRequest>(), It.IsAny<int>()), Times.Never);
+        result.StatusCode.Should().Be(HttpStatusCode.Created);
+        _customerServiceMock.Verify(s => s.CreateCustomerAsync(It.IsAny<CreateCustomerRequest>(), CompanyId), Times.Once);
     }
 
     [Fact]
@@ -451,16 +466,22 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task UpdateCustomer_JwtOnlyWithoutHeader_Returns401Unauthorized()
+    public async Task UpdateCustomer_JwtOnlyWithoutHeader_ReturnsSuccessWithJwtCompanyId()
     {
         var request = new UpdateCustomerRequest { FirstName = "Updated" };
+        var updated = CreateCustomer(1);
+        updated.FirstName = "Updated";
+        _customerServiceMock
+            .Setup(s => s.UpdateCustomerAsync(1, It.IsAny<UpdateCustomerRequest>(), CompanyId))
+            .ReturnsAsync(ApiResponse<Customer>.SuccessResponse(updated));
+
         var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var req = TestHelpers.CreateHttpRequestData(context, request);
 
         var result = await _functions.UpdateCustomer(req, 1);
 
-        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-        _customerServiceMock.Verify(s => s.UpdateCustomerAsync(It.IsAny<int>(), It.IsAny<UpdateCustomerRequest>(), It.IsAny<int>()), Times.Never);
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        _customerServiceMock.Verify(s => s.UpdateCustomerAsync(1, It.IsAny<UpdateCustomerRequest>(), CompanyId), Times.Once);
     }
 
     #endregion
@@ -524,15 +545,19 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task DeleteCustomer_JwtOnlyWithoutHeader_Returns401Unauthorized()
+    public async Task DeleteCustomer_JwtOnlyWithoutHeader_ReturnsSuccessWithJwtCompanyId()
     {
+        _customerServiceMock
+            .Setup(s => s.DeleteCustomerAsync(1, CompanyId))
+            .ReturnsAsync(ApiResponse<bool>.SuccessResponse(true));
+
         var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var req = TestHelpers.CreateHttpRequestData(context, null);
 
         var result = await _functions.DeleteCustomer(req, 1);
 
-        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-        _customerServiceMock.Verify(s => s.DeleteCustomerAsync(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
+        result.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        _customerServiceMock.Verify(s => s.DeleteCustomerAsync(1, CompanyId), Times.Once);
     }
 
     [Fact]
@@ -622,16 +647,21 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
-    public async Task SearchCustomers_JwtOnlyWithoutHeader_Returns401Unauthorized()
+    public async Task SearchCustomers_JwtOnlyWithoutHeader_ReturnsSuccessWithJwtCompanyId()
     {
+        var customers = new List<Customer> { CreateCustomer(1) };
+        _customerServiceMock
+            .Setup(s => s.SearchCustomersAsync("john", CompanyId))
+            .ReturnsAsync(ApiResponse<List<Customer>>.SuccessResponse(customers));
+
         var query = new NameValueCollection { { "q", "john" } };
         var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var req = TestHelpers.CreateHttpRequestData(context, null, null, query);
 
         var result = await _functions.SearchCustomers(req);
 
-        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-        _customerServiceMock.Verify(s => s.SearchCustomersAsync(It.IsAny<string>(), It.IsAny<int>()), Times.Never);
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        _customerServiceMock.Verify(s => s.SearchCustomersAsync("john", CompanyId), Times.Once);
     }
 
     #endregion
