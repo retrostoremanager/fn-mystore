@@ -281,6 +281,218 @@ public class CompanyProfileFunctionsTests
 
     #endregion
 
+    #region GetTaxSettings Tests
+
+    [Fact]
+    public async Task GetTaxSettings_AuthenticatedCompany_Returns200WithTaxSettings()
+    {
+        var taxSettings = new TaxSettingsResponse
+        {
+            TaxEnabled = true,
+            TaxRate = 0.0875m,
+            TaxLabel = "Sales Tax"
+        };
+
+        _companyRepoMock
+            .Setup(r => r.GetTaxSettingsAsync(TestCompanyId))
+            .ReturnsAsync(taxSettings);
+
+        var context = CreateAuthenticatedContext();
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyIdHeaders());
+
+        var result = await _functions.GetTaxSettings(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<TaxSettingsResponse>>(
+            body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized.Should().NotBeNull();
+        deserialized!.Success.Should().BeTrue();
+        deserialized.Data.Should().NotBeNull();
+        deserialized.Data!.TaxEnabled.Should().BeTrue();
+        deserialized.Data.TaxRate.Should().Be(0.0875m);
+        deserialized.Data.TaxLabel.Should().Be("Sales Tax");
+    }
+
+    [Fact]
+    public async Task GetTaxSettings_MissingCompanyId_Returns401Unauthorized()
+    {
+        var context = new Mock<FunctionContext>();
+        var req = TestHelpers.CreateHttpRequestData(context.Object);
+
+        var result = await _functions.GetTaxSettings(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GetTaxSettings_CompanyNotFound_Returns404NotFound()
+    {
+        _companyRepoMock
+            .Setup(r => r.GetTaxSettingsAsync(TestCompanyId))
+            .ReturnsAsync((TaxSettingsResponse?)null);
+
+        var context = CreateAuthenticatedContext();
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyIdHeaders());
+
+        var result = await _functions.GetTaxSettings(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetTaxSettings_ServiceException_Returns500()
+    {
+        _companyRepoMock
+            .Setup(r => r.GetTaxSettingsAsync(TestCompanyId))
+            .ThrowsAsync(new Exception("DB error"));
+
+        var context = CreateAuthenticatedContext();
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyIdHeaders());
+
+        var result = await _functions.GetTaxSettings(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
+    }
+
+    #endregion
+
+    #region UpdateTaxSettings Tests
+
+    [Fact]
+    public async Task UpdateTaxSettings_ValidRequest_Returns200WithUpdatedSettings()
+    {
+        var updateRequest = new TaxSettingsRequest
+        {
+            TaxEnabled = true,
+            TaxRate = 0.07m,
+            TaxLabel = "GST"
+        };
+
+        var updatedSettings = new TaxSettingsResponse
+        {
+            TaxEnabled = true,
+            TaxRate = 0.07m,
+            TaxLabel = "GST"
+        };
+
+        _companyRepoMock
+            .Setup(r => r.UpdateTaxSettingsAsync(TestCompanyId, It.IsAny<TaxSettingsRequest>()))
+            .Returns(Task.CompletedTask);
+        _companyRepoMock
+            .Setup(r => r.GetTaxSettingsAsync(TestCompanyId))
+            .ReturnsAsync(updatedSettings);
+
+        var context = CreateAuthenticatedContext();
+        var req = TestHelpers.CreateHttpRequestData(context, updateRequest, CompanyIdHeaders());
+
+        var result = await _functions.UpdateTaxSettings(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<TaxSettingsResponse>>(
+            body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized.Should().NotBeNull();
+        deserialized!.Success.Should().BeTrue();
+        deserialized.Data.Should().NotBeNull();
+        deserialized.Data!.TaxRate.Should().Be(0.07m);
+        deserialized.Data.TaxLabel.Should().Be("GST");
+    }
+
+    [Fact]
+    public async Task UpdateTaxSettings_NegativeTaxRate_Returns400BadRequest()
+    {
+        var updateRequest = new TaxSettingsRequest
+        {
+            TaxEnabled = true,
+            TaxRate = -0.05m,
+            TaxLabel = "Sales Tax"
+        };
+
+        var context = CreateAuthenticatedContext();
+        var req = TestHelpers.CreateHttpRequestData(context, updateRequest, CompanyIdHeaders());
+
+        var result = await _functions.UpdateTaxSettings(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<TaxSettingsResponse>>(
+            body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized.Should().NotBeNull();
+        deserialized!.Success.Should().BeFalse();
+        deserialized.Message.Should().Contain("taxRate");
+    }
+
+    [Fact]
+    public async Task UpdateTaxSettings_TaxRateEqualToOne_Returns400BadRequest()
+    {
+        var updateRequest = new TaxSettingsRequest
+        {
+            TaxEnabled = true,
+            TaxRate = 1.0m,
+            TaxLabel = "Sales Tax"
+        };
+
+        var context = CreateAuthenticatedContext();
+        var req = TestHelpers.CreateHttpRequestData(context, updateRequest, CompanyIdHeaders());
+
+        var result = await _functions.UpdateTaxSettings(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task UpdateTaxSettings_MissingCompanyId_Returns401Unauthorized()
+    {
+        var context = new Mock<FunctionContext>();
+        var req = TestHelpers.CreateHttpRequestData(context.Object, new TaxSettingsRequest { TaxRate = 0.05m }, null);
+
+        var result = await _functions.UpdateTaxSettings(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task UpdateTaxSettings_EmptyBody_Returns400BadRequest()
+    {
+        var context = CreateAuthenticatedContext();
+        var req = TestHelpers.CreateHttpRequestDataWithRawBody(string.Empty, CompanyIdHeaders(), context: context);
+
+        var result = await _functions.UpdateTaxSettings(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task UpdateTaxSettings_ServiceException_Returns500()
+    {
+        var updateRequest = new TaxSettingsRequest
+        {
+            TaxEnabled = false,
+            TaxRate = 0.05m,
+            TaxLabel = "Sales Tax"
+        };
+
+        _companyRepoMock
+            .Setup(r => r.UpdateTaxSettingsAsync(TestCompanyId, It.IsAny<TaxSettingsRequest>()))
+            .ThrowsAsync(new Exception("DB error"));
+
+        var context = CreateAuthenticatedContext();
+        var req = TestHelpers.CreateHttpRequestData(context, updateRequest, CompanyIdHeaders());
+
+        var result = await _functions.UpdateTaxSettings(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
+    }
+
+    #endregion
+
     #region UploadLogo Tests
 
     [Fact]

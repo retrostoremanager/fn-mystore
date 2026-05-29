@@ -210,6 +210,26 @@ public class SubscriptionStatusResponse
     public bool HasPaymentMethod { get; set; }
 }
 
+/// <summary>
+/// Tax settings for a company (Issue #163).
+/// </summary>
+public class TaxSettingsResponse
+{
+    public bool TaxEnabled { get; set; }
+    public decimal TaxRate { get; set; }
+    public string TaxLabel { get; set; } = "Sales Tax";
+}
+
+/// <summary>
+/// Request to update company tax settings (Issue #163).
+/// </summary>
+public class TaxSettingsRequest
+{
+    public bool TaxEnabled { get; set; }
+    public decimal TaxRate { get; set; }
+    public string TaxLabel { get; set; } = "Sales Tax";
+}
+
 public class VerifyEmailRequest
 {
     public string Token { get; set; } = string.Empty;
