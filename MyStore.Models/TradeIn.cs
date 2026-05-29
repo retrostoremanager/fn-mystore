@@ -8,9 +8,9 @@ public class TradeIn
     public string Status { get; set; } = "draft";
     public decimal TotalOfferedValue { get; set; }
     public decimal? TotalAcceptedValue { get; set; }
-    public string PaymentType { get; set; } = string.Empty;
+    public string? PaymentType { get; set; }
     public string? Notes { get; set; }
-    public int CreatedBy { get; set; }
+    public int? CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public List<TradeInItem> Items { get; set; } = new();
