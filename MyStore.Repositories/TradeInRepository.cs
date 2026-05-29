@@ -1,0 +1,235 @@
+using Dapper;
+using Npgsql;
+using MyStore.Models;
+
+namespace MyStore.Repositories;
+
+public class TradeInRepository : ITradeInRepository
+{
+    private readonly string _connectionString;
+
+    private const string TradeInSelectColumns =
+        "id, company_id, customer_id, status, total_offered_value, total_accepted_value, payment_type, notes, created_by, created_at, completed_at";
+
+    private const string ItemSelectColumns =
+        "id, trade_in_id, game_title, platform, condition, offered_value, accepted_value, inventory_item_id, parsed_by_ai, created_at";
+
+    static TradeInRepository()
+    {
+        DefaultTypeMap.MatchNamesWithUnderscores = true;
+    }
+
+    public TradeInRepository()
+    {
+        _connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+            ?? Environment.GetEnvironmentVariable("PostgresConnectionString")
+            ?? throw new InvalidOperationException("Connection string environment variable is not set");
+    }
+
+    public async Task<List<TradeIn>> GetAllAsync(int companyId, string? status = null, DateTime? dateFrom = null, DateTime? dateTo = null)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+
+        var conditions = new List<string> { "t.company_id = @p_company_id" };
+        if (status is not null) conditions.Add("t.status = @p_status");
+        if (dateFrom.HasValue) conditions.Add("t.created_at >= @p_date_from");
+        if (dateTo.HasValue) conditions.Add("t.created_at <= @p_date_to");
+
+        var where = string.Join(" AND ", conditions);
+
+        var tCols = string.Join(", ", TradeInSelectColumns.Split(", ").Select(c => "t." + c.Trim()));
+        var iCols = string.Join(", ", ItemSelectColumns.Split(", ").Select(c => "i." + c.Trim()));
+
+        var tradeInDict = new Dictionary<int, TradeIn>();
+
+        await connection.QueryAsync<TradeIn, TradeInItem, TradeIn>(
+            $@"SELECT {tCols}, {iCols}
+               FROM trade_in t
+               LEFT JOIN trade_in_item i ON i.trade_in_id = t.id
+               WHERE {where}
+               ORDER BY t.created_at DESC",
+            (tradeIn, item) =>
+            {
+                if (!tradeInDict.TryGetValue(tradeIn.Id, out var existing))
+                {
+                    existing = tradeIn;
+                    existing.Items = new List<TradeInItem>();
+                    tradeInDict[tradeIn.Id] = existing;
+                }
+                if (item is not null && item.Id != 0)
+                    existing.Items.Add(item);
+                return existing;
+            },
+            new
+            {
+                p_company_id = companyId,
+                p_status = status,
+                p_date_from = dateFrom,
+                p_date_to = dateTo
+            },
+            splitOn: "id");
+
+        return tradeInDict.Values.ToList();
+    }
+
+    public async Task<TradeIn?> GetByIdAsync(int id, int companyId)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+
+        var tCols = string.Join(", ", TradeInSelectColumns.Split(", ").Select(c => "t." + c.Trim()));
+        var iCols = string.Join(", ", ItemSelectColumns.Split(", ").Select(c => "i." + c.Trim()));
+
+        var tradeInDict = new Dictionary<int, TradeIn>();
+
+        await connection.QueryAsync<TradeIn, TradeInItem, TradeIn>(
+            $@"SELECT {tCols}, {iCols}
+               FROM trade_in t
+               LEFT JOIN trade_in_item i ON i.trade_in_id = t.id
+               WHERE t.id = @p_id AND t.company_id = @p_company_id",
+            (tradeIn, item) =>
+            {
+                if (!tradeInDict.TryGetValue(tradeIn.Id, out var existing))
+                {
+                    existing = tradeIn;
+                    existing.Items = new List<TradeInItem>();
+                    tradeInDict[tradeIn.Id] = existing;
+                }
+                if (item is not null && item.Id != 0)
+                    existing.Items.Add(item);
+                return existing;
+            },
+            new { p_id = id, p_company_id = companyId },
+            splitOn: "id");
+
+        return tradeInDict.Values.FirstOrDefault();
+    }
+
+    public async Task<TradeIn> CreateAsync(TradeIn tradeIn)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        var created = await connection.QuerySingleAsync<TradeIn>(
+            $@"INSERT INTO trade_in (
+                company_id, customer_id, status, total_offered_value, total_accepted_value,
+                payment_type, notes, created_by, created_at)
+               VALUES (
+                @p_company_id, @p_customer_id, @p_status, @p_total_offered_value, @p_total_accepted_value,
+                @p_payment_type, @p_notes, @p_created_by, NOW())
+               RETURNING {TradeInSelectColumns}",
+            new
+            {
+                p_company_id = tradeIn.CompanyId,
+                p_customer_id = tradeIn.CustomerId,
+                p_status = tradeIn.Status,
+                p_total_offered_value = tradeIn.TotalOfferedValue,
+                p_total_accepted_value = tradeIn.TotalAcceptedValue,
+                p_payment_type = tradeIn.PaymentType,
+                p_notes = tradeIn.Notes,
+                p_created_by = tradeIn.CreatedBy,
+            });
+        created.Items = new List<TradeInItem>();
+        return created;
+    }
+
+    public async Task<TradeIn?> UpdateAsync(TradeIn tradeIn)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        var rows = await connection.ExecuteAsync(
+            @"UPDATE trade_in SET
+                customer_id = @p_customer_id,
+                status = @p_status,
+                total_offered_value = @p_total_offered_value,
+                total_accepted_value = @p_total_accepted_value,
+                payment_type = @p_payment_type,
+                notes = @p_notes
+              WHERE id = @p_id AND company_id = @p_company_id",
+            new
+            {
+                p_id = tradeIn.Id,
+                p_company_id = tradeIn.CompanyId,
+                p_customer_id = tradeIn.CustomerId,
+                p_status = tradeIn.Status,
+                p_total_offered_value = tradeIn.TotalOfferedValue,
+                p_total_accepted_value = tradeIn.TotalAcceptedValue,
+                p_payment_type = tradeIn.PaymentType,
+                p_notes = tradeIn.Notes,
+            });
+        if (rows == 0) return null;
+        return await GetByIdAsync(tradeIn.Id, tradeIn.CompanyId);
+    }
+
+    public async Task<TradeInItem> AddItemAsync(TradeInItem item)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        return await connection.QuerySingleAsync<TradeInItem>(
+            $@"INSERT INTO trade_in_item (
+                trade_in_id, game_title, platform, condition, offered_value, accepted_value, parsed_by_ai, created_at)
+               VALUES (
+                @p_trade_in_id, @p_game_title, @p_platform, @p_condition, @p_offered_value, @p_accepted_value, @p_parsed_by_ai, NOW())
+               RETURNING {ItemSelectColumns}",
+            new
+            {
+                p_trade_in_id = item.TradeInId,
+                p_game_title = item.GameTitle,
+                p_platform = item.Platform,
+                p_condition = item.Condition,
+                p_offered_value = item.OfferedValue,
+                p_accepted_value = item.AcceptedValue,
+                p_parsed_by_ai = item.ParsedByAi,
+            });
+    }
+
+    public async Task<TradeInItem?> UpdateItemAsync(TradeInItem item)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        var rows = await connection.ExecuteAsync(
+            @"UPDATE trade_in_item SET
+                game_title = @p_game_title,
+                platform = @p_platform,
+                condition = @p_condition,
+                offered_value = @p_offered_value,
+                accepted_value = @p_accepted_value,
+                inventory_item_id = @p_inventory_item_id,
+                parsed_by_ai = @p_parsed_by_ai
+              WHERE id = @p_id AND trade_in_id = @p_trade_in_id",
+            new
+            {
+                p_id = item.Id,
+                p_trade_in_id = item.TradeInId,
+                p_game_title = item.GameTitle,
+                p_platform = item.Platform,
+                p_condition = item.Condition,
+                p_offered_value = item.OfferedValue,
+                p_accepted_value = item.AcceptedValue,
+                p_inventory_item_id = item.InventoryItemId,
+                p_parsed_by_ai = item.ParsedByAi,
+            });
+        if (rows == 0) return null;
+        return await connection.QueryFirstOrDefaultAsync<TradeInItem>(
+            $"SELECT {ItemSelectColumns} FROM trade_in_item WHERE id = @p_id",
+            new { p_id = item.Id });
+    }
+
+    public async Task<TradeIn?> CompleteAsync(int id, string paymentType, DateTime completedAt)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        var tradeIn = await connection.QueryFirstOrDefaultAsync<TradeIn>(
+            $"SELECT {TradeInSelectColumns} FROM trade_in WHERE id = @p_id",
+            new { p_id = id });
+        if (tradeIn is null) return null;
+
+        var rows = await connection.ExecuteAsync(
+            @"UPDATE trade_in SET
+                status = 'completed',
+                payment_type = @p_payment_type,
+                completed_at = @p_completed_at,
+                total_accepted_value = (
+                    SELECT COALESCE(SUM(accepted_value), 0)
+                    FROM trade_in_item
+                    WHERE trade_in_id = @p_id AND accepted_value > 0
+                )
+              WHERE id = @p_id AND status = 'draft'",
+            new { p_id = id, p_payment_type = paymentType, p_completed_at = completedAt });
+        if (rows == 0) return null;
+        return await GetByIdAsync(id, tradeIn.CompanyId);
+    }
+}
