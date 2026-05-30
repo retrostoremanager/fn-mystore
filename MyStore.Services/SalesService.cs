@@ -11,6 +11,7 @@ public class SalesService : ISalesService
     private readonly IInventoryRepository _inventoryRepository;
     private readonly ICompanyRepository _companyRepository;
     private readonly ILoyaltyService? _loyaltyService;
+    private readonly IPromotionService? _promotionService;
 
     public SalesService(
         ISalesRepository salesRepository,
@@ -18,7 +19,8 @@ public class SalesService : ISalesService
         IUserRepository userRepository,
         IInventoryRepository inventoryRepository,
         ICompanyRepository companyRepository,
-        ILoyaltyService? loyaltyService = null)
+        ILoyaltyService? loyaltyService = null,
+        IPromotionService? promotionService = null)
     {
         _salesRepository = salesRepository;
         _customerRepository = customerRepository;
@@ -26,6 +28,7 @@ public class SalesService : ISalesService
         _inventoryRepository = inventoryRepository;
         _companyRepository = companyRepository;
         _loyaltyService = loyaltyService;
+        _promotionService = promotionService;
     }
 
     public async Task<ApiResponse<List<Sale>>> GetAllSalesAsync(int companyId)
@@ -145,6 +148,8 @@ public class SalesService : ISalesService
             };
 
             decimal subtotal = 0;
+            var cartItems = new List<CartItem>();
+            var inventoryItemsMap = new Dictionary<int, InventoryItem>();
 
             // Process each sale item
             foreach (var itemRequest in request.Items)
@@ -163,12 +168,39 @@ public class SalesService : ISalesService
                     );
                 }
 
+                inventoryItemsMap[itemRequest.InventoryItemId] = inventoryItem;
+                cartItems.Add(new CartItem
+                {
+                    InventoryItemId = itemRequest.InventoryItemId,
+                    Quantity = itemRequest.Quantity,
+                    UnitPrice = itemRequest.UnitPrice,
+                    Category = inventoryItem.Category,
+                });
+            }
+
+            // Apply promotions before computing totals
+            var discountMap = new Dictionary<int, decimal>();
+            if (_promotionService is not null)
+            {
+                var lineDiscounts = await _promotionService.ApplyPromotionsAsync(cartItems, companyId);
+                foreach (var ld in lineDiscounts)
+                {
+                    discountMap[ld.ItemId] = ld.DiscountAmount;
+                }
+            }
+
+            foreach (var itemRequest in request.Items)
+            {
+                var lineTotal = itemRequest.Quantity * itemRequest.UnitPrice;
+                var discount = discountMap.TryGetValue(itemRequest.InventoryItemId, out var d) ? d : 0m;
+                var discountedTotal = Math.Max(0m, lineTotal - discount);
+
                 var saleItem = new SaleItem
                 {
                     InventoryItemId = itemRequest.InventoryItemId,
                     Quantity = itemRequest.Quantity,
                     UnitPrice = itemRequest.UnitPrice,
-                    TotalPrice = itemRequest.Quantity * itemRequest.UnitPrice
+                    TotalPrice = discountedTotal
                 };
 
                 sale.Items.Add(saleItem);

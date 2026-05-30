@@ -91,6 +91,8 @@ var host = new HostBuilder()
         services.AddScoped<ITradeInService, TradeInService>();
         services.AddScoped<ILoyaltyRepository, LoyaltyRepository>();
         services.AddScoped<ILoyaltyService, LoyaltyService>();
+        services.AddScoped<IPromotionRepository, PromotionRepository>();
+        services.AddScoped<IPromotionService, PromotionService>();
         services.AddScoped<LogoStorageService>();
         services.AddScoped<Stripe.InvoiceService>();
         services.AddScoped<Stripe.SubscriptionService>();
