@@ -11,6 +11,10 @@ public class CustomerRepository : ICustomerRepository
     private const string SelectColumns =
         "id, company_id, first_name, last_name, email, phone, address, city, state, zip_code, created_date, last_modified_date";
 
+    private const string SelectColumnsWithPoints =
+        "c.id, c.company_id, c.first_name, c.last_name, c.email, c.phone, c.address, c.city, c.state, c.zip_code, c.created_date, c.last_modified_date, " +
+        "COALESCE((SELECT SUM(lt.points) FROM loyalty_transaction lt WHERE lt.customer_id = c.id AND lt.company_id = c.company_id), 0) AS points_balance";
+
     static CustomerRepository()
     {
         DefaultTypeMap.MatchNamesWithUnderscores = true;
@@ -27,9 +31,9 @@ public class CustomerRepository : ICustomerRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         var rows = await connection.QueryAsync<Customer>(
-            $@"SELECT {SelectColumns} FROM customer
-               WHERE company_id = @p_company_id
-               ORDER BY last_name, first_name",
+            $@"SELECT {SelectColumnsWithPoints} FROM customer c
+               WHERE c.company_id = @p_company_id
+               ORDER BY c.last_name, c.first_name",
             new { p_company_id = companyId });
         return rows.ToList();
     }
@@ -38,8 +42,8 @@ public class CustomerRepository : ICustomerRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         return await connection.QueryFirstOrDefaultAsync<Customer>(
-            $@"SELECT {SelectColumns} FROM customer
-               WHERE id = @p_id",
+            $@"SELECT {SelectColumnsWithPoints} FROM customer c
+               WHERE c.id = @p_id",
             new { p_id = id });
     }
 
@@ -47,10 +51,10 @@ public class CustomerRepository : ICustomerRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         return await connection.QueryFirstOrDefaultAsync<Customer>(
-            $@"SELECT {SelectColumns} FROM customer
-               WHERE company_id = @p_company_id
-                 AND email IS NOT NULL
-                 AND lower(email) = lower(@p_email)",
+            $@"SELECT {SelectColumnsWithPoints} FROM customer c
+               WHERE c.company_id = @p_company_id
+                 AND c.email IS NOT NULL
+                 AND lower(c.email) = lower(@p_email)",
             new { p_company_id = companyId, p_email = email });
     }
 
@@ -62,7 +66,7 @@ public class CustomerRepository : ICustomerRepository
                 company_id, first_name, last_name, email, phone, address, city, state, zip_code, created_date, last_modified_date)
               VALUES (
                 @p_company_id, @p_first_name, @p_last_name, @p_email, @p_phone, @p_address, @p_city, @p_state, @p_zip_code, NOW(), NOW())
-              RETURNING {SelectColumns}",
+              RETURNING {SelectColumns}, 0 AS points_balance",
             new
             {
                 p_company_id = customer.CompanyId,
@@ -126,12 +130,12 @@ public class CustomerRepository : ICustomerRepository
         var needle = searchTerm.Trim().ToLowerInvariant();
         await using var connection = new NpgsqlConnection(_connectionString);
         var rows = await connection.QueryAsync<Customer>(
-            $@"SELECT {SelectColumns} FROM customer
-               WHERE company_id = @p_company_id
+            $@"SELECT {SelectColumnsWithPoints} FROM customer c
+               WHERE c.company_id = @p_company_id
                  AND strpos(
-                   lower(concat_ws(' ', first_name, last_name, coalesce(email, ''), coalesce(phone, ''))),
+                   lower(concat_ws(' ', c.first_name, c.last_name, coalesce(c.email, ''), coalesce(c.phone, ''))),
                    @p_needle) > 0
-               ORDER BY last_name, first_name",
+               ORDER BY c.last_name, c.first_name",
             new { p_company_id = companyId, p_needle = needle });
         return rows.ToList();
     }
