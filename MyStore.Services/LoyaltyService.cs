@@ -59,10 +59,12 @@ public class LoyaltyService : ILoyaltyService
         try
         {
             var balance = await _repository.GetBalanceAsync(companyId, customerId);
+            var transactions = await _repository.GetTransactionsAsync(companyId, customerId);
             return ApiResponse<LoyaltyBalanceResponse>.SuccessResponse(new LoyaltyBalanceResponse
             {
                 CustomerId = customerId,
                 Balance = balance,
+                Transactions = transactions,
             });
         }
         catch (Exception ex)

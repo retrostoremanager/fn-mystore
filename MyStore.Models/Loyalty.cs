@@ -26,6 +26,7 @@ public class LoyaltyBalanceResponse
 {
     public int CustomerId { get; set; }
     public int Balance { get; set; }
+    public List<LoyaltyTransaction> Transactions { get; set; } = new();
 }
 
 public class RedeemPointsRequest
