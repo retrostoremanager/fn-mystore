@@ -238,7 +238,8 @@ public class TradeInFunctions
 
         _logger.LogInformation("Parsing trade-in image for company {CompanyId}", companyId);
         var response = await _tradeInService.ParseImageAsync(parseRequest.ImageBase64, parseRequest.MimeType);
-        return await CreateHttpResponse(req, response);
+        var statusCode = response.Success ? HttpStatusCode.OK : HttpStatusCode.InternalServerError;
+        return await CreateHttpResponse(req, response, statusCode);
     }
 
     [Function("RejectTradeIn")]
