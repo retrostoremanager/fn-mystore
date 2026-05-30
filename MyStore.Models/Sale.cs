@@ -48,3 +48,33 @@ public class CreateSaleItemRequest
     public decimal UnitPrice { get; set; }
 }
 
+public class ReceiptLineItem
+{
+    public string Name { get; set; } = string.Empty;
+    public int Qty { get; set; }
+    public decimal UnitPrice { get; set; }
+    public decimal LineTotal { get; set; }
+}
+
+public class ReceiptResponse
+{
+    public string ReceiptNumber { get; set; } = string.Empty;
+    public DateTime Date { get; set; }
+    public string StoreName { get; set; } = string.Empty;
+    public string? StoreAddress { get; set; }
+    public string? StorePhone { get; set; }
+    public List<ReceiptLineItem> Items { get; set; } = new();
+    public decimal Subtotal { get; set; }
+    public string? TaxLabel { get; set; }
+    public decimal TaxRate { get; set; }
+    public decimal TaxAmount { get; set; }
+    public decimal Total { get; set; }
+    public string PaymentMethod { get; set; } = string.Empty;
+    public string? EmployeeName { get; set; }
+}
+
+public class SendReceiptEmailRequest
+{
+    public string Email { get; set; } = string.Empty;
+}
+

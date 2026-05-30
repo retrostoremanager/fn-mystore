@@ -44,6 +44,11 @@ public interface IEmailService
     /// Sends an invite for a store customer to set a password for the customer portal (same set-password flow as staff).
     /// </summary>
     Task<EmailSendResult> SendCustomerPortalInviteEmailAsync(string toEmail, string inviteToken, string companyName, string firstName);
+
+    /// <summary>
+    /// Sends an HTML-formatted sale receipt to the specified email address.
+    /// </summary>
+    Task<EmailSendResult> SendReceiptEmailAsync(string toEmail, MyStore.Models.ReceiptResponse receipt);
 }
 
 /// <summary>
