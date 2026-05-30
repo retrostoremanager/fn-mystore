@@ -10,12 +10,14 @@ namespace MyStore.Tests.Services;
 public class LoyaltyServiceTests
 {
     private readonly Mock<ILoyaltyRepository> _repositoryMock;
+    private readonly Mock<ICustomerRepository> _customerRepositoryMock;
     private readonly LoyaltyService _service;
 
     public LoyaltyServiceTests()
     {
         _repositoryMock = new Mock<ILoyaltyRepository>();
-        _service = new LoyaltyService(_repositoryMock.Object);
+        _customerRepositoryMock = new Mock<ICustomerRepository>();
+        _service = new LoyaltyService(_repositoryMock.Object, _customerRepositoryMock.Object);
     }
 
     [Fact]
@@ -77,13 +79,39 @@ public class LoyaltyServiceTests
     [Fact]
     public async Task GetBalanceAsync_ReturnsBalance()
     {
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(42)).ReturnsAsync(new Customer { Id = 42, CompanyId = 1 });
         _repositoryMock.Setup(r => r.GetBalanceAsync(1, 42)).ReturnsAsync(150);
+        _repositoryMock.Setup(r => r.GetTransactionsAsync(1, 42)).ReturnsAsync(new List<LoyaltyTransaction>());
 
         var result = await _service.GetBalanceAsync(1, 42);
 
         result.Success.Should().BeTrue();
         result.Data!.Balance.Should().Be(150);
         result.Data.CustomerId.Should().Be(42);
+    }
+
+    [Fact]
+    public async Task GetBalanceAsync_CustomerNotFound_ReturnsError()
+    {
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(99999)).ReturnsAsync((Customer?)null);
+
+        var result = await _service.GetBalanceAsync(1, 99999);
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Be("Customer not found");
+        _repositoryMock.Verify(r => r.GetBalanceAsync(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetBalanceAsync_CustomerBelongsToDifferentCompany_ReturnsError()
+    {
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(42)).ReturnsAsync(new Customer { Id = 42, CompanyId = 99 });
+
+        var result = await _service.GetBalanceAsync(1, 42);
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Be("Customer not found");
+        _repositoryMock.Verify(r => r.GetBalanceAsync(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
     }
 
     [Fact]
@@ -285,6 +313,7 @@ public class LoyaltyServiceTests
             new LoyaltyTransaction { Id = 2, Points = 50, TransactionType = "earn_tradein" },
             new LoyaltyTransaction { Id = 3, Points = -30, TransactionType = "redeem" },
         };
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(42)).ReturnsAsync(new Customer { Id = 42, CompanyId = 1 });
         _repositoryMock.Setup(r => r.GetBalanceAsync(1, 42)).ReturnsAsync(120);
         _repositoryMock.Setup(r => r.GetTransactionsAsync(1, 42)).ReturnsAsync(transactions);
 
