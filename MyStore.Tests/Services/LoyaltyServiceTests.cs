@@ -1,0 +1,218 @@
+using FluentAssertions;
+using Moq;
+using MyStore.Models;
+using MyStore.Repositories;
+using MyStore.Services;
+using Xunit;
+
+namespace MyStore.Tests.Services;
+
+public class LoyaltyServiceTests
+{
+    private readonly Mock<ILoyaltyRepository> _repositoryMock;
+    private readonly LoyaltyService _service;
+
+    public LoyaltyServiceTests()
+    {
+        _repositoryMock = new Mock<ILoyaltyRepository>();
+        _service = new LoyaltyService(_repositoryMock.Object);
+    }
+
+    [Fact]
+    public async Task GetSettingsAsync_SettingsExist_ReturnsSuccess()
+    {
+        var settings = new LoyaltySettings { Id = 1, CompanyId = 1, IsEnabled = true };
+        _repositoryMock.Setup(r => r.GetSettingsAsync(1)).ReturnsAsync(settings);
+
+        var result = await _service.GetSettingsAsync(1);
+
+        result.Success.Should().BeTrue();
+        result.Data.Should().Be(settings);
+    }
+
+    [Fact]
+    public async Task GetSettingsAsync_NoSettings_ReturnsDefaultSettings()
+    {
+        _repositoryMock.Setup(r => r.GetSettingsAsync(1)).ReturnsAsync((LoyaltySettings?)null);
+
+        var result = await _service.GetSettingsAsync(1);
+
+        result.Success.Should().BeTrue();
+        result.Data!.IsEnabled.Should().BeFalse();
+        result.Data.PointsPerDollarSpent.Should().Be(1m);
+        result.Data.RedemptionRate.Should().Be(100m);
+    }
+
+    [Fact]
+    public async Task UpdateSettingsAsync_ValidSettings_ReturnsUpdated()
+    {
+        var settings = new LoyaltySettings { PointsPerDollarSpent = 2m, RedemptionRate = 50m, IsEnabled = true };
+        var saved = new LoyaltySettings { Id = 1, CompanyId = 1, PointsPerDollarSpent = 2m, RedemptionRate = 50m, IsEnabled = true };
+        _repositoryMock.Setup(r => r.UpsertSettingsAsync(It.IsAny<LoyaltySettings>())).ReturnsAsync(saved);
+
+        var result = await _service.UpdateSettingsAsync(settings, 1);
+
+        result.Success.Should().BeTrue();
+        result.Data.Should().Be(saved);
+    }
+
+    [Fact]
+    public async Task GetBalanceAsync_ReturnsBalance()
+    {
+        _repositoryMock.Setup(r => r.GetBalanceAsync(1, 42)).ReturnsAsync(150);
+
+        var result = await _service.GetBalanceAsync(1, 42);
+
+        result.Success.Should().BeTrue();
+        result.Data!.Balance.Should().Be(150);
+        result.Data.CustomerId.Should().Be(42);
+    }
+
+    [Fact]
+    public async Task EarnFromSaleAsync_LoyaltyEnabled_InsertsTransaction()
+    {
+        var settings = new LoyaltySettings { CompanyId = 1, IsEnabled = true, PointsPerDollarSpent = 1m };
+        _repositoryMock.Setup(r => r.GetSettingsAsync(1)).ReturnsAsync(settings);
+        _repositoryMock.Setup(r => r.AddTransactionAsync(It.IsAny<LoyaltyTransaction>()))
+            .ReturnsAsync(new LoyaltyTransaction());
+
+        await _service.EarnFromSaleAsync(1, 5, 50.75m);
+
+        _repositoryMock.Verify(r => r.AddTransactionAsync(It.Is<LoyaltyTransaction>(t =>
+            t.CompanyId == 1 &&
+            t.CustomerId == 5 &&
+            t.Points == 50 &&
+            t.TransactionType == "earn_sale")), Times.Once);
+    }
+
+    [Fact]
+    public async Task EarnFromSaleAsync_LoyaltyDisabled_NoTransaction()
+    {
+        var settings = new LoyaltySettings { CompanyId = 1, IsEnabled = false };
+        _repositoryMock.Setup(r => r.GetSettingsAsync(1)).ReturnsAsync(settings);
+
+        await _service.EarnFromSaleAsync(1, 5, 100m);
+
+        _repositoryMock.Verify(r => r.AddTransactionAsync(It.IsAny<LoyaltyTransaction>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task EarnFromSaleAsync_NoSettings_NoTransaction()
+    {
+        _repositoryMock.Setup(r => r.GetSettingsAsync(1)).ReturnsAsync((LoyaltySettings?)null);
+
+        await _service.EarnFromSaleAsync(1, 5, 100m);
+
+        _repositoryMock.Verify(r => r.AddTransactionAsync(It.IsAny<LoyaltyTransaction>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task EarnFromSaleAsync_PointsFlooredCorrectly()
+    {
+        var settings = new LoyaltySettings { CompanyId = 1, IsEnabled = true, PointsPerDollarSpent = 1.5m };
+        _repositoryMock.Setup(r => r.GetSettingsAsync(1)).ReturnsAsync(settings);
+        _repositoryMock.Setup(r => r.AddTransactionAsync(It.IsAny<LoyaltyTransaction>()))
+            .ReturnsAsync(new LoyaltyTransaction());
+
+        await _service.EarnFromSaleAsync(1, 5, 10m);
+
+        _repositoryMock.Verify(r => r.AddTransactionAsync(It.Is<LoyaltyTransaction>(t =>
+            t.Points == 15)), Times.Once);
+    }
+
+    [Fact]
+    public async Task EarnFromTradeInAsync_LoyaltyEnabled_InsertsTransaction()
+    {
+        var settings = new LoyaltySettings { CompanyId = 1, IsEnabled = true, PointsPerDollarTradeIn = 2m };
+        _repositoryMock.Setup(r => r.GetSettingsAsync(1)).ReturnsAsync(settings);
+        _repositoryMock.Setup(r => r.AddTransactionAsync(It.IsAny<LoyaltyTransaction>()))
+            .ReturnsAsync(new LoyaltyTransaction());
+
+        await _service.EarnFromTradeInAsync(5, 1, 20m);
+
+        _repositoryMock.Verify(r => r.AddTransactionAsync(It.Is<LoyaltyTransaction>(t =>
+            t.CompanyId == 1 &&
+            t.CustomerId == 5 &&
+            t.Points == 40 &&
+            t.TransactionType == "earn_tradein")), Times.Once);
+    }
+
+    [Fact]
+    public async Task EarnFromTradeInAsync_LoyaltyDisabled_NoTransaction()
+    {
+        var settings = new LoyaltySettings { CompanyId = 1, IsEnabled = false };
+        _repositoryMock.Setup(r => r.GetSettingsAsync(1)).ReturnsAsync(settings);
+
+        await _service.EarnFromTradeInAsync(5, 1, 100m);
+
+        _repositoryMock.Verify(r => r.AddTransactionAsync(It.IsAny<LoyaltyTransaction>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task RedeemAsync_SufficientBalance_ReturnsCredit()
+    {
+        var settings = new LoyaltySettings { CompanyId = 1, IsEnabled = true, RedemptionRate = 100m };
+        _repositoryMock.Setup(r => r.GetSettingsAsync(1)).ReturnsAsync(settings);
+        _repositoryMock.Setup(r => r.GetBalanceAsync(1, 5)).ReturnsAsync(500);
+        _repositoryMock.Setup(r => r.AddTransactionAsync(It.IsAny<LoyaltyTransaction>()))
+            .ReturnsAsync(new LoyaltyTransaction());
+
+        var result = await _service.RedeemAsync(1, 5, 200);
+
+        result.Success.Should().BeTrue();
+        result.Data!.PointsRedeemed.Should().Be(200);
+        result.Data.CreditAmount.Should().Be(2m);
+        result.Data.NewBalance.Should().Be(300);
+    }
+
+    [Fact]
+    public async Task RedeemAsync_InsufficientBalance_ReturnsError()
+    {
+        var settings = new LoyaltySettings { CompanyId = 1, IsEnabled = true, RedemptionRate = 100m };
+        _repositoryMock.Setup(r => r.GetSettingsAsync(1)).ReturnsAsync(settings);
+        _repositoryMock.Setup(r => r.GetBalanceAsync(1, 5)).ReturnsAsync(100);
+
+        var result = await _service.RedeemAsync(1, 5, 200);
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("Insufficient");
+        _repositoryMock.Verify(r => r.AddTransactionAsync(It.IsAny<LoyaltyTransaction>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task RedeemAsync_LoyaltyDisabled_ReturnsError()
+    {
+        var settings = new LoyaltySettings { CompanyId = 1, IsEnabled = false };
+        _repositoryMock.Setup(r => r.GetSettingsAsync(1)).ReturnsAsync(settings);
+
+        var result = await _service.RedeemAsync(1, 5, 100);
+
+        result.Success.Should().BeFalse();
+        _repositoryMock.Verify(r => r.AddTransactionAsync(It.IsAny<LoyaltyTransaction>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task RedeemAsync_ZeroPoints_ReturnsError()
+    {
+        var result = await _service.RedeemAsync(1, 5, 0);
+
+        result.Success.Should().BeFalse();
+        _repositoryMock.Verify(r => r.GetSettingsAsync(It.IsAny<int>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task RedeemAsync_InsertsNegativeTransaction()
+    {
+        var settings = new LoyaltySettings { CompanyId = 1, IsEnabled = true, RedemptionRate = 100m };
+        _repositoryMock.Setup(r => r.GetSettingsAsync(1)).ReturnsAsync(settings);
+        _repositoryMock.Setup(r => r.GetBalanceAsync(1, 5)).ReturnsAsync(300);
+        _repositoryMock.Setup(r => r.AddTransactionAsync(It.IsAny<LoyaltyTransaction>()))
+            .ReturnsAsync(new LoyaltyTransaction());
+
+        await _service.RedeemAsync(1, 5, 100);
+
+        _repositoryMock.Verify(r => r.AddTransactionAsync(It.Is<LoyaltyTransaction>(t =>
+            t.Points == -100 &&
+            t.TransactionType == "redeem")), Times.Once);
+    }
+}

@@ -10,19 +10,22 @@ public class SalesService : ISalesService
     private readonly IUserRepository _userRepository;
     private readonly IInventoryRepository _inventoryRepository;
     private readonly ICompanyRepository _companyRepository;
+    private readonly ILoyaltyService? _loyaltyService;
 
     public SalesService(
         ISalesRepository salesRepository,
         ICustomerRepository customerRepository,
         IUserRepository userRepository,
         IInventoryRepository inventoryRepository,
-        ICompanyRepository companyRepository)
+        ICompanyRepository companyRepository,
+        ILoyaltyService? loyaltyService = null)
     {
         _salesRepository = salesRepository;
         _customerRepository = customerRepository;
         _userRepository = userRepository;
         _inventoryRepository = inventoryRepository;
         _companyRepository = companyRepository;
+        _loyaltyService = loyaltyService;
     }
 
     public async Task<ApiResponse<List<Sale>>> GetAllSalesAsync(int companyId)
@@ -201,6 +204,9 @@ public class SalesService : ISalesService
 
             var created = await _salesRepository.CreateAsync(sale);
             await LoadRelatedDataAsync(new List<Sale> { created }, companyId);
+
+            if (_loyaltyService is not null)
+                await _loyaltyService.EarnFromSaleAsync(companyId, request.CustomerId, sale.Total);
 
             return ApiResponse<Sale>.SuccessResponse(created, "Sale created successfully");
         }
