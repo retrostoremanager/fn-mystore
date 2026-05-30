@@ -30,6 +30,7 @@ public class CompanyProfile
     public int Id { get; set; }
     public string? CompanyName { get; set; }
     public string? CompanyAddress { get; set; }
+    public string? CompanyAddress2 { get; set; }
     public string? CompanyCity { get; set; }
     public string? CompanyState { get; set; }
     public string? CompanyZipCode { get; set; }
@@ -45,6 +46,7 @@ public class CompanyProfileUpdateRequest
 {
     public string? CompanyName { get; set; }
     public string? CompanyAddress { get; set; }
+    public string? CompanyAddress2 { get; set; }
     public string? CompanyCity { get; set; }
     public string? CompanyState { get; set; }
     public string? CompanyZipCode { get; set; }
