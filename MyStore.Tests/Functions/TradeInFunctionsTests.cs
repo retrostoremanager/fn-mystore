@@ -590,6 +590,84 @@ public class TradeInFunctionsTests
 
     #endregion
 
+    #region ParseTradeInImage Tests
+
+    [Fact]
+    public async Task ParseTradeInImage_ValidRequest_Returns200WithItems()
+    {
+        var result = new ParseImageResult
+        {
+            Items = new List<ParsedTradeInItem>
+            {
+                new ParsedTradeInItem
+                {
+                    GameTitle = "Super Mario Bros",
+                    Platform = "NES",
+                    Condition = "good",
+                    OfferedValue = null
+                }
+            }
+        };
+        _serviceMock
+            .Setup(s => s.ParseImageAsync(It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync(ApiResponse<ParseImageResult>.SuccessResponse(result));
+
+        var context = new Mock<FunctionContext>();
+        var body = new { imageBase64 = "dGVzdA==", mimeType = "image/jpeg" };
+        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+
+        var response = await _functions.ParseTradeInImage(req);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var responseBody = await TestHelpers.ReadResponseBody(response);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<ParseImageResult>>(
+            responseBody, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Success.Should().BeTrue();
+        deserialized.Data!.Items.Should().HaveCount(1);
+        deserialized.Data.Items[0].GameTitle.Should().Be("Super Mario Bros");
+    }
+
+    [Fact]
+    public async Task ParseTradeInImage_MissingImageBase64_Returns400()
+    {
+        var context = new Mock<FunctionContext>();
+        var body = new { imageBase64 = "", mimeType = "image/jpeg" };
+        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+
+        var response = await _functions.ParseTradeInImage(req);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        _serviceMock.Verify(s => s.ParseImageAsync(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ParseTradeInImage_InvalidBody_Returns400()
+    {
+        var context = new Mock<FunctionContext>();
+        var req = TestHelpers.CreateHttpRequestDataWithRawBody("not-json", _companyHeaders);
+
+        var response = await _functions.ParseTradeInImage(req);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        _serviceMock.Verify(s => s.ParseImageAsync(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ParseTradeInImage_MissingCompanyHeader_Returns401()
+    {
+        var context = new Mock<FunctionContext>();
+        var body = new { imageBase64 = "dGVzdA==", mimeType = "image/jpeg" };
+        var req = TestHelpers.CreateHttpRequestData(context.Object, body);
+
+        var response = await _functions.ParseTradeInImage(req);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        _serviceMock.Verify(s => s.ParseImageAsync(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+    }
+
+    #endregion
+
     #region Permission Attribute Tests
 
     [Fact]
