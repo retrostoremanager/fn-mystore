@@ -14,6 +14,7 @@ public class Customer
     public string? ZipCode { get; set; }
     public DateTime CreatedDate { get; set; }
     public DateTime? LastModifiedDate { get; set; }
+    public int PointsBalance { get; set; }
 }
 
 public class CreateCustomerRequest
