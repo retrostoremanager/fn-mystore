@@ -57,6 +57,24 @@ public class LoyaltyServiceTests
     }
 
     [Fact]
+    public async Task UpdateSettingsAsync_DisabledWithZeroRedemptionRate_DefaultsRateToOne()
+    {
+        var settings = new LoyaltySettings { IsEnabled = false, PointsPerDollarSpent = 0m, PointsPerDollarTradeIn = 0m, RedemptionRate = 0m };
+        LoyaltySettings? captured = null;
+        _repositoryMock
+            .Setup(r => r.UpsertSettingsAsync(It.IsAny<LoyaltySettings>()))
+            .Callback<LoyaltySettings>(s => captured = s)
+            .ReturnsAsync(settings);
+
+        var result = await _service.UpdateSettingsAsync(settings, 1);
+
+        result.Success.Should().BeTrue();
+        captured!.RedemptionRate.Should().Be(1m);
+        captured.PointsPerDollarSpent.Should().Be(0m);
+        captured.PointsPerDollarTradeIn.Should().Be(0m);
+    }
+
+    [Fact]
     public async Task GetBalanceAsync_ReturnsBalance()
     {
         _repositoryMock.Setup(r => r.GetBalanceAsync(1, 42)).ReturnsAsync(150);

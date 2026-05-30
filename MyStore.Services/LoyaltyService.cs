@@ -43,6 +43,17 @@ public class LoyaltyService : ILoyaltyService
         try
         {
             settings.CompanyId = companyId;
+
+            if (!settings.IsEnabled)
+            {
+                if (settings.RedemptionRate <= 0)
+                    settings.RedemptionRate = 1m;
+                if (settings.PointsPerDollarSpent < 0)
+                    settings.PointsPerDollarSpent = 0m;
+                if (settings.PointsPerDollarTradeIn < 0)
+                    settings.PointsPerDollarTradeIn = 0m;
+            }
+
             var updated = await _repository.UpsertSettingsAsync(settings);
             return ApiResponse<LoyaltySettings>.SuccessResponse(updated, "Loyalty settings updated successfully");
         }
