@@ -85,6 +85,7 @@ var host = new HostBuilder()
         services.AddScoped<ITrialSuspensionService, TrialSuspensionService>();
         services.AddScoped<ISubscriptionChangeService, SubscriptionChangeService>();
         services.AddScoped<IPermissionService, PermissionService>();
+        services.AddScoped<IReceiptService, ReceiptService>();
         services.AddScoped<IConsignmentService, ConsignmentService>();
         services.AddScoped<ITradeInRepository, TradeInRepository>();
         services.AddScoped<ITradeInService, TradeInService>();

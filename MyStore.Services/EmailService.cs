@@ -3,6 +3,7 @@ using Azure;
 using Azure.Communication.Email;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using MyStore.Models;
 
 namespace MyStore.Services;
 
@@ -543,6 +544,163 @@ public class EmailService : IEmailService
     </div>
 </body>
 </html>";
+    }
+
+    /// <inheritdoc />
+    public async Task<EmailSendResult> SendReceiptEmailAsync(string toEmail, ReceiptResponse receipt)
+    {
+        if (_emailClient == null)
+        {
+            _logger.LogWarning("Email service not configured. Skipping receipt email for {Email}", toEmail);
+            return new EmailSendResult { Success = true, ErrorMessage = "Email service not configured" };
+        }
+
+        try
+        {
+            var subject = $"Your Receipt #{receipt.ReceiptNumber} from {receipt.StoreName}";
+            var emailContent = new EmailContent(subject)
+            {
+                PlainText = GetReceiptPlainText(receipt),
+                Html = GetReceiptHtml(receipt)
+            };
+
+            var emailMessage = new EmailMessage(
+                senderAddress: _fromEmail,
+                recipientAddress: toEmail,
+                content: emailContent
+            );
+
+            var success = await SendWithRetryAsync(emailMessage);
+            if (success)
+            {
+                _logger.LogInformation("Receipt email sent successfully to {Email} for receipt {ReceiptNumber}", toEmail, receipt.ReceiptNumber);
+                return new EmailSendResult { Success = true };
+            }
+
+            _logger.LogError("Failed to send receipt email to {Email} after retries", toEmail);
+            return new EmailSendResult { Success = false, ErrorMessage = "Failed to send email after retries" };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Exception occurred while sending receipt email to {Email}", toEmail);
+            return new EmailSendResult { Success = false, ErrorMessage = ex.Message };
+        }
+    }
+
+    private static string GetReceiptPlainText(ReceiptResponse receipt)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"Receipt #{receipt.ReceiptNumber}");
+        sb.AppendLine($"Date: {receipt.Date:yyyy-MM-dd HH:mm}");
+        sb.AppendLine();
+        sb.AppendLine(receipt.StoreName);
+        if (!string.IsNullOrWhiteSpace(receipt.StoreAddress)) sb.AppendLine(receipt.StoreAddress);
+        if (!string.IsNullOrWhiteSpace(receipt.StorePhone)) sb.AppendLine(receipt.StorePhone);
+        sb.AppendLine();
+        sb.AppendLine("Items:");
+        foreach (var item in receipt.Items)
+        {
+            sb.AppendLine($"  {item.Name} x{item.Qty}  @{item.UnitPrice:C}  = {item.LineTotal:C}");
+        }
+        sb.AppendLine();
+        sb.AppendLine($"Subtotal: {receipt.Subtotal:C}");
+        if (receipt.TaxRate > 0)
+        {
+            var label = string.IsNullOrWhiteSpace(receipt.TaxLabel) ? "Tax" : receipt.TaxLabel;
+            sb.AppendLine($"{label} ({receipt.TaxRate:P2}): {receipt.TaxAmount:C}");
+        }
+        sb.AppendLine($"Total: {receipt.Total:C}");
+        sb.AppendLine($"Payment: {receipt.PaymentMethod}");
+        if (!string.IsNullOrWhiteSpace(receipt.EmployeeName))
+            sb.AppendLine($"Served by: {receipt.EmployeeName}");
+        return sb.ToString();
+    }
+
+    private static string GetReceiptHtml(ReceiptResponse receipt)
+    {
+        var sb = new StringBuilder();
+        sb.Append($@"
+<!DOCTYPE html>
+<html lang=""en"">
+<head>
+    <meta charset=""UTF-8"">
+    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+    <title>Receipt #{receipt.ReceiptNumber}</title>
+    <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .container {{ background-color: #fff; border-radius: 8px; padding: 40px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+        table {{ width: 100%; border-collapse: collapse; margin: 16px 0; }}
+        th {{ text-align: left; border-bottom: 2px solid #333; padding: 6px 4px; }}
+        td {{ padding: 6px 4px; border-bottom: 1px solid #eee; }}
+        .totals td {{ border: none; }}
+        .total-row {{ font-weight: bold; font-size: 1.1em; }}
+        .store-info {{ margin-bottom: 24px; }}
+        .receipt-meta {{ color: #555; margin-bottom: 16px; }}
+    </style>
+</head>
+<body>
+    <div class=""container"">
+        <h1>Receipt #{receipt.ReceiptNumber}</h1>
+        <div class=""receipt-meta"">Date: {receipt.Date:yyyy-MM-dd HH:mm}</div>
+        <div class=""store-info"">
+            <strong>{receipt.StoreName}</strong>");
+
+        if (!string.IsNullOrWhiteSpace(receipt.StoreAddress))
+            sb.Append($"<br>{receipt.StoreAddress}");
+        if (!string.IsNullOrWhiteSpace(receipt.StorePhone))
+            sb.Append($"<br>{receipt.StorePhone}");
+
+        sb.Append(@"
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Qty</th>
+                    <th>Unit Price</th>
+                    <th>Line Total</th>
+                </tr>
+            </thead>
+            <tbody>");
+
+        foreach (var item in receipt.Items)
+        {
+            sb.Append($@"
+                <tr>
+                    <td>{System.Net.WebUtility.HtmlEncode(item.Name)}</td>
+                    <td>{item.Qty}</td>
+                    <td>{item.UnitPrice:C}</td>
+                    <td>{item.LineTotal:C}</td>
+                </tr>");
+        }
+
+        sb.Append($@"
+            </tbody>
+        </table>
+        <table class=""totals"">
+            <tr><td>Subtotal</td><td align=""right"">{receipt.Subtotal:C}</td></tr>");
+
+        if (receipt.TaxRate > 0)
+        {
+            var label = string.IsNullOrWhiteSpace(receipt.TaxLabel) ? "Tax" : receipt.TaxLabel;
+            sb.Append($@"<tr><td>{System.Net.WebUtility.HtmlEncode(label)} ({receipt.TaxRate:P2})</td><td align=""right"">{receipt.TaxAmount:C}</td></tr>");
+        }
+
+        sb.Append($@"
+            <tr class=""total-row""><td>Total</td><td align=""right"">{receipt.Total:C}</td></tr>
+            <tr><td>Payment</td><td align=""right"">{System.Net.WebUtility.HtmlEncode(receipt.PaymentMethod)}</td></tr>");
+
+        if (!string.IsNullOrWhiteSpace(receipt.EmployeeName))
+            sb.Append($@"<tr><td>Served by</td><td align=""right"">{System.Net.WebUtility.HtmlEncode(receipt.EmployeeName)}</td></tr>");
+
+        sb.Append(@"
+        </table>
+        <p>Thank you for your purchase!</p>
+    </div>
+</body>
+</html>");
+
+        return sb.ToString();
     }
 
     /// <summary>
