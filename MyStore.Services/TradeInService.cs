@@ -306,11 +306,12 @@ public class TradeInService : ITradeInService
             };
 
             var json = JsonSerializer.Serialize(requestBody);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _openAiApiKey);
+            using var requestMessage = new HttpRequestMessage(HttpMethod.Post, OpenAiUrl);
+            requestMessage.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _openAiApiKey);
+            requestMessage.Content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var response = await _httpClient.PostAsync(OpenAiUrl, content);
+            var response = await _httpClient.SendAsync(requestMessage);
             var responseBody = await response.Content.ReadAsStringAsync();
 
             if (!response.IsSuccessStatusCode)
