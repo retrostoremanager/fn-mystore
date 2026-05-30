@@ -106,7 +106,7 @@ public class LoyaltyFunctions
     }
 
     [Function("GetCustomerLoyaltyBalance")]
-    [RequirePermission("customer.view")]
+    [RequirePermission("customers.view")]
     public async Task<HttpResponseData> GetCustomerLoyaltyBalance(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "customers/{id:int}/loyalty")] HttpRequestData req,
         int id)
@@ -130,7 +130,7 @@ public class LoyaltyFunctions
     }
 
     [Function("RedeemLoyaltyPoints")]
-    [RequirePermission("customer.edit")]
+    [RequirePermission("customers.edit")]
     public async Task<HttpResponseData> RedeemLoyaltyPoints(
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "customers/{id:int}/loyalty/redeem")] HttpRequestData req,
         int id)
