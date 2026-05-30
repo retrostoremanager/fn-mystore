@@ -6,10 +6,12 @@ namespace MyStore.Services;
 public class LoyaltyService : ILoyaltyService
 {
     private readonly ILoyaltyRepository _repository;
+    private readonly ICustomerRepository _customerRepository;
 
-    public LoyaltyService(ILoyaltyRepository repository)
+    public LoyaltyService(ILoyaltyRepository repository, ICustomerRepository customerRepository)
     {
         _repository = repository;
+        _customerRepository = customerRepository;
     }
 
     public async Task<ApiResponse<LoyaltySettings>> GetSettingsAsync(int companyId)
@@ -69,6 +71,10 @@ public class LoyaltyService : ILoyaltyService
     {
         try
         {
+            var customer = await _customerRepository.GetByIdAsync(customerId);
+            if (customer is null || customer.CompanyId != companyId)
+                return ApiResponse<LoyaltyBalanceResponse>.ErrorResponse("Customer not found");
+
             var balance = await _repository.GetBalanceAsync(companyId, customerId);
             var transactions = await _repository.GetTransactionsAsync(companyId, customerId);
             return ApiResponse<LoyaltyBalanceResponse>.SuccessResponse(new LoyaltyBalanceResponse
