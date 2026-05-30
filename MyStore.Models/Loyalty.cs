@@ -31,6 +31,7 @@ public class LoyaltyBalanceResponse
 
 public class RedeemPointsRequest
 {
+    [System.Text.Json.Serialization.JsonPropertyName("points")]
     public int PointsToRedeem { get; set; }
 }
 
