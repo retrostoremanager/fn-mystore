@@ -46,6 +46,18 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+    - name: Install PostgreSQL client
+      run: sudo apt-get install -y postgresql-client
+
+    - name: Run DB migrations
+      env:
+        PGPASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+      run: |
+        for f in $(ls scripts/*.sql | sort); do
+          echo "Applying $f"
+          psql "host=mystore-postgres-b1.postgres.database.azure.com port=5432 dbname=mystore-db-dev user=sqladmin sslmode=require" -f "$f"
+        done
+
     - name: Deploy to Azure Function App
       run: |
         cd publish
