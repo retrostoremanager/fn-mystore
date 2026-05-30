@@ -1,3 +1,9 @@
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using MyStore.Models;
 using MyStore.Repositories;
 
@@ -8,15 +14,28 @@ public class TradeInService : ITradeInService
     private readonly ITradeInRepository _tradeInRepository;
     private readonly IInventoryRepository _inventoryRepository;
     private readonly ILoyaltyService? _loyaltyService;
+    private readonly HttpClient? _httpClient;
+    private readonly ILogger<TradeInService>? _logger;
+    private readonly string? _openAiApiKey;
+
+    private const string OpenAiUrl = "https://api.openai.com/v1/chat/completions";
 
     public TradeInService(
         ITradeInRepository tradeInRepository,
         IInventoryRepository inventoryRepository,
-        ILoyaltyService? loyaltyService = null)
+        ILoyaltyService? loyaltyService = null,
+        HttpClient? httpClient = null,
+        ILogger<TradeInService>? logger = null,
+        IConfiguration? configuration = null)
     {
         _tradeInRepository = tradeInRepository;
         _inventoryRepository = inventoryRepository;
         _loyaltyService = loyaltyService;
+        _httpClient = httpClient;
+        _logger = logger;
+        _openAiApiKey = configuration?["OpenAI:ApiKey"]
+            ?? configuration?["OPENAI_API_KEY"]
+            ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY");
     }
 
     public async Task<ApiResponse<List<TradeIn>>> GetAllAsync(int companyId, string? status = null, DateTime? dateFrom = null, DateTime? dateTo = null)
@@ -245,6 +264,87 @@ public class TradeInService : ITradeInService
         {
             return ApiResponse<TradeIn>.ErrorResponse(
                 "Failed to reject trade-in",
+                new List<string> { ex.Message });
+        }
+    }
+
+    public async Task<ApiResponse<ParseImageResult>> ParseImageAsync(string imageBase64, string mimeType)
+    {
+        if (_httpClient is null || string.IsNullOrWhiteSpace(_openAiApiKey))
+        {
+            _logger?.LogWarning("OpenAI API key not configured. Returning empty parse result.");
+            return ApiResponse<ParseImageResult>.SuccessResponse(new ParseImageResult());
+        }
+
+        try
+        {
+            var prompt = "You are a retro game store assistant. Analyze this image of video games and identify each game. " +
+                         "For each game found, return a JSON array with objects containing: gameTitle (string), platform (string), " +
+                         "condition (string: poor/fair/good/excellent), offeredValue (null). " +
+                         "Return ONLY the JSON array, no other text. Example: [{\"gameTitle\":\"Super Mario Bros\",\"platform\":\"NES\",\"condition\":\"good\",\"offeredValue\":null}]";
+
+            var requestBody = new
+            {
+                model = "gpt-4o",
+                messages = new[]
+                {
+                    new
+                    {
+                        role = "user",
+                        content = new object[]
+                        {
+                            new { type = "text", text = prompt },
+                            new
+                            {
+                                type = "image_url",
+                                image_url = new { url = $"data:{mimeType};base64,{imageBase64}" }
+                            }
+                        }
+                    }
+                },
+                max_tokens = 1000
+            };
+
+            var json = JsonSerializer.Serialize(requestBody);
+
+            using var requestMessage = new HttpRequestMessage(HttpMethod.Post, OpenAiUrl);
+            requestMessage.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _openAiApiKey);
+            requestMessage.Content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.SendAsync(requestMessage);
+            var responseBody = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger?.LogWarning("OpenAI API returned {StatusCode}: {Body}", response.StatusCode, responseBody);
+                return ApiResponse<ParseImageResult>.ErrorResponse("Image parsing service unavailable");
+            }
+
+            var jsonNode = JsonNode.Parse(responseBody);
+            var messageContent = jsonNode?["choices"]?[0]?["message"]?["content"]?.GetValue<string>();
+
+            if (string.IsNullOrWhiteSpace(messageContent))
+                return ApiResponse<ParseImageResult>.SuccessResponse(new ParseImageResult());
+
+            var cleanedContent = messageContent.Trim();
+            if (cleanedContent.StartsWith("```"))
+            {
+                cleanedContent = cleanedContent.Split('\n', 2).Last();
+                cleanedContent = cleanedContent.TrimEnd('`').Trim();
+            }
+
+            var items = JsonSerializer.Deserialize<List<ParsedTradeInItem>>(cleanedContent, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            }) ?? new List<ParsedTradeInItem>();
+
+            return ApiResponse<ParseImageResult>.SuccessResponse(new ParseImageResult { Items = items });
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to parse image via OpenAI");
+            return ApiResponse<ParseImageResult>.ErrorResponse(
+                "Failed to parse image",
                 new List<string> { ex.Message });
         }
     }
