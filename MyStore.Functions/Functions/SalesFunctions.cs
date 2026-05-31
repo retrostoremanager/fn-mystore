@@ -166,6 +166,27 @@ public class SalesFunctions
         }
     }
 
+    [Function("GetSaleReceipt")]
+    public async Task<HttpResponseData> GetSaleReceipt(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "sales/{id:int}/receipt")] HttpRequestData req,
+        int id)
+    {
+        try
+        {
+            var companyId = CompanyHelper.GetCompanyIdRequired(req);
+            _logger.LogInformation("Getting receipt for sale ID: {Id} for company {CompanyId}", id, companyId);
+
+            var response = await _salesService.GetReceiptAsync(id, companyId);
+            var statusCode = response.Success ? HttpStatusCode.OK : HttpStatusCode.NotFound;
+            return await CreateHttpResponse(req, response, statusCode);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            var errorResponse = ApiResponse<ReceiptResponse>.ErrorResponse(ex.Message);
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
+        }
+    }
+
     [Function("DeleteSale")]
     [RequirePermission("sales.refund")]
     public async Task<HttpResponseData> DeleteSale(
