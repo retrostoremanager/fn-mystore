@@ -679,7 +679,7 @@ public class BillingFunctionsTests
     }
 
     [Fact]
-    public async Task GetSubscriptionStatus_StripeGetAsyncFails_Returns500()
+    public async Task GetSubscriptionStatus_StripeGetAsyncFails_ReturnsLocalSubscriptionData()
     {
         var companyId = 5;
         var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
@@ -698,16 +698,19 @@ public class BillingFunctionsTests
         _stripeSubscriptionServiceMock
             .Setup(s => s.GetAsync("sub_missing123", It.IsAny<SubscriptionGetOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new StripeException("No such subscription") { StripeError = new StripeError { Code = "resource_missing" } });
+        _invoiceServiceMock
+            .Setup(s => s.CreatePreviewAsync(It.IsAny<InvoiceCreatePreviewOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new StripeException("No such customer") { StripeError = new StripeError { Code = "invoice_upcoming_none" } });
 
         var result = await _functions.GetSubscriptionStatus(request);
 
-        result.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
         var body = await TestHelpers.ReadResponseBody(result);
-        body.Should().Contain("error");
+        body.Should().Contain("active");
     }
 
     [Fact]
-    public async Task GetSubscriptionStatus_InvoicePreviewStripeExceptionNotUpcomingNone_Returns500()
+    public async Task GetSubscriptionStatus_InvoicePreviewStripeExceptionNotUpcomingNone_ReturnsOkWithSubscriptionData()
     {
         var companyId = 6;
         var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
@@ -766,9 +769,9 @@ public class BillingFunctionsTests
 
         var result = await _functions.GetSubscriptionStatus(request);
 
-        result.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
         var body = await TestHelpers.ReadResponseBody(result);
-        body.Should().Contain("error");
+        body.Should().Contain("active");
     }
 
     [Fact]
