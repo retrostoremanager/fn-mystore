@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using MyStore.Functions;
 using MyStore.Models;
+using MyStore.Repositories;
 using MyStore.Services;
 using MyStore.Tests.Helpers;
 using Xunit;
@@ -15,6 +16,7 @@ namespace MyStore.Tests.Functions;
 public class PromotionFunctionsTests
 {
     private readonly Mock<IPromotionService> _promotionServiceMock;
+    private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<ILoggerFactory> _loggerFactoryMock;
     private readonly Mock<ILogger<PromotionFunctions>> _loggerMock;
     private readonly PromotionFunctions _functions;
@@ -26,6 +28,7 @@ public class PromotionFunctionsTests
     public PromotionFunctionsTests()
     {
         _promotionServiceMock = new Mock<IPromotionService>();
+        _userRepositoryMock = new Mock<IUserRepository>();
         _loggerMock = new Mock<ILogger<PromotionFunctions>>();
         _loggerFactoryMock = new Mock<ILoggerFactory>();
 
@@ -33,7 +36,7 @@ public class PromotionFunctionsTests
             .Setup(f => f.CreateLogger(It.IsAny<string>()))
             .Returns(_loggerMock.Object);
 
-        _functions = new PromotionFunctions(_promotionServiceMock.Object, _loggerFactoryMock.Object);
+        _functions = new PromotionFunctions(_promotionServiceMock.Object, _userRepositoryMock.Object, _loggerFactoryMock.Object);
     }
 
     private static Promotion CreatePromotion(int id = 1) => new Promotion
