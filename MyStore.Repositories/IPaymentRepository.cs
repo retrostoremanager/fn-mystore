@@ -10,4 +10,5 @@ public interface IPaymentRepository
     Task SetDefaultAsync(int companyId, int paymentMethodId);
     Task<bool> DeleteAsync(int id, int companyId);
     Task<int?> GetCompanyIdByStripeCustomerIdAsync(string stripeCustomerId);
+    Task UpdateBrandAsync(int id, string brand);
 }

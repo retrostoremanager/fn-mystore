@@ -134,7 +134,35 @@ public class PaymentService : IPaymentService
     {
         try
         {
-            var methods = await _paymentRepository.GetByCompanyIdAsync(companyId);
+            var methods = (await _paymentRepository.GetByCompanyIdAsync(companyId)).ToList();
+
+            var methodsNeedingBackfill = methods
+                .Where(m => string.IsNullOrEmpty(m.Brand) && !string.IsNullOrEmpty(m.StripePaymentMethodId))
+                .ToList();
+
+            if (methodsNeedingBackfill.Count > 0 && !string.IsNullOrWhiteSpace(_stripeSecretKey))
+            {
+                var paymentMethodService = new Stripe.PaymentMethodService();
+
+                foreach (var method in methodsNeedingBackfill)
+                {
+                    try
+                    {
+                        var stripePaymentMethod = await paymentMethodService.GetAsync(method.StripePaymentMethodId);
+                        var brand = stripePaymentMethod.Card?.Brand ?? string.Empty;
+                        if (!string.IsNullOrEmpty(brand))
+                        {
+                            await _paymentRepository.UpdateBrandAsync(method.Id, brand);
+                            method.Brand = brand;
+                        }
+                    }
+                    catch (StripeException ex)
+                    {
+                        _logger.LogWarning(ex, "Could not backfill brand for payment method {PaymentMethodId}", method.Id);
+                    }
+                }
+            }
+
             var response = methods.Select(m => new StorePaymentMethodResponse
             {
                 Id = m.Id,
