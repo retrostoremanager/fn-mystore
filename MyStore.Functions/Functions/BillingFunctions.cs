@@ -27,6 +27,7 @@ public class BillingFunctions
     private readonly InvoiceService _invoiceService;
     private readonly Stripe.SubscriptionService _stripeSubscriptionService;
     private readonly Stripe.ProductService _stripeProductService;
+    private readonly Stripe.CustomerService _stripeCustomerService;
     private readonly ILogger _logger;
 
     public BillingFunctions(
@@ -40,6 +41,7 @@ public class BillingFunctions
         InvoiceService invoiceService,
         Stripe.SubscriptionService stripeSubscriptionService,
         Stripe.ProductService stripeProductService,
+        Stripe.CustomerService stripeCustomerService,
         ILoggerFactory loggerFactory)
     {
         _paymentService = paymentService;
@@ -52,6 +54,7 @@ public class BillingFunctions
         _invoiceService = invoiceService;
         _stripeSubscriptionService = stripeSubscriptionService;
         _stripeProductService = stripeProductService;
+        _stripeCustomerService = stripeCustomerService;
         _logger = loggerFactory.CreateLogger<BillingFunctions>();
     }
 
@@ -509,6 +512,44 @@ public class BillingFunctions
                 _logger.LogInformation("Backfilled stripe_customer_id {CustomerId} for company {CompanyId}", stripeSub.CustomerId, companyId);
             }
 
+            if (stripeSub is null && string.IsNullOrEmpty(localSub.StripeCustomerId))
+            {
+                _logger.LogWarning("StripeSubscriptionId {StripeSubscriptionId} is invalid for company {CompanyId} and stripe_customer_id is missing; attempting customer lookup via company email",
+                    localSub.StripeSubscriptionId, companyId);
+                try
+                {
+                    var company = await _companyRepository.GetByIdAsync(companyId);
+                    if (company is not null && !string.IsNullOrEmpty(company.Email))
+                    {
+                        var customers = await _stripeCustomerService.ListAsync(new CustomerListOptions
+                        {
+                            Email = company.Email,
+                            Limit = 1
+                        });
+                        var foundCustomer = customers?.Data?.FirstOrDefault();
+                        if (foundCustomer is not null)
+                        {
+                            localSub.StripeCustomerId = foundCustomer.Id;
+                            await _subscriptionRepository.UpdateAsync(localSub);
+                            _logger.LogInformation("Recovered Stripe customer {StripeCustomerId} for company {CompanyId} via email lookup",
+                                foundCustomer.Id, companyId);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("No Stripe customer found for email of company {CompanyId}", companyId);
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Company {CompanyId} not found or has no email; cannot recover Stripe customer", companyId);
+                    }
+                }
+                catch (StripeException ex)
+                {
+                    _logger.LogWarning(ex, "Failed to list Stripe customers by email for company {CompanyId}", companyId);
+                }
+            }
+
             if (stripeSub is null && !string.IsNullOrEmpty(localSub.StripeCustomerId))
             {
                 _logger.LogWarning("StripeSubscriptionId {StripeSubscriptionId} is invalid for company {CompanyId}; attempting lookup via customer {StripeCustomerId}",
@@ -523,6 +564,18 @@ public class BillingFunctions
                         Expand = new List<string> { "data.items.data.price.product" }
                     });
                     var found = customerSubs?.Data?.FirstOrDefault();
+                    if (found is null)
+                    {
+                        _logger.LogWarning("No active Stripe subscription found for customer {StripeCustomerId} (company {CompanyId}); retrying without status filter",
+                            localSub.StripeCustomerId, companyId);
+                        var anySubs = await _stripeSubscriptionService.ListAsync(new SubscriptionListOptions
+                        {
+                            Customer = localSub.StripeCustomerId,
+                            Limit = 1,
+                            Expand = new List<string> { "data.items.data.price.product" }
+                        });
+                        found = anySubs?.Data?.FirstOrDefault();
+                    }
                     if (found is not null)
                     {
                         stripeSub = found;
@@ -533,7 +586,7 @@ public class BillingFunctions
                     }
                     else
                     {
-                        _logger.LogWarning("No active Stripe subscription found for customer {StripeCustomerId} (company {CompanyId})",
+                        _logger.LogWarning("No Stripe subscription found for customer {StripeCustomerId} (company {CompanyId})",
                             localSub.StripeCustomerId, companyId);
                     }
                 }
