@@ -509,6 +509,41 @@ public class BillingFunctions
                 _logger.LogInformation("Backfilled stripe_customer_id {CustomerId} for company {CompanyId}", stripeSub.CustomerId, companyId);
             }
 
+            if (stripeSub is null && !string.IsNullOrEmpty(localSub.StripeCustomerId))
+            {
+                _logger.LogWarning("StripeSubscriptionId {StripeSubscriptionId} is invalid for company {CompanyId}; attempting lookup via customer {StripeCustomerId}",
+                    localSub.StripeSubscriptionId, companyId, localSub.StripeCustomerId);
+                try
+                {
+                    var customerSubs = await _stripeSubscriptionService.ListAsync(new SubscriptionListOptions
+                    {
+                        Customer = localSub.StripeCustomerId,
+                        Status = "active",
+                        Limit = 1,
+                        Expand = new List<string> { "data.items.data.price.product" }
+                    });
+                    var found = customerSubs?.Data?.FirstOrDefault();
+                    if (found is not null)
+                    {
+                        stripeSub = found;
+                        localSub.StripeSubscriptionId = found.Id;
+                        await _subscriptionRepository.UpdateAsync(localSub);
+                        _logger.LogInformation("Recovered valid StripeSubscriptionId {StripeSubscriptionId} for company {CompanyId} via customer lookup",
+                            found.Id, companyId);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("No active Stripe subscription found for customer {StripeCustomerId} (company {CompanyId})",
+                            localSub.StripeCustomerId, companyId);
+                    }
+                }
+                catch (StripeException ex)
+                {
+                    _logger.LogWarning(ex, "Failed to list Stripe subscriptions for customer {StripeCustomerId} (company {CompanyId})",
+                        localSub.StripeCustomerId, companyId);
+                }
+            }
+
             string status;
             string? planName = null;
             DateTime? currentPeriodStart = null;
