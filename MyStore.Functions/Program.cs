@@ -97,6 +97,7 @@ var host = new HostBuilder()
         services.AddScoped<Stripe.InvoiceService>();
         services.AddScoped<Stripe.SubscriptionService>();
         services.AddScoped<Stripe.ProductService>();
+        services.AddScoped<Stripe.CustomerService>();
     })
     .Build();
 
