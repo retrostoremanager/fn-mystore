@@ -219,7 +219,7 @@ jobs:
           PROMPT: ${{ github.event.inputs.prompt || github.event.client_payload.prompt || '' }}
         run: |
           # Review agents also run on claude-code.yml — skip to prevent review → review cascade.
-          if echo "$PROMPT" | grep -qF "You are a code reviewer"; then
+          if echo "$PROMPT" | grep -qF "You are a code reviewer" || echo "$PROMPT" | grep -qF "Code review mode"; then
             echo "Current run is a code review agent — skipping chained review trigger"
             exit 0
           fi
@@ -253,19 +253,6 @@ jobs:
                   (.labels | map(.name) | any(startswith(\"review-retry-\") or . == \"needs-human-review\") | not)
                 )] | first // empty")
             fi
-          fi
-
-          # Fallback: scan for any open feature PR not yet in a review cycle.
-          # (Covers @claude tag triggers and other non-orchestrator invocations.)
-          if [ -z "$PR_DATA" ] || [ "$PR_DATA" = "null" ]; then
-            PR_DATA=$(gh pr list \
-              --base development \
-              --state open \
-              --json number,headRefName,labels \
-              --jq '[.[] | select(
-                (.headRefName | startswith("feature/issue-")) and
-                (.labels | map(.name) | any(startswith("review-retry-") or . == "needs-human-review") | not)
-              )] | first // empty')
           fi
 
           # Fallback: check dbproj-mystore (dev agent may open SQL migration PRs there)
