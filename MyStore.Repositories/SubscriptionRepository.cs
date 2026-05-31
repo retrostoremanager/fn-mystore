@@ -65,6 +65,7 @@ public class SubscriptionRepository : ISubscriptionRepository
         var rows = await connection.ExecuteAsync(
             @"UPDATE subscription SET
                 status = @status,
+                stripe_customer_id = @stripe_customer_id,
                 stripe_price_id = @stripe_price_id,
                 current_period_start = @current_period_start,
                 current_period_end = @current_period_end,
@@ -75,6 +76,7 @@ public class SubscriptionRepository : ISubscriptionRepository
             {
                 id = subscription.Id,
                 status = subscription.Status,
+                stripe_customer_id = subscription.StripeCustomerId,
                 stripe_price_id = subscription.StripePriceId,
                 current_period_start = subscription.CurrentPeriodStart,
                 current_period_end = subscription.CurrentPeriodEnd,
