@@ -84,4 +84,12 @@ public class PaymentRepository : IPaymentRepository
             "SELECT company_id FROM payment_method WHERE stripe_customer_id = @stripe_customer_id LIMIT 1",
             new { stripe_customer_id = stripeCustomerId });
     }
+
+    public async Task UpdateBrandAsync(int id, string brand)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.ExecuteAsync(
+            "UPDATE payment_method SET brand = @brand, last_modified_date = NOW() WHERE id = @id",
+            new { id, brand });
+    }
 }
