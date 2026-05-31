@@ -679,6 +679,99 @@ public class BillingFunctionsTests
     }
 
     [Fact]
+    public async Task GetSubscriptionStatus_StripeGetAsyncFails_Returns500()
+    {
+        var companyId = 5;
+        var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+
+        var localSub = new MyStore.Models.Subscription
+        {
+            Id = 5,
+            CompanyId = companyId,
+            StripeSubscriptionId = "sub_missing123",
+            StripeCustomerId = "cus_missing123",
+            Status = "active",
+        };
+
+        _subscriptionRepositoryMock.Setup(r => r.GetByCompanyIdAsync(companyId)).ReturnsAsync(localSub);
+        _stripeSubscriptionServiceMock
+            .Setup(s => s.GetAsync("sub_missing123", It.IsAny<SubscriptionGetOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new StripeException("No such subscription") { StripeError = new StripeError { Code = "resource_missing" } });
+
+        var result = await _functions.GetSubscriptionStatus(request);
+
+        result.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
+        var body = await TestHelpers.ReadResponseBody(result);
+        body.Should().Contain("error");
+    }
+
+    [Fact]
+    public async Task GetSubscriptionStatus_InvoicePreviewStripeExceptionNotUpcomingNone_Returns500()
+    {
+        var companyId = 6;
+        var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+
+        var periodStart = new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc);
+        var periodEnd = new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var periodStartUnix = new DateTimeOffset(periodStart).ToUnixTimeSeconds();
+        var periodEndUnix = new DateTimeOffset(periodEnd).ToUnixTimeSeconds();
+
+        var localSub = new MyStore.Models.Subscription
+        {
+            Id = 6,
+            CompanyId = companyId,
+            StripeSubscriptionId = "sub_noinvoice123",
+            StripeCustomerId = "",
+            Status = "active",
+        };
+
+        var subJson = $$"""
+            {
+                "id": "sub_noinvoice123",
+                "object": "subscription",
+                "status": "active",
+                "current_period_start": {{periodStartUnix}},
+                "current_period_end": {{periodEndUnix}},
+                "cancel_at_period_end": false,
+                "customer": "cus_noinvoice123",
+                "items": {
+                    "object": "list",
+                    "data": [{
+                        "id": "si_test",
+                        "object": "subscription_item",
+                        "price": {
+                            "id": "price_test",
+                            "object": "price",
+                            "product": {
+                                "id": "prod_test",
+                                "object": "product",
+                                "name": "Basic Plan"
+                            }
+                        }
+                    }]
+                }
+            }
+            """;
+        var stripeSub = Newtonsoft.Json.JsonConvert.DeserializeObject<Stripe.Subscription>(subJson)!;
+
+        _subscriptionRepositoryMock.Setup(r => r.GetByCompanyIdAsync(companyId)).ReturnsAsync(localSub);
+        _stripeSubscriptionServiceMock
+            .Setup(s => s.GetAsync("sub_noinvoice123", It.IsAny<SubscriptionGetOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(stripeSub);
+        _invoiceServiceMock
+            .Setup(s => s.CreatePreviewAsync(It.IsAny<InvoiceCreatePreviewOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new StripeException("No such customer") { StripeError = new StripeError { Code = "resource_missing" } });
+
+        var result = await _functions.GetSubscriptionStatus(request);
+
+        result.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
+        var body = await TestHelpers.ReadResponseBody(result);
+        body.Should().Contain("error");
+    }
+
+    [Fact]
     public async Task GetSubscriptionStatus_CanceledSubscription_ReturnsCanceledStatusAndNullNextInvoice()
     {
         var companyId = 4;
