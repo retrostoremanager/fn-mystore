@@ -512,6 +512,13 @@ public class BillingFunctions
                 var firstItem = stripeSub.Items?.Data?.FirstOrDefault();
                 if (firstItem?.Price?.Product is Product product)
                     planName = product.Name;
+
+                if (planName is null)
+                {
+                    var rawProduct = rawSub?["items"]?["data"]?[0]?["price"]?["product"];
+                    if (rawProduct is not null)
+                        planName = rawProduct["name"]?.Value<string>();
+                }
             }
             else
             {
@@ -522,11 +529,14 @@ public class BillingFunctions
 
             decimal? nextInvoiceAmount = null;
             string? currency = null;
+            var stripeCustomerId = !string.IsNullOrEmpty(localSub.StripeCustomerId)
+                ? localSub.StripeCustomerId
+                : stripeSub?.CustomerId;
             try
             {
                 var upcoming = await _invoiceService.CreatePreviewAsync(new InvoiceCreatePreviewOptions
                 {
-                    Customer = localSub.StripeCustomerId,
+                    Customer = stripeCustomerId,
                     Subscription = localSub.StripeSubscriptionId,
                 });
                 if (upcoming is not null)
