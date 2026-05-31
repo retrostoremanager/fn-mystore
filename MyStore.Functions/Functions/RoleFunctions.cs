@@ -219,8 +219,8 @@ public class RoleFunctions
                 return await CreateHttpResponse(req, err, HttpStatusCode.BadRequest);
             }
 
-            var response = ApiResponse<object>.SuccessResponse(null);
-            return await CreateHttpResponse(req, response);
+            var response = req.CreateResponse(HttpStatusCode.NoContent);
+            return response;
         }
         catch (UnauthorizedAccessException ex)
         {

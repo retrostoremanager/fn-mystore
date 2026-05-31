@@ -547,7 +547,7 @@ public class RoleFunctionsTests
     #region DeleteRole
 
     [Fact]
-    public async Task DeleteRole_ExistingRole_Returns200()
+    public async Task DeleteRole_ExistingRole_Returns204()
     {
         var existing = MakeRole(1);
 
@@ -559,13 +559,7 @@ public class RoleFunctionsTests
 
         var result = await _functions.DeleteRole(req, 1);
 
-        result.StatusCode.Should().Be(HttpStatusCode.OK);
-
-        var body = await TestHelpers.ReadResponseBody(result);
-        var response = JsonSerializer.Deserialize<ApiResponse<object>>(body,
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
-        response!.Success.Should().BeTrue();
+        result.StatusCode.Should().Be(HttpStatusCode.NoContent);
     }
 
     [Fact]
