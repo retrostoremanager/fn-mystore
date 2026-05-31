@@ -26,7 +26,9 @@ public class PaymentService : IPaymentService
         _paymentRepository = paymentRepository;
         _companyRepository = companyRepository;
         _logger = logger;
-        _stripeSecretKey = configuration["Stripe:SecretKey"];
+        _stripeSecretKey = configuration["Stripe:SecretKey"]
+            ?? configuration["Stripe__SecretKey"]
+            ?? Environment.GetEnvironmentVariable("Stripe__SecretKey");
     }
 
     public async Task<ApiResponse<StorePaymentMethodResponse>> StorePaymentMethodAsync(
@@ -146,7 +148,7 @@ public class PaymentService : IPaymentService
             {
                 if (string.IsNullOrWhiteSpace(_stripeSecretKey))
                 {
-                    _logger.LogWarning("Brand backfill skipped for company {CompanyId}: Stripe__SecretKey is not configured.", companyId);
+                    _logger.LogWarning("Brand backfill skipped for company {CompanyId}: Stripe secret key is not configured (checked Stripe:SecretKey, Stripe__SecretKey, and env Stripe__SecretKey).", companyId);
                 }
                 else
                 {
