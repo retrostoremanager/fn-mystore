@@ -583,10 +583,22 @@ public class BillingFunctions
                             }
                             catch (StripeException ex)
                             {
-                                _logger.LogWarning(ex, "Failed to fetch Stripe product {ProductId}", productId);
+                                _logger.LogWarning(ex, "Failed to fetch Stripe product {ProductId} (code: {Code})", productId, ex.StripeError?.Code);
                             }
                         }
                     }
+                }
+
+                // Fallback: derive plan name from the locally-stored StripePriceId via StripeOptions.
+                // Handles dev/test environments where the Stripe product may not exist.
+                if (planName is null)
+                {
+                    var priceFallback = firstItem?.Price?.Id ?? localSub.StripePriceId;
+                    planName = _stripeOptions.GetTierNameForPriceId(priceFallback);
+                    if (planName is not null)
+                        _logger.LogInformation("Resolved planName '{PlanName}' from StripePriceId {PriceId} via StripeOptions config", planName, priceFallback);
+                    else
+                        _logger.LogWarning("planName is null: no Stripe product available and StripePriceId {PriceId} not mapped in StripeOptions", priceFallback);
                 }
             }
             else
@@ -594,6 +606,7 @@ public class BillingFunctions
                 status = localSub.Status;
                 currentPeriodStart = localSub.CurrentPeriodStart;
                 currentPeriodEnd = localSub.CurrentPeriodEnd;
+                planName = _stripeOptions.GetTierNameForPriceId(localSub.StripePriceId);
             }
 
             decimal? nextInvoiceAmount = null;
@@ -601,25 +614,35 @@ public class BillingFunctions
             var stripeCustomerId = !string.IsNullOrEmpty(localSub.StripeCustomerId)
                 ? localSub.StripeCustomerId
                 : stripeSub?.CustomerId;
-            try
+
+            if (string.IsNullOrEmpty(stripeCustomerId))
             {
-                var upcoming = await _invoiceService.CreatePreviewAsync(new InvoiceCreatePreviewOptions
-                {
-                    Customer = stripeCustomerId,
-                    Subscription = localSub.StripeSubscriptionId,
-                });
-                if (upcoming is not null)
-                {
-                    nextInvoiceAmount = upcoming.Total / 100m;
-                    currency = upcoming.Currency;
-                }
+                _logger.LogWarning("No Stripe customer ID available for company {CompanyId} (sub {StripeSubscriptionId}), skipping upcoming invoice lookup",
+                    companyId, localSub.StripeSubscriptionId);
             }
-            catch (StripeException ex)
+            else
             {
-                if (ex.StripeError?.Code == "invoice_upcoming_none")
-                    _logger.LogInformation("No upcoming invoice for subscription {StripeSubscriptionId}", localSub.StripeSubscriptionId);
-                else
-                    _logger.LogWarning(ex, "Failed to fetch upcoming invoice for subscription {StripeSubscriptionId}", localSub.StripeSubscriptionId);
+                try
+                {
+                    var upcoming = await _invoiceService.CreatePreviewAsync(new InvoiceCreatePreviewOptions
+                    {
+                        Customer = stripeCustomerId,
+                        Subscription = localSub.StripeSubscriptionId,
+                    });
+                    if (upcoming is not null)
+                    {
+                        nextInvoiceAmount = upcoming.Total / 100m;
+                        currency = upcoming.Currency;
+                    }
+                }
+                catch (StripeException ex)
+                {
+                    if (ex.StripeError?.Code == "invoice_upcoming_none")
+                        _logger.LogInformation("No upcoming invoice for subscription {StripeSubscriptionId}", localSub.StripeSubscriptionId);
+                    else
+                        _logger.LogWarning(ex, "Failed to fetch upcoming invoice for subscription {StripeSubscriptionId} (customer {StripeCustomerId}, code: {Code})",
+                            localSub.StripeSubscriptionId, stripeCustomerId, ex.StripeError?.Code);
+                }
             }
 
             var responseData = new SubscriptionDetailResponse

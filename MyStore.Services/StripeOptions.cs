@@ -51,4 +51,17 @@ public class StripeOptions
             _ => PriceIdBasic ?? ""
         };
     }
+
+    /// <summary>
+    /// Reverse lookup: given a Stripe Price ID, return the plan tier name.
+    /// Returns null if the price ID is not recognised.
+    /// </summary>
+    public string? GetTierNameForPriceId(string? priceId)
+    {
+        if (string.IsNullOrEmpty(priceId)) return null;
+        if (!string.IsNullOrEmpty(PriceIdEnterprise) && priceId == PriceIdEnterprise) return "Enterprise";
+        if (!string.IsNullOrEmpty(PriceIdPro)        && priceId == PriceIdPro)        return "Pro";
+        if (!string.IsNullOrEmpty(PriceIdBasic)      && priceId == PriceIdBasic)      return "Basic";
+        return null;
+    }
 }
