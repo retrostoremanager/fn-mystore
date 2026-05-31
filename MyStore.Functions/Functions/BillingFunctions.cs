@@ -479,17 +479,9 @@ public class BillingFunctions
                 return await CreateHttpResponse(req, errorResponse, HttpStatusCode.NotFound);
             }
 
-            Stripe.Subscription? stripeSub = null;
-            try
-            {
-                stripeSub = await _stripeSubscriptionService.GetAsync(
-                    localSub.StripeSubscriptionId,
-                    new SubscriptionGetOptions { Expand = new List<string> { "items.data.price.product" } });
-            }
-            catch (StripeException ex)
-            {
-                _logger.LogWarning(ex, "Failed to fetch Stripe subscription {StripeSubscriptionId}", localSub.StripeSubscriptionId);
-            }
+            var stripeSub = await _stripeSubscriptionService.GetAsync(
+                localSub.StripeSubscriptionId,
+                new SubscriptionGetOptions { Expand = new List<string> { "items.data.price.product" } });
 
             string status;
             string? planName = null;
@@ -538,10 +530,6 @@ public class BillingFunctions
             catch (StripeException ex) when (ex.StripeError?.Code == "invoice_upcoming_none")
             {
                 _logger.LogInformation("No upcoming invoice for subscription {StripeSubscriptionId}", localSub.StripeSubscriptionId);
-            }
-            catch (StripeException ex)
-            {
-                _logger.LogWarning(ex, "Failed to fetch upcoming invoice for subscription {StripeSubscriptionId}", localSub.StripeSubscriptionId);
             }
 
             var responseData = new SubscriptionDetailResponse
