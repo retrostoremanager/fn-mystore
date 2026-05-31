@@ -366,6 +366,28 @@ public class InventoryFunctionsTests
     }
 
     [Fact]
+    public async Task GetInventoryItemLocations_NonExistentItem_ReturnsErrorResponse()
+    {
+        var apiResponse = ApiResponse<List<ItemLocationInfo>>.ErrorResponse("Inventory item not found");
+
+        _serviceMock
+            .Setup(s => s.GetLocationsForItemAsync(999, CompanyId))
+            .ReturnsAsync(apiResponse);
+
+        var context = new Mock<FunctionContext>();
+        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+
+        var result = await _functions.GetInventoryItemLocations(req, 999);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<List<ItemLocationInfo>>>(body,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Success.Should().BeFalse();
+        deserialized.Message.Should().Contain("not found");
+    }
+
+    [Fact]
     public async Task GetInventoryItemLocations_PassesCompanyIdToService_EnforcesMultiTenancy()
     {
         var apiResponse = ApiResponse<List<ItemLocationInfo>>.SuccessResponse(new List<ItemLocationInfo>());
