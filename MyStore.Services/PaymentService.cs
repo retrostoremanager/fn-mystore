@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MyStore.Models;
 using MyStore.Repositories;
@@ -19,12 +20,13 @@ public class PaymentService : IPaymentService
     public PaymentService(
         IPaymentRepository paymentRepository,
         ICompanyRepository companyRepository,
+        IConfiguration configuration,
         ILogger<PaymentService> logger)
     {
         _paymentRepository = paymentRepository;
         _companyRepository = companyRepository;
         _logger = logger;
-        _stripeSecretKey = Environment.GetEnvironmentVariable("Stripe__SecretKey");
+        _stripeSecretKey = configuration["Stripe:SecretKey"];
     }
 
     public async Task<ApiResponse<StorePaymentMethodResponse>> StorePaymentMethodAsync(
