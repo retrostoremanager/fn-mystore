@@ -10,6 +10,7 @@ public class PaymentMethod
     public int CompanyId { get; set; }
     public string StripeCustomerId { get; set; } = string.Empty;
     public string StripePaymentMethodId { get; set; } = string.Empty;
+    public string Brand { get; set; } = string.Empty;
     public string Last4 { get; set; } = string.Empty;
     public int ExpirationMonth { get; set; }
     public int ExpirationYear { get; set; }
@@ -59,6 +60,7 @@ public class StorePaymentMethodRequest
 public class StorePaymentMethodResponse
 {
     public int Id { get; set; }
+    public string Brand { get; set; } = string.Empty;
     public string Last4 { get; set; } = string.Empty;
     public int ExpirationMonth { get; set; }
     public int ExpirationYear { get; set; }

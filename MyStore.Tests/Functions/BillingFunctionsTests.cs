@@ -336,6 +336,46 @@ public class BillingFunctionsTests
     }
 
     [Fact]
+    public async Task GetPaymentMethods_Returns200WithBrandField()
+    {
+        var companyId = 1;
+        var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+
+        var methods = new List<StorePaymentMethodResponse>
+        {
+            new StorePaymentMethodResponse
+            {
+                Id = 1,
+                Brand = "visa",
+                Last4 = "4242",
+                ExpirationMonth = 12,
+                ExpirationYear = 2035,
+                IsDefault = true
+            }
+        };
+
+        _paymentServiceMock
+            .Setup(s => s.GetPaymentMethodsAsync(companyId))
+            .ReturnsAsync(ApiResponse<IEnumerable<StorePaymentMethodResponse>>.SuccessResponse(methods));
+
+        var result = await _functions.GetPaymentMethods(request);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await TestHelpers.ReadResponseBody(result);
+        var parsed = JsonSerializer.Deserialize<JsonElement>(body);
+        parsed.GetProperty("success").GetBoolean().Should().BeTrue();
+        var data = parsed.GetProperty("data");
+        data.GetArrayLength().Should().Be(1);
+        var method = data[0];
+        method.GetProperty("brand").GetString().Should().Be("visa");
+        method.GetProperty("last4").GetString().Should().Be("4242");
+        method.GetProperty("expirationMonth").GetInt32().Should().Be(12);
+        method.GetProperty("expirationYear").GetInt32().Should().Be(2035);
+        method.GetProperty("isDefault").GetBoolean().Should().BeTrue();
+    }
+
+    [Fact]
     public async Task GetInvoices_NoStripeCustomerId_Returns200WithEmptyList()
     {
         var companyId = 1;
