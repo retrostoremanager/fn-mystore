@@ -213,6 +213,22 @@ public class SubscriptionStatusResponse
 }
 
 /// <summary>
+/// Consolidated subscription detail response for GET /billing/subscription (Issue #225).
+/// Combines Stripe subscription data with upcoming invoice info.
+/// </summary>
+public class SubscriptionDetailResponse
+{
+    public string? PlanName { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public DateTime? CurrentPeriodStart { get; set; }
+    public DateTime? CurrentPeriodEnd { get; set; }
+    public DateTime? TrialStart { get; set; }
+    public DateTime? TrialEnd { get; set; }
+    public decimal? NextInvoiceAmount { get; set; }
+    public string? Currency { get; set; }
+}
+
+/// <summary>
 /// Tax settings for a company (Issue #163).
 /// </summary>
 public class TaxSettingsResponse
