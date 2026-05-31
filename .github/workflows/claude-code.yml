@@ -272,6 +272,12 @@ jobs:
 
           if [ -z "$PR_DATA" ] || [ "$PR_DATA" = "null" ]; then
             echo "No open feature PRs awaiting review — skipping"
+            if [ -n "$ISSUE_N" ] && [ "$IS_REVISION" = "false" ]; then
+              GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue edit "$ISSUE_N" \
+                --repo retrostoremanager/orchestrator-mystore \
+                --remove-label in-progress --add-label ready 2>/dev/null || true
+              echo "Issue #$ISSUE_N had no PR — reset to ready for re-dispatch"
+            fi
             exit 0
           fi
 
