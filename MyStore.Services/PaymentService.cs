@@ -167,6 +167,11 @@ public class PaymentService : IPaymentService
                         catch (StripeException ex)
                         {
                             _logger.LogWarning(ex, "Could not backfill brand for payment method {PaymentMethodId}", method.Id);
+                            if (ex.StripeError?.Code == "resource_missing")
+                            {
+                                await _paymentRepository.UpdateBrandAsync(method.Id, "unknown");
+                                method.Brand = "unknown";
+                            }
                         }
                     }
                 }
