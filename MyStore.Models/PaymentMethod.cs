@@ -25,7 +25,7 @@ public class InvoiceSummary
 {
     public string Id { get; set; } = string.Empty;
     public string? Number { get; set; }
-    public long Amount { get; set; }
+    public decimal Amount { get; set; }
     public string Currency { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public DateTime Created { get; set; }

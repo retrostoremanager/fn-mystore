@@ -429,7 +429,7 @@ public class BillingFunctions
             {
                 Id = inv.Id,
                 Number = inv.Number,
-                Amount = inv.Total,
+                Amount = inv.Total / 100m,
                 Currency = inv.Currency,
                 Status = inv.Status,
                 Created = inv.Created,

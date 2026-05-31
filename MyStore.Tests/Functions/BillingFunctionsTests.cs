@@ -408,7 +408,7 @@ public class BillingFunctionsTests
         var inv = invoices[0];
         inv.GetProperty("id").GetString().Should().Be("in_test1");
         inv.GetProperty("number").GetString().Should().Be("INV-0001");
-        inv.GetProperty("amount").GetInt64().Should().Be(2999);
+        inv.GetProperty("amount").GetDecimal().Should().Be(29.99m);
         inv.GetProperty("currency").GetString().Should().Be("usd");
         inv.GetProperty("status").GetString().Should().Be("paid");
     }
