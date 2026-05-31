@@ -1192,4 +1192,75 @@ public class BillingFunctionsTests
         data.GetProperty("nextInvoiceAmount").GetDecimal().Should().Be(29.99m);
         data.GetProperty("currency").GetString().Should().Be("usd");
     }
+
+    [Fact]
+    public async Task GetSubscriptionStatus_EmptyLocalStripeCustomerId_BackfillsCustomerIdInDb()
+    {
+        var companyId = 9;
+        var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+
+        var periodStart = new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var periodEnd = new DateTime(2026, 6, 1, 0, 0, 0, DateTimeKind.Utc);
+        var periodStartUnix = new DateTimeOffset(periodStart).ToUnixTimeSeconds();
+        var periodEndUnix = new DateTimeOffset(periodEnd).ToUnixTimeSeconds();
+
+        var localSub = new MyStore.Models.Subscription
+        {
+            Id = 9,
+            CompanyId = companyId,
+            StripeSubscriptionId = "sub_backfill123",
+            StripeCustomerId = "",
+            Status = "active",
+        };
+
+        var subJson = $$"""
+            {
+                "id": "sub_backfill123",
+                "object": "subscription",
+                "status": "active",
+                "current_period_start": {{periodStartUnix}},
+                "current_period_end": {{periodEndUnix}},
+                "cancel_at_period_end": false,
+                "customer": "cus_backfill123",
+                "items": {
+                    "object": "list",
+                    "data": [{
+                        "id": "si_backfill",
+                        "object": "subscription_item",
+                        "price": {
+                            "id": "price_backfill",
+                            "object": "price",
+                            "product": {
+                                "id": "prod_backfill",
+                                "object": "product",
+                                "name": "Pro Plan"
+                            }
+                        }
+                    }]
+                }
+            }
+            """;
+        var stripeSub = Newtonsoft.Json.JsonConvert.DeserializeObject<Stripe.Subscription>(subJson)!;
+
+        MyStore.Models.Subscription? capturedUpdate = null;
+        _subscriptionRepositoryMock.Setup(r => r.GetByCompanyIdAsync(companyId)).ReturnsAsync(localSub);
+        _subscriptionRepositoryMock
+            .Setup(r => r.UpdateAsync(It.IsAny<MyStore.Models.Subscription>()))
+            .Callback<MyStore.Models.Subscription>(s => capturedUpdate = s)
+            .ReturnsAsync(localSub);
+        _stripeSubscriptionServiceMock
+            .Setup(s => s.GetAsync("sub_backfill123", It.IsAny<SubscriptionGetOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(stripeSub);
+        _invoiceServiceMock
+            .Setup(s => s.CreatePreviewAsync(It.IsAny<InvoiceCreatePreviewOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Invoice { Total = 4999, Currency = "usd" });
+
+        var result = await _functions.GetSubscriptionStatus(request);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        capturedUpdate.Should().NotBeNull();
+        capturedUpdate!.StripeCustomerId.Should().Be("cus_backfill123");
+        _subscriptionRepositoryMock.Verify(r => r.UpdateAsync(It.Is<MyStore.Models.Subscription>(s => s.StripeCustomerId == "cus_backfill123")), Times.Once);
+    }
 }

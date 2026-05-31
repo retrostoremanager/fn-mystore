@@ -502,6 +502,13 @@ public class BillingFunctions
                 }
             }
 
+            if (stripeSub is not null && string.IsNullOrEmpty(localSub.StripeCustomerId) && !string.IsNullOrEmpty(stripeSub.CustomerId))
+            {
+                localSub.StripeCustomerId = stripeSub.CustomerId;
+                await _subscriptionRepository.UpdateAsync(localSub);
+                _logger.LogInformation("Backfilled stripe_customer_id {CustomerId} for company {CompanyId}", stripeSub.CustomerId, companyId);
+            }
+
             string status;
             string? planName = null;
             DateTime? currentPeriodStart = null;
