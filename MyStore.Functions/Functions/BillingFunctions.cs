@@ -472,155 +472,103 @@ public class BillingFunctions
         {
             var companyId = CompanyHelper.GetCompanyIdRequired(req);
 
-            var company = await _companyRepository.GetByIdAsync(companyId);
-            if (company == null)
+            var localSub = await _subscriptionRepository.GetByCompanyIdAsync(companyId);
+            if (localSub == null)
             {
-                var errorResponse = ApiResponse<SubscriptionStatusResponse>.ErrorResponse("Company not found.");
+                var errorResponse = ApiResponse<SubscriptionDetailResponse>.ErrorResponse("No subscription found for this company.");
                 return await CreateHttpResponse(req, errorResponse, HttpStatusCode.NotFound);
             }
 
-            var paymentMethods = await _paymentRepository.GetByCompanyIdAsync(companyId);
-            var hasPaymentMethod = paymentMethods.Any();
-
-            var now = DateTime.UtcNow;
-            var isInTrial = company.TrialEndDate > now;
-            var daysRemainingInTrial = isInTrial
-                ? Math.Max(0, (int)(company.TrialEndDate - now).TotalDays)
-                : 0;
-
-            var isSuspended = string.Equals(company.Status, "Suspended", StringComparison.OrdinalIgnoreCase);
-
-            var localSub = await _subscriptionRepository.GetByCompanyIdAsync(companyId);
+            Stripe.Subscription? stripeSub = null;
+            try
+            {
+                stripeSub = await _stripeSubscriptionService.GetAsync(
+                    localSub.StripeSubscriptionId,
+                    new SubscriptionGetOptions { Expand = new List<string> { "items.data.price.product" } });
+            }
+            catch (StripeException ex)
+            {
+                _logger.LogWarning(ex, "Failed to fetch Stripe subscription {StripeSubscriptionId}", localSub.StripeSubscriptionId);
+            }
 
             string status;
-            string? billingCycle = null;
+            string? planName = null;
             DateTime? currentPeriodStart = null;
             DateTime? currentPeriodEnd = null;
+            DateTime? trialStart = null;
+            DateTime? trialEnd = null;
 
-            if (isSuspended)
+            if (stripeSub is not null)
             {
-                status = "suspended";
-            }
-            else if (isInTrial && localSub == null)
-            {
-                status = "trial";
-            }
-            else if (localSub != null)
-            {
-                Stripe.Subscription? stripeSub = null;
-                try
-                {
-                    stripeSub = await _stripeSubscriptionService.GetAsync(localSub.StripeSubscriptionId);
-                }
-                catch (StripeException ex)
-                {
-                    _logger.LogWarning(ex, "Failed to fetch Stripe subscription {StripeSubscriptionId}", localSub.StripeSubscriptionId);
-                }
+                status = stripeSub.Status;
+                var rawSub = stripeSub.RawJObject;
+                if (rawSub?["current_period_start"] is not null)
+                    currentPeriodStart = DateTimeOffset.FromUnixTimeSeconds(rawSub["current_period_start"]!.Value<long>()).UtcDateTime;
+                if (rawSub?["current_period_end"] is not null)
+                    currentPeriodEnd = DateTimeOffset.FromUnixTimeSeconds(rawSub["current_period_end"]!.Value<long>()).UtcDateTime;
+                trialStart = stripeSub.TrialStart;
+                trialEnd = stripeSub.TrialEnd;
 
-                currentPeriodStart = localSub.CurrentPeriodStart;
-                currentPeriodEnd = localSub.CurrentPeriodEnd;
-
-                if (stripeSub is not null)
-                {
-                    status = stripeSub.Status switch
-                    {
-                        "active" or "trialing" => "active",
-                        "past_due" => "past_due",
-                        "canceled" => "canceled",
-                        _ => stripeSub.Status
-                    };
-
-                    var firstItem = stripeSub.Items?.Data?.FirstOrDefault();
-                    if (firstItem?.Plan is not null)
-                    {
-                        billingCycle = firstItem.Plan.Interval == "year" ? "annual" : "monthly";
-                    }
-                }
-                else
-                {
-                    status = localSub.Status;
-                }
+                var firstItem = stripeSub.Items?.Data?.FirstOrDefault();
+                if (firstItem?.Price?.Product is Product product)
+                    planName = product.Name;
             }
             else
             {
-                var stripeCustomerId = paymentMethods.FirstOrDefault()?.StripeCustomerId;
-                if (!string.IsNullOrEmpty(stripeCustomerId))
-                {
-                    Stripe.Subscription? stripeSub = null;
-                    try
-                    {
-                        var stripeList = await _stripeSubscriptionService.ListAsync(new SubscriptionListOptions
-                        {
-                            Customer = stripeCustomerId,
-                            Status = "active",
-                            Limit = 1,
-                        });
-                        stripeSub = stripeList.Data?.FirstOrDefault();
-                    }
-                    catch (StripeException ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to fetch Stripe subscriptions for customer {StripeCustomerId}", stripeCustomerId);
-                    }
-
-                    if (stripeSub is not null)
-                    {
-                        status = "active";
-                        var subRawJson = stripeSub.RawJObject;
-                        if (subRawJson?["current_period_start"] is not null)
-                            currentPeriodStart = DateTimeOffset.FromUnixTimeSeconds(subRawJson["current_period_start"]!.Value<long>()).UtcDateTime;
-                        if (subRawJson?["current_period_end"] is not null)
-                            currentPeriodEnd = DateTimeOffset.FromUnixTimeSeconds(subRawJson["current_period_end"]!.Value<long>()).UtcDateTime;
-                        if (currentPeriodStart is null)
-                        {
-                            var itemRawJson = stripeSub.Items?.Data?.FirstOrDefault()?.RawJObject;
-                            if (itemRawJson?["current_period_start"] is not null)
-                                currentPeriodStart = DateTimeOffset.FromUnixTimeSeconds(itemRawJson["current_period_start"]!.Value<long>()).UtcDateTime;
-                            if (itemRawJson?["current_period_end"] is not null)
-                                currentPeriodEnd = DateTimeOffset.FromUnixTimeSeconds(itemRawJson["current_period_end"]!.Value<long>()).UtcDateTime;
-                        }
-                        var firstItem = stripeSub.Items?.Data?.FirstOrDefault();
-                        if (firstItem?.Plan is not null)
-                        {
-                            billingCycle = firstItem.Plan.Interval == "year" ? "annual" : "monthly";
-                        }
-                    }
-                    else
-                    {
-                        status = "active";
-                    }
-                }
-                else
-                {
-                    status = "active";
-                }
+                status = localSub.Status;
+                currentPeriodStart = localSub.CurrentPeriodStart;
+                currentPeriodEnd = localSub.CurrentPeriodEnd;
             }
 
-            var responseData = new SubscriptionStatusResponse
+            decimal? nextInvoiceAmount = null;
+            string? currency = null;
+            try
             {
-                Tier = company.SubscriptionTier ?? "Trial",
+                var upcoming = await _invoiceService.CreatePreviewAsync(new InvoiceCreatePreviewOptions
+                {
+                    Customer = localSub.StripeCustomerId,
+                    Subscription = localSub.StripeSubscriptionId,
+                });
+                if (upcoming is not null)
+                {
+                    nextInvoiceAmount = upcoming.Total / 100m;
+                    currency = upcoming.Currency;
+                }
+            }
+            catch (StripeException ex) when (ex.StripeError?.Code == "invoice_upcoming_none")
+            {
+                _logger.LogInformation("No upcoming invoice for subscription {StripeSubscriptionId}", localSub.StripeSubscriptionId);
+            }
+            catch (StripeException ex)
+            {
+                _logger.LogWarning(ex, "Failed to fetch upcoming invoice for subscription {StripeSubscriptionId}", localSub.StripeSubscriptionId);
+            }
+
+            var responseData = new SubscriptionDetailResponse
+            {
+                PlanName = planName,
                 Status = status,
-                IsInTrial = isInTrial,
-                TrialEndDate = company.TrialEndDate,
-                DaysRemainingInTrial = daysRemainingInTrial,
-                BillingCycle = billingCycle,
                 CurrentPeriodStart = currentPeriodStart,
                 CurrentPeriodEnd = currentPeriodEnd,
-                HasPaymentMethod = hasPaymentMethod,
+                TrialStart = trialStart,
+                TrialEnd = trialEnd,
+                NextInvoiceAmount = nextInvoiceAmount,
+                Currency = currency,
             };
 
-            var response = ApiResponse<SubscriptionStatusResponse>.SuccessResponse(responseData);
+            var response = ApiResponse<SubscriptionDetailResponse>.SuccessResponse(responseData);
             return await CreateHttpResponse(req, response, HttpStatusCode.OK);
         }
         catch (UnauthorizedAccessException ex)
         {
             _logger.LogWarning(ex, "Unauthorized subscription status retrieval attempt");
-            var errorResponse = ApiResponse<SubscriptionStatusResponse>.ErrorResponse(ex.Message);
+            var errorResponse = ApiResponse<SubscriptionDetailResponse>.ErrorResponse(ex.Message);
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving subscription status");
-            var errorResponse = ApiResponse<SubscriptionStatusResponse>.ErrorResponse(
+            var errorResponse = ApiResponse<SubscriptionDetailResponse>.ErrorResponse(
                 "An error occurred while retrieving subscription status.");
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
         }
