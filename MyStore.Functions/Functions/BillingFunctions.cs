@@ -26,6 +26,7 @@ public class BillingFunctions
     private readonly StripeOptions _stripeOptions;
     private readonly InvoiceService _invoiceService;
     private readonly Stripe.SubscriptionService _stripeSubscriptionService;
+    private readonly Stripe.ProductService _stripeProductService;
     private readonly ILogger _logger;
 
     public BillingFunctions(
@@ -38,6 +39,7 @@ public class BillingFunctions
         IOptions<StripeOptions> stripeOptions,
         InvoiceService invoiceService,
         Stripe.SubscriptionService stripeSubscriptionService,
+        Stripe.ProductService stripeProductService,
         ILoggerFactory loggerFactory)
     {
         _paymentService = paymentService;
@@ -49,6 +51,7 @@ public class BillingFunctions
         _stripeOptions = stripeOptions.Value;
         _invoiceService = invoiceService;
         _stripeSubscriptionService = stripeSubscriptionService;
+        _stripeProductService = stripeProductService;
         _logger = loggerFactory.CreateLogger<BillingFunctions>();
     }
 
@@ -524,8 +527,24 @@ public class BillingFunctions
                 if (planName is null)
                 {
                     var rawProduct = rawSub?["items"]?["data"]?[0]?["price"]?["product"];
-                    if (rawProduct is not null)
-                        planName = rawProduct["name"]?.Value<string>();
+                    if (rawProduct is JObject rawProductObj)
+                        planName = rawProductObj["name"]?.Value<string>();
+                    else if (rawProduct is JValue rawProductId && rawProductId.Type == JTokenType.String)
+                    {
+                        var productId = rawProductId.Value<string>();
+                        if (!string.IsNullOrEmpty(productId))
+                        {
+                            try
+                            {
+                                var stripeProduct = await _stripeProductService.GetAsync(productId);
+                                planName = stripeProduct?.Name;
+                            }
+                            catch (StripeException ex)
+                            {
+                                _logger.LogWarning(ex, "Failed to fetch Stripe product {ProductId}", productId);
+                            }
+                        }
+                    }
                 }
             }
             else
