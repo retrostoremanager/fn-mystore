@@ -57,7 +57,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           mode: agent
-          model: claude-sonnet-4-6
+          model: claude-opus-4-7
           allowed_tools: Bash,Read,Write,Edit,Glob,Grep
           timeout_minutes: 45
           max_turns: 80
@@ -70,7 +70,7 @@ jobs:
           GH_DISPATCH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
           ISSUE_NUMBERS: ${{ inputs.orchestrator_issues }}
         run: |
-          STEP_OUTPUT="${{ steps.claude.outputs.output }}"
+          STEP_OUTPUT=$(cat "${{ steps.claude.outputs.execution_file }}" 2>/dev/null || echo "")
           if ! echo "$STEP_OUTPUT" | grep -q "Spending cap reached"; then
             echo "Not a spending cap — stale recovery will handle it."
             exit 0
@@ -79,7 +79,7 @@ jobs:
             echo "No orchestrator issues — skipping cap-wait label"
             exit 0
           fi
-          RESET_STR=$(echo "$STEP_OUTPUT" | grep -oP 'Spending cap reached resets \K[^\n]+' | head -1)
+          RESET_STR=$(echo "$STEP_OUTPUT" | grep -oP 'Spending cap reached resets \K[^"\\]+' | head -1)
           RESET_ISO=""
           if [ -n "$RESET_STR" ]; then
             if echo "$RESET_STR" | grep -qP '^\d+:\d+(am|pm)'; then
