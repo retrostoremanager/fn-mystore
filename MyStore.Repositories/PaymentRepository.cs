@@ -24,14 +24,15 @@ public class PaymentRepository : IPaymentRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         var id = await connection.QuerySingleAsync<int>(
-            @"INSERT INTO payment_method (company_id, stripe_customer_id, stripe_payment_method_id, last4, expiration_month, expiration_year, is_default, created_date)
-              VALUES (@company_id, @stripe_customer_id, @stripe_payment_method_id, @last4, @expiration_month, @expiration_year, @is_default, @created_date)
+            @"INSERT INTO payment_method (company_id, stripe_customer_id, stripe_payment_method_id, brand, last4, expiration_month, expiration_year, is_default, created_date)
+              VALUES (@company_id, @stripe_customer_id, @stripe_payment_method_id, @brand, @last4, @expiration_month, @expiration_year, @is_default, @created_date)
               RETURNING id",
             new
             {
                 company_id = paymentMethod.CompanyId,
                 stripe_customer_id = paymentMethod.StripeCustomerId,
                 stripe_payment_method_id = paymentMethod.StripePaymentMethodId,
+                brand = paymentMethod.Brand,
                 last4 = paymentMethod.Last4,
                 expiration_month = paymentMethod.ExpirationMonth,
                 expiration_year = paymentMethod.ExpirationYear,

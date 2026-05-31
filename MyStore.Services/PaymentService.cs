@@ -90,6 +90,7 @@ public class PaymentService : IPaymentService
                 CompanyId = companyId,
                 StripeCustomerId = stripeCustomerId,
                 StripePaymentMethodId = request.PaymentMethodId,
+                Brand = stripePaymentMethod.Card?.Brand ?? string.Empty,
                 Last4 = stripePaymentMethod.Card?.Last4 ?? "****",
                 ExpirationMonth = (int)(stripePaymentMethod.Card?.ExpMonth ?? 0),
                 ExpirationYear = (int)(stripePaymentMethod.Card?.ExpYear ?? 0),
@@ -107,6 +108,7 @@ public class PaymentService : IPaymentService
                 new StorePaymentMethodResponse
                 {
                     Id = created.Id,
+                    Brand = created.Brand,
                     Last4 = created.Last4,
                     ExpirationMonth = created.ExpirationMonth,
                     ExpirationYear = created.ExpirationYear,
@@ -136,6 +138,7 @@ public class PaymentService : IPaymentService
             var response = methods.Select(m => new StorePaymentMethodResponse
             {
                 Id = m.Id,
+                Brand = m.Brand,
                 Last4 = m.Last4,
                 ExpirationMonth = m.ExpirationMonth,
                 ExpirationYear = m.ExpirationYear,
@@ -186,6 +189,7 @@ public class PaymentService : IPaymentService
                 new StorePaymentMethodResponse
                 {
                     Id = updated!.Id,
+                    Brand = updated.Brand,
                     Last4 = updated.Last4,
                     ExpirationMonth = updated.ExpirationMonth,
                     ExpirationYear = updated.ExpirationYear,
