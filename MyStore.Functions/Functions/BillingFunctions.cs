@@ -488,7 +488,15 @@ public class BillingFunctions
             }
             catch (StripeException ex)
             {
-                _logger.LogWarning(ex, "Failed to fetch Stripe subscription {StripeSubscriptionId}", localSub.StripeSubscriptionId);
+                _logger.LogWarning(ex, "Failed to fetch Stripe subscription {StripeSubscriptionId} with expansion", localSub.StripeSubscriptionId);
+                try
+                {
+                    stripeSub = await _stripeSubscriptionService.GetAsync(localSub.StripeSubscriptionId);
+                }
+                catch (StripeException ex2)
+                {
+                    _logger.LogWarning(ex2, "Failed to fetch Stripe subscription {StripeSubscriptionId}", localSub.StripeSubscriptionId);
+                }
             }
 
             string status;
