@@ -336,6 +336,28 @@ public class LoyaltyFunctionsTests
     }
 
     [Fact]
+    public async Task RedeemLoyaltyPoints_CustomerNotFound_Returns404()
+    {
+        _serviceMock
+            .Setup(s => s.RedeemAsync(CompanyId, 99999, 10))
+            .ReturnsAsync(ApiResponse<RedeemPointsResponse>.ErrorResponse("Customer not found"));
+
+        var context = new Mock<FunctionContext>();
+        var body = new RedeemPointsRequest { PointsToRedeem = 10 };
+        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+
+        var result = await _functions.RedeemLoyaltyPoints(req, 99999);
+
+        result.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        var responseBody = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<RedeemPointsResponse>>(
+            responseBody, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Success.Should().BeFalse();
+        deserialized.Message.Should().Be("Customer not found");
+    }
+
+    [Fact]
     public async Task RedeemLoyaltyPoints_InsufficientBalance_Returns400()
     {
         _serviceMock
