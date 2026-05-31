@@ -535,12 +535,13 @@ public class BillingFunctions
                     currency = upcoming.Currency;
                 }
             }
+            catch (StripeException ex) when (ex.StripeError?.Code == "invoice_upcoming_none")
+            {
+                _logger.LogInformation("No upcoming invoice for subscription {StripeSubscriptionId}", localSub.StripeSubscriptionId);
+            }
             catch (StripeException ex)
             {
-                if (ex.StripeError?.Code == "invoice_upcoming_none")
-                    _logger.LogInformation("No upcoming invoice for subscription {StripeSubscriptionId}", localSub.StripeSubscriptionId);
-                else
-                    _logger.LogWarning(ex, "Failed to fetch upcoming invoice for subscription {StripeSubscriptionId}", localSub.StripeSubscriptionId);
+                _logger.LogWarning(ex, "Failed to retrieve upcoming invoice for subscription {StripeSubscriptionId}", localSub.StripeSubscriptionId);
             }
 
             var responseData = new SubscriptionDetailResponse

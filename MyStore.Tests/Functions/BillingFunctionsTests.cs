@@ -710,7 +710,7 @@ public class BillingFunctionsTests
     }
 
     [Fact]
-    public async Task GetSubscriptionStatus_InvoicePreviewStripeExceptionNotUpcomingNone_ReturnsOkWithSubscriptionData()
+    public async Task GetSubscriptionStatus_InvoicePreviewStripeExceptionNotUpcomingNone_Returns200WithNullNextInvoice()
     {
         var companyId = 6;
         var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
@@ -771,7 +771,13 @@ public class BillingFunctionsTests
 
         result.StatusCode.Should().Be(HttpStatusCode.OK);
         var body = await TestHelpers.ReadResponseBody(result);
-        body.Should().Contain("active");
+        var parsed = JsonSerializer.Deserialize<JsonElement>(body);
+        parsed.GetProperty("success").GetBoolean().Should().BeTrue();
+        var data = parsed.GetProperty("data");
+        data.GetProperty("status").GetString().Should().Be("active");
+        data.GetProperty("planName").GetString().Should().Be("Basic Plan");
+        data.GetProperty("nextInvoiceAmount").ValueKind.Should().Be(JsonValueKind.Null);
+        data.GetProperty("currency").ValueKind.Should().Be(JsonValueKind.Null);
     }
 
     [Fact]
