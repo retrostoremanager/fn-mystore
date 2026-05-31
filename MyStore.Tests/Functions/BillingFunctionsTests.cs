@@ -24,6 +24,7 @@ public class BillingFunctionsTests
     private readonly Mock<ISubscriptionRepository> _subscriptionRepositoryMock;
     private readonly Mock<InvoiceService> _invoiceServiceMock;
     private readonly Mock<Stripe.SubscriptionService> _stripeSubscriptionServiceMock;
+    private readonly Mock<Stripe.ProductService> _stripeProductServiceMock;
     private readonly Mock<ILoggerFactory> _loggerFactoryMock;
     private readonly Mock<ILogger<BillingFunctions>> _loggerMock;
     private readonly BillingFunctions _functions;
@@ -38,6 +39,7 @@ public class BillingFunctionsTests
         _subscriptionRepositoryMock = new Mock<ISubscriptionRepository>();
         _invoiceServiceMock = new Mock<InvoiceService>();
         _stripeSubscriptionServiceMock = new Mock<Stripe.SubscriptionService>();
+        _stripeProductServiceMock = new Mock<Stripe.ProductService>();
         _loggerMock = new Mock<ILogger<BillingFunctions>>();
         _loggerFactoryMock = new Mock<ILoggerFactory>();
         _loggerFactoryMock
@@ -58,6 +60,7 @@ public class BillingFunctionsTests
             stripeOptions,
             _invoiceServiceMock.Object,
             _stripeSubscriptionServiceMock.Object,
+            _stripeProductServiceMock.Object,
             _loggerFactoryMock.Object);
     }
 
@@ -127,6 +130,7 @@ public class BillingFunctionsTests
             stripeOptions,
             _invoiceServiceMock.Object,
             _stripeSubscriptionServiceMock.Object,
+            _stripeProductServiceMock.Object,
             _loggerFactoryMock.Object);
         var payload = """{"id":"evt_1","object":"event","type":"test"}""";
         var request = TestHelpers.CreateHttpRequestDataWithRawBody(payload);
@@ -883,6 +887,83 @@ public class BillingFunctionsTests
         data.GetProperty("nextInvoiceAmount").ValueKind.Should().Be(JsonValueKind.Null);
         data.GetProperty("trialStart").ValueKind.Should().Be(JsonValueKind.Null);
         data.GetProperty("trialEnd").ValueKind.Should().Be(JsonValueKind.Null);
+    }
+
+    [Fact]
+    public async Task GetSubscriptionStatus_ProductIsStringId_FetchesProductAndReturnsPlanName()
+    {
+        var companyId = 13;
+        var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+
+        var periodStart = new DateTime(2026, 5, 20, 0, 14, 30, DateTimeKind.Utc);
+        var periodEnd = new DateTime(2026, 6, 20, 0, 14, 30, DateTimeKind.Utc);
+        var periodStartUnix = new DateTimeOffset(periodStart).ToUnixTimeSeconds();
+        var periodEndUnix = new DateTimeOffset(periodEnd).ToUnixTimeSeconds();
+
+        var localSub = new MyStore.Models.Subscription
+        {
+            Id = 13,
+            CompanyId = companyId,
+            StripeSubscriptionId = "sub_stringprod123",
+            StripeCustomerId = "",
+            Status = "active",
+        };
+
+        var subJson = $$"""
+            {
+                "id": "sub_stringprod123",
+                "object": "subscription",
+                "status": "active",
+                "current_period_start": {{periodStartUnix}},
+                "current_period_end": {{periodEndUnix}},
+                "cancel_at_period_end": false,
+                "customer": "cus_stringprod123",
+                "items": {
+                    "object": "list",
+                    "data": [{
+                        "id": "si_stringprod",
+                        "object": "subscription_item",
+                        "price": {
+                            "id": "price_stringprod",
+                            "object": "price",
+                            "product": "prod_stringprod123"
+                        }
+                    }]
+                }
+            }
+            """;
+        var stripeSub = Newtonsoft.Json.JsonConvert.DeserializeObject<Stripe.Subscription>(subJson)!;
+
+        var stripeProduct = new Stripe.Product { Id = "prod_stringprod123", Name = "Enterprise" };
+        var upcomingInvoice = new Invoice { Total = 19999, Currency = "usd" };
+
+        InvoiceCreatePreviewOptions? capturedOptions = null;
+        _subscriptionRepositoryMock.Setup(r => r.GetByCompanyIdAsync(companyId)).ReturnsAsync(localSub);
+        _stripeSubscriptionServiceMock
+            .Setup(s => s.GetAsync("sub_stringprod123", It.IsAny<SubscriptionGetOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(stripeSub);
+        _stripeProductServiceMock
+            .Setup(s => s.GetAsync("prod_stringprod123", It.IsAny<ProductGetOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(stripeProduct);
+        _invoiceServiceMock
+            .Setup(s => s.CreatePreviewAsync(It.IsAny<InvoiceCreatePreviewOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()))
+            .Callback<InvoiceCreatePreviewOptions, RequestOptions, CancellationToken>((opts, _, _) => capturedOptions = opts)
+            .ReturnsAsync(upcomingInvoice);
+
+        var result = await _functions.GetSubscriptionStatus(request);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        capturedOptions.Should().NotBeNull();
+        capturedOptions!.Customer.Should().Be("cus_stringprod123");
+        var body = await TestHelpers.ReadResponseBody(result);
+        var parsed = JsonSerializer.Deserialize<JsonElement>(body);
+        parsed.GetProperty("success").GetBoolean().Should().BeTrue();
+        var data = parsed.GetProperty("data");
+        data.GetProperty("planName").GetString().Should().Be("Enterprise");
+        data.GetProperty("nextInvoiceAmount").GetDecimal().Should().Be(199.99m);
+        data.GetProperty("currency").GetString().Should().Be("usd");
+        data.GetProperty("status").GetString().Should().Be("active");
     }
 
     [Fact]

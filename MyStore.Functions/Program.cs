@@ -96,6 +96,7 @@ var host = new HostBuilder()
         services.AddScoped<LogoStorageService>();
         services.AddScoped<Stripe.InvoiceService>();
         services.AddScoped<Stripe.SubscriptionService>();
+        services.AddScoped<Stripe.ProductService>();
     })
     .Build();
 
