@@ -884,4 +884,151 @@ public class BillingFunctionsTests
         data.GetProperty("trialStart").ValueKind.Should().Be(JsonValueKind.Null);
         data.GetProperty("trialEnd").ValueKind.Should().Be(JsonValueKind.Null);
     }
+
+    [Fact]
+    public async Task GetSubscriptionStatus_ProductNotExpandedBySDK_ExtractsPlanNameFromRawJson()
+    {
+        var companyId = 7;
+        var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+
+        var periodStart = new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var periodEnd = new DateTime(2026, 6, 1, 0, 0, 0, DateTimeKind.Utc);
+        var periodStartUnix = new DateTimeOffset(periodStart).ToUnixTimeSeconds();
+        var periodEndUnix = new DateTimeOffset(periodEnd).ToUnixTimeSeconds();
+
+        var localSub = new MyStore.Models.Subscription
+        {
+            Id = 7,
+            CompanyId = companyId,
+            StripeSubscriptionId = "sub_rawjson123",
+            StripeCustomerId = "cus_rawjson123",
+            Status = "active",
+        };
+
+        var subJson = $$"""
+            {
+                "id": "sub_rawjson123",
+                "object": "subscription",
+                "status": "active",
+                "current_period_start": {{periodStartUnix}},
+                "current_period_end": {{periodEndUnix}},
+                "cancel_at_period_end": false,
+                "customer": "cus_rawjson123",
+                "items": {
+                    "object": "list",
+                    "data": [{
+                        "id": "si_rawjson",
+                        "object": "subscription_item",
+                        "price": {
+                            "id": "price_rawjson",
+                            "object": "price",
+                            "product": {
+                                "id": "prod_rawjson",
+                                "object": "product",
+                                "name": "Enterprise"
+                            }
+                        }
+                    }]
+                }
+            }
+            """;
+        var stripeSub = Newtonsoft.Json.JsonConvert.DeserializeObject<Stripe.Subscription>(subJson)!;
+
+        var upcomingInvoice = new Invoice { Total = 19999, Currency = "usd" };
+
+        _subscriptionRepositoryMock.Setup(r => r.GetByCompanyIdAsync(companyId)).ReturnsAsync(localSub);
+        _stripeSubscriptionServiceMock
+            .Setup(s => s.GetAsync("sub_rawjson123", It.IsAny<SubscriptionGetOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(stripeSub);
+        _invoiceServiceMock
+            .Setup(s => s.CreatePreviewAsync(It.IsAny<InvoiceCreatePreviewOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(upcomingInvoice);
+
+        var result = await _functions.GetSubscriptionStatus(request);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await TestHelpers.ReadResponseBody(result);
+        var parsed = JsonSerializer.Deserialize<JsonElement>(body);
+        parsed.GetProperty("success").GetBoolean().Should().BeTrue();
+        var data = parsed.GetProperty("data");
+        data.GetProperty("planName").GetString().Should().Be("Enterprise");
+        data.GetProperty("nextInvoiceAmount").GetDecimal().Should().Be(199.99m);
+        data.GetProperty("currency").GetString().Should().Be("usd");
+    }
+
+    [Fact]
+    public async Task GetSubscriptionStatus_EmptyLocalStripeCustomerId_UsesCustomerIdFromStripeSub()
+    {
+        var companyId = 8;
+        var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+
+        var periodStart = new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var periodEnd = new DateTime(2026, 6, 1, 0, 0, 0, DateTimeKind.Utc);
+        var periodStartUnix = new DateTimeOffset(periodStart).ToUnixTimeSeconds();
+        var periodEndUnix = new DateTimeOffset(periodEnd).ToUnixTimeSeconds();
+
+        var localSub = new MyStore.Models.Subscription
+        {
+            Id = 8,
+            CompanyId = companyId,
+            StripeSubscriptionId = "sub_nocustomer123",
+            StripeCustomerId = "",
+            Status = "active",
+        };
+
+        var subJson = $$"""
+            {
+                "id": "sub_nocustomer123",
+                "object": "subscription",
+                "status": "active",
+                "current_period_start": {{periodStartUnix}},
+                "current_period_end": {{periodEndUnix}},
+                "cancel_at_period_end": false,
+                "customer": "cus_fromstripe123",
+                "items": {
+                    "object": "list",
+                    "data": [{
+                        "id": "si_nocustomer",
+                        "object": "subscription_item",
+                        "price": {
+                            "id": "price_nocustomer",
+                            "object": "price",
+                            "product": {
+                                "id": "prod_nocustomer",
+                                "object": "product",
+                                "name": "Basic Plan"
+                            }
+                        }
+                    }]
+                }
+            }
+            """;
+        var stripeSub = Newtonsoft.Json.JsonConvert.DeserializeObject<Stripe.Subscription>(subJson)!;
+
+        var upcomingInvoice = new Invoice { Total = 2999, Currency = "usd" };
+
+        InvoiceCreatePreviewOptions? capturedOptions = null;
+        _subscriptionRepositoryMock.Setup(r => r.GetByCompanyIdAsync(companyId)).ReturnsAsync(localSub);
+        _stripeSubscriptionServiceMock
+            .Setup(s => s.GetAsync("sub_nocustomer123", It.IsAny<SubscriptionGetOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(stripeSub);
+        _invoiceServiceMock
+            .Setup(s => s.CreatePreviewAsync(It.IsAny<InvoiceCreatePreviewOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()))
+            .Callback<InvoiceCreatePreviewOptions, RequestOptions, CancellationToken>((opts, _, _) => capturedOptions = opts)
+            .ReturnsAsync(upcomingInvoice);
+
+        var result = await _functions.GetSubscriptionStatus(request);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        capturedOptions.Should().NotBeNull();
+        capturedOptions!.Customer.Should().Be("cus_fromstripe123");
+        var body = await TestHelpers.ReadResponseBody(result);
+        var parsed = JsonSerializer.Deserialize<JsonElement>(body);
+        parsed.GetProperty("success").GetBoolean().Should().BeTrue();
+        var data = parsed.GetProperty("data");
+        data.GetProperty("nextInvoiceAmount").GetDecimal().Should().Be(29.99m);
+        data.GetProperty("currency").GetString().Should().Be("usd");
+    }
 }
