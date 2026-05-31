@@ -137,6 +137,10 @@ public class LoyaltyService : ILoyaltyService
             if (pointsToRedeem <= 0)
                 return ApiResponse<RedeemPointsResponse>.ErrorResponse("Points to redeem must be greater than zero");
 
+            var customer = await _customerRepository.GetByIdAsync(customerId);
+            if (customer is null || customer.CompanyId != companyId)
+                return ApiResponse<RedeemPointsResponse>.ErrorResponse("Customer not found");
+
             var settings = await _repository.GetSettingsAsync(companyId);
             if (settings is null || !settings.IsEnabled)
                 return ApiResponse<RedeemPointsResponse>.ErrorResponse("Loyalty programme is not enabled for this company");
