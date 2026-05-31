@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using MyStore.Functions.Attributes;
 using MyStore.Functions.Helpers;
 using MyStore.Models;
+using MyStore.Repositories;
 using MyStore.Services;
 
 namespace MyStore.Functions;
@@ -14,11 +15,13 @@ namespace MyStore.Functions;
 public class PromotionFunctions
 {
     private readonly IPromotionService _promotionService;
+    private readonly IUserRepository _userRepository;
     private readonly ILogger _logger;
 
-    public PromotionFunctions(IPromotionService promotionService, ILoggerFactory loggerFactory)
+    public PromotionFunctions(IPromotionService promotionService, IUserRepository userRepository, ILoggerFactory loggerFactory)
     {
         _promotionService = promotionService;
+        _userRepository = userRepository;
         _logger = loggerFactory.CreateLogger<PromotionFunctions>();
     }
 
@@ -112,6 +115,14 @@ public class PromotionFunctions
         {
             var errorResponse = ApiResponse<Promotion>.ErrorResponse("StartDate is required");
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+        }
+
+        var email = CompanyHelper.GetEmailFromJwt(req);
+        if (!string.IsNullOrEmpty(email))
+        {
+            var user = await _userRepository.GetByEmailAsync(email, companyId);
+            if (user != null)
+                request.CreatedBy = user.Id;
         }
 
         _logger.LogInformation("Creating promotion for company {CompanyId}", companyId);
