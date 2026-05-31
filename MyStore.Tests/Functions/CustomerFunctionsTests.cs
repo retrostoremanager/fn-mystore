@@ -316,6 +316,16 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
+    public async Task CreateCustomer_MalformedJson_ThrowsJsonException()
+    {
+        var context = new Mock<FunctionContext>();
+        var req = TestHelpers.CreateHttpRequestDataWithRawBody("{invalid json", _companyHeaders, context.Object);
+
+        var act = async () => await _functions.CreateCustomer(req);
+        await act.Should().ThrowAsync<System.Text.Json.JsonException>();
+    }
+
+    [Fact]
     public async Task CreateCustomer_ScopedToCompany_PassesCompanyIdToService()
     {
         var request = new CreateCustomerRequest { FirstName = "Jane", LastName = "Smith" };
@@ -430,6 +440,16 @@ public class CustomerFunctionsTests
 
         deserialized!.Success.Should().BeFalse();
         deserialized.Message.Should().Contain("Invalid request body");
+    }
+
+    [Fact]
+    public async Task UpdateCustomer_MalformedJson_ThrowsJsonException()
+    {
+        var context = new Mock<FunctionContext>();
+        var req = TestHelpers.CreateHttpRequestDataWithRawBody("{invalid json", _companyHeaders, context.Object);
+
+        var act = async () => await _functions.UpdateCustomer(req, 1);
+        await act.Should().ThrowAsync<System.Text.Json.JsonException>();
     }
 
     [Fact]
