@@ -216,6 +216,128 @@ public class PromotionServiceTests
     }
 
     [Fact]
+    public async Task ApplyPromotionsAsync_EmptyCart_ReturnsEmptyDiscountList()
+    {
+        var promotions = new List<Promotion>
+        {
+            new Promotion { Id = 1, CompanyId = 10, Name = "10% Off", Type = "percentage", DiscountPercent = 10m, Scope = "store_wide", StartDate = DateTime.UtcNow.AddDays(-1), IsActive = true }
+        };
+        _repositoryMock.Setup(r => r.GetActiveAsync(10, It.IsAny<DateTime>())).ReturnsAsync(promotions);
+
+        var discounts = (await _service.ApplyPromotionsAsync(new List<CartItem>(), 10)).ToList();
+
+        discounts.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ApplyPromotionsAsync_Bxgy_DoubleBuyQuantity_GrantsDoubleGetQuantityFree()
+    {
+        var promotions = new List<Promotion>
+        {
+            new Promotion { Id = 1, CompanyId = 10, Name = "Buy 2 Get 1", Type = "bxgy", BuyQuantity = 2, GetQuantity = 1, Scope = "store_wide", StartDate = DateTime.UtcNow.AddDays(-1), IsActive = true }
+        };
+        _repositoryMock.Setup(r => r.GetActiveAsync(10, It.IsAny<DateTime>())).ReturnsAsync(promotions);
+
+        var cartItems = new List<CartItem>
+        {
+            new CartItem { InventoryItemId = 1, Quantity = 6, UnitPrice = 10m, Category = "Games" },
+        };
+
+        var discounts = (await _service.ApplyPromotionsAsync(cartItems, 10)).ToList();
+
+        discounts.Should().HaveCount(1);
+        discounts.Single(d => d.ItemId == 1).DiscountAmount.Should().Be(30m);
+    }
+
+    [Fact]
+    public async Task ApplyPromotionsAsync_Bxgy_LessThanBuyQuantity_GrantsNoDiscount()
+    {
+        var promotions = new List<Promotion>
+        {
+            new Promotion { Id = 1, CompanyId = 10, Name = "Buy 3 Get 1", Type = "bxgy", BuyQuantity = 3, GetQuantity = 1, Scope = "store_wide", StartDate = DateTime.UtcNow.AddDays(-1), IsActive = true }
+        };
+        _repositoryMock.Setup(r => r.GetActiveAsync(10, It.IsAny<DateTime>())).ReturnsAsync(promotions);
+
+        var cartItems = new List<CartItem>
+        {
+            new CartItem { InventoryItemId = 1, Quantity = 2, UnitPrice = 10m, Category = "Games" },
+        };
+
+        var discounts = (await _service.ApplyPromotionsAsync(cartItems, 10)).ToList();
+
+        discounts.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetActivePromotionsAsync_ExpiredPromotion_ReturnsEmpty()
+    {
+        _repositoryMock
+            .Setup(r => r.GetActiveAsync(10, It.IsAny<DateTime>()))
+            .ReturnsAsync(new List<Promotion>());
+
+        var result = await _service.GetActivePromotionsAsync(10);
+
+        result.Success.Should().BeTrue();
+        result.Data.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetActivePromotionsAsync_FuturePromotion_ReturnsEmpty()
+    {
+        _repositoryMock
+            .Setup(r => r.GetActiveAsync(10, It.IsAny<DateTime>()))
+            .ReturnsAsync(new List<Promotion>());
+
+        var result = await _service.GetActivePromotionsAsync(10);
+
+        result.Success.Should().BeTrue();
+        result.Data.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ApplyPromotionsAsync_MultipleSimultaneousPromotions_AllAppliedIndependently()
+    {
+        var promotions = new List<Promotion>
+        {
+            new Promotion { Id = 1, CompanyId = 10, Name = "10% Off Everything", Type = "percentage", DiscountPercent = 10m, Scope = "store_wide", StartDate = DateTime.UtcNow.AddDays(-1), IsActive = true },
+            new Promotion { Id = 2, CompanyId = 10, Name = "20% Off Games", Type = "percentage", DiscountPercent = 20m, Scope = "category", ScopeValue = "Games", StartDate = DateTime.UtcNow.AddDays(-1), IsActive = true }
+        };
+        _repositoryMock.Setup(r => r.GetActiveAsync(10, It.IsAny<DateTime>())).ReturnsAsync(promotions);
+
+        var cartItems = new List<CartItem>
+        {
+            new CartItem { InventoryItemId = 1, Quantity = 1, UnitPrice = 100m, Category = "Games" },
+            new CartItem { InventoryItemId = 2, Quantity = 1, UnitPrice = 50m, Category = "Accessories" },
+        };
+
+        var discounts = (await _service.ApplyPromotionsAsync(cartItems, 10)).ToList();
+
+        discounts.Should().HaveCount(2);
+        discounts.Single(d => d.ItemId == 1).DiscountAmount.Should().Be(30m);
+        discounts.Single(d => d.ItemId == 2).DiscountAmount.Should().Be(5m);
+    }
+
+    [Fact]
+    public async Task ApplyPromotionsAsync_PercentageStoreWide_RoundingEdgeCase()
+    {
+        var promotions = new List<Promotion>
+        {
+            new Promotion { Id = 1, CompanyId = 10, Name = "33.3% Off", Type = "percentage", DiscountPercent = 33.3m, Scope = "store_wide", StartDate = DateTime.UtcNow.AddDays(-1), IsActive = true }
+        };
+        _repositoryMock.Setup(r => r.GetActiveAsync(10, It.IsAny<DateTime>())).ReturnsAsync(promotions);
+
+        var cartItems = new List<CartItem>
+        {
+            new CartItem { InventoryItemId = 1, Quantity = 1, UnitPrice = 10m, Category = "Games" },
+        };
+
+        var discounts = (await _service.ApplyPromotionsAsync(cartItems, 10)).ToList();
+
+        discounts.Should().HaveCount(1);
+        discounts.Single(d => d.ItemId == 1).DiscountAmount.Should().Be(3.33m);
+    }
+
+    [Fact]
     public async Task UpdateAsync_NotFound_ReturnsError()
     {
         _repositoryMock.Setup(r => r.GetByIdAsync(99, 10)).ReturnsAsync((Promotion?)null);
