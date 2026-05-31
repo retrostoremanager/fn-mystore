@@ -212,6 +212,42 @@ public class PromotionFunctionsTests
         result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
+    [Fact]
+    public async Task CreatePromotion_MissingStartDate_Returns400()
+    {
+        var createRequest = new CreatePromotionRequest
+        {
+            Name = "Spring Sale",
+            Type = "percentage",
+            Scope = "store_wide",
+            StartDate = default
+        };
+
+        var req = TestHelpers.CreateHttpRequestData(new Mock<FunctionContext>().Object, createRequest, _companyHeaders);
+
+        var result = await _functions.CreatePromotion(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<Promotion>>(
+            body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        deserialized!.Message.Should().Contain("StartDate is required");
+    }
+
+    [Fact]
+    public async Task CreatePromotion_NullJsonBody_Returns400()
+    {
+        var req = TestHelpers.CreateHttpRequestDataWithRawBody("null", _companyHeaders);
+
+        var result = await _functions.CreatePromotion(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<Promotion>>(
+            body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        deserialized!.Message.Should().Contain("Invalid request body");
+    }
+
     #endregion
 
     #region UpdatePromotion
@@ -251,6 +287,20 @@ public class PromotionFunctionsTests
         var result = await _functions.UpdatePromotion(req, 99);
 
         result.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task UpdatePromotion_NullJsonBody_Returns400()
+    {
+        var req = TestHelpers.CreateHttpRequestDataWithRawBody("null", _companyHeaders);
+
+        var result = await _functions.UpdatePromotion(req, 1);
+
+        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<Promotion>>(
+            body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        deserialized!.Message.Should().Contain("Invalid request body");
     }
 
     [Fact]
@@ -303,6 +353,42 @@ public class PromotionFunctionsTests
         var result = await _functions.DeletePromotion(req, 1);
 
         result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    #endregion
+
+    #region Response Format
+
+    [Fact]
+    public async Task GetAllPromotions_ResponseHasCorrectContentType()
+    {
+        _promotionServiceMock
+            .Setup(s => s.GetAllAsync(CompanyId))
+            .ReturnsAsync(ApiResponse<List<Promotion>>.SuccessResponse(new List<Promotion>()));
+
+        var req = TestHelpers.CreateHttpRequestData(new Mock<FunctionContext>().Object, null, _companyHeaders);
+
+        var result = await _functions.GetAllPromotions(req);
+
+        result.Headers.GetValues("Content-Type").Should().Contain("application/json; charset=utf-8");
+    }
+
+    [Fact]
+    public async Task GetAllPromotions_ResponseUsesCamelCase()
+    {
+        _promotionServiceMock
+            .Setup(s => s.GetAllAsync(CompanyId))
+            .ReturnsAsync(ApiResponse<List<Promotion>>.SuccessResponse(new List<Promotion>()));
+
+        var req = TestHelpers.CreateHttpRequestData(new Mock<FunctionContext>().Object, null, _companyHeaders);
+
+        var result = await _functions.GetAllPromotions(req);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        body.Should().Contain("\"success\"");
+        body.Should().Contain("\"data\"");
+        body.Should().NotContain("\"Success\"");
+        body.Should().NotContain("\"Data\"");
     }
 
     #endregion
