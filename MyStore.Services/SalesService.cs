@@ -286,9 +286,11 @@ public class SalesService : ISalesService
 
             var profile = await _companyRepository.GetProfileAsync(companyId);
 
+            var receiptNumber = string.Format("REC-{0:D6}", sale.Id);
+
             var receipt = new ReceiptResponse
             {
-                ReceiptNumber = $"REC-{sale.Id:D6}",
+                ReceiptNumber = receiptNumber,
                 Date = sale.SaleDate,
                 StoreName = profile?.CompanyName ?? string.Empty,
                 StoreAddress = profile?.CompanyAddress,

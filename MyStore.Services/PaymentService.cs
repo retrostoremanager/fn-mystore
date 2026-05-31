@@ -148,7 +148,12 @@ public class PaymentService : IPaymentService
             {
                 if (string.IsNullOrWhiteSpace(_stripeSecretKey))
                 {
-                    _logger.LogWarning("Brand backfill skipped for company {CompanyId}: Stripe secret key is not configured (checked Stripe:SecretKey, Stripe__SecretKey, and env Stripe__SecretKey).", companyId);
+                    _logger.LogWarning("Brand backfill skipped for company {CompanyId}: Stripe secret key is not configured (checked Stripe:SecretKey, Stripe__SecretKey, and env Stripe__SecretKey). Persisting 'unknown' brand to prevent empty-string state.", companyId);
+                    foreach (var method in methodsNeedingBackfill)
+                    {
+                        await _paymentRepository.UpdateBrandAsync(method.Id, "unknown");
+                        method.Brand = "unknown";
+                    }
                 }
                 else
                 {
@@ -165,15 +170,17 @@ public class PaymentService : IPaymentService
                                 await _paymentRepository.UpdateBrandAsync(method.Id, brand);
                                 method.Brand = brand;
                             }
-                        }
-                        catch (StripeException ex)
-                        {
-                            _logger.LogWarning(ex, "Could not backfill brand for payment method {PaymentMethodId}", method.Id);
-                            if (ex.StripeError?.Code == "resource_missing")
+                            else
                             {
                                 await _paymentRepository.UpdateBrandAsync(method.Id, "unknown");
                                 method.Brand = "unknown";
                             }
+                        }
+                        catch (StripeException ex)
+                        {
+                            _logger.LogWarning(ex, "Could not backfill brand for payment method {PaymentMethodId} (StripeError.Code={Code})", method.Id, ex.StripeError?.Code);
+                            await _paymentRepository.UpdateBrandAsync(method.Id, "unknown");
+                            method.Brand = "unknown";
                         }
                     }
                 }
