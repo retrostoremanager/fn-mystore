@@ -140,25 +140,32 @@ public class PaymentService : IPaymentService
                 .Where(m => string.IsNullOrEmpty(m.Brand) && !string.IsNullOrEmpty(m.StripePaymentMethodId))
                 .ToList();
 
-            if (methodsNeedingBackfill.Count > 0 && !string.IsNullOrWhiteSpace(_stripeSecretKey))
+            if (methodsNeedingBackfill.Count > 0)
             {
-                var paymentMethodService = new Stripe.PaymentMethodService();
-
-                foreach (var method in methodsNeedingBackfill)
+                if (string.IsNullOrWhiteSpace(_stripeSecretKey))
                 {
-                    try
+                    _logger.LogWarning("Brand backfill skipped for company {CompanyId}: Stripe__SecretKey is not configured.", companyId);
+                }
+                else
+                {
+                    var paymentMethodService = new Stripe.PaymentMethodService(new StripeClient(_stripeSecretKey));
+
+                    foreach (var method in methodsNeedingBackfill)
                     {
-                        var stripePaymentMethod = await paymentMethodService.GetAsync(method.StripePaymentMethodId);
-                        var brand = stripePaymentMethod.Card?.Brand ?? string.Empty;
-                        if (!string.IsNullOrEmpty(brand))
+                        try
                         {
-                            await _paymentRepository.UpdateBrandAsync(method.Id, brand);
-                            method.Brand = brand;
+                            var stripePaymentMethod = await paymentMethodService.GetAsync(method.StripePaymentMethodId);
+                            var brand = stripePaymentMethod.Card?.Brand ?? string.Empty;
+                            if (!string.IsNullOrEmpty(brand))
+                            {
+                                await _paymentRepository.UpdateBrandAsync(method.Id, brand);
+                                method.Brand = brand;
+                            }
                         }
-                    }
-                    catch (StripeException ex)
-                    {
-                        _logger.LogWarning(ex, "Could not backfill brand for payment method {PaymentMethodId}", method.Id);
+                        catch (StripeException ex)
+                        {
+                            _logger.LogWarning(ex, "Could not backfill brand for payment method {PaymentMethodId}", method.Id);
+                        }
                     }
                 }
             }
