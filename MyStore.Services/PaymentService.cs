@@ -142,40 +142,24 @@ public class PaymentService : IPaymentService
                 .Where(m => string.IsNullOrEmpty(m.Brand) && !string.IsNullOrEmpty(m.StripePaymentMethodId))
                 .ToList();
 
-            if (methodsNeedingBackfill.Count > 0)
+            if (methodsNeedingBackfill.Count > 0 && !string.IsNullOrWhiteSpace(_stripeSecretKey))
             {
-                if (string.IsNullOrWhiteSpace(_stripeSecretKey))
-                {
-                    _logger.LogWarning("Brand backfill skipped for company {CompanyId}: Stripe__SecretKey is not configured. Persisting 'unknown' brand to prevent empty-string state.", companyId);
-                    foreach (var method in methodsNeedingBackfill)
-                    {
-                        await TryPersistBrandAsync(method, "unknown");
-                    }
-                }
-                else
-                {
-                    var paymentMethodService = new Stripe.PaymentMethodService(new StripeClient(_stripeSecretKey));
+                var paymentMethodService = new Stripe.PaymentMethodService(new StripeClient(_stripeSecretKey));
 
-                    foreach (var method in methodsNeedingBackfill)
+                foreach (var method in methodsNeedingBackfill)
+                {
+                    try
                     {
-                        try
+                        var stripePaymentMethod = await paymentMethodService.GetAsync(method.StripePaymentMethodId);
+                        var brand = stripePaymentMethod.Card?.Brand;
+                        if (!string.IsNullOrEmpty(brand))
                         {
-                            var stripePaymentMethod = await paymentMethodService.GetAsync(method.StripePaymentMethodId);
-                            var brand = stripePaymentMethod.Card?.Brand ?? string.Empty;
-                            if (!string.IsNullOrEmpty(brand))
-                            {
-                                await TryPersistBrandAsync(method, brand);
-                            }
-                            else
-                            {
-                                await TryPersistBrandAsync(method, "unknown");
-                            }
+                            method.Brand = brand;
                         }
-                        catch (StripeException ex)
-                        {
-                            _logger.LogWarning(ex, "Could not backfill brand for payment method {PaymentMethodId} (StripeError.Code={Code})", method.Id, ex.StripeError?.Code);
-                            await TryPersistBrandAsync(method, "unknown");
-                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Could not retrieve brand from Stripe for payment method {PaymentMethodId}; falling back to 'unknown'.", method.Id);
                     }
                 }
             }
@@ -183,7 +167,7 @@ public class PaymentService : IPaymentService
             var response = methods.Select(m => new StorePaymentMethodResponse
             {
                 Id = m.Id,
-                Brand = m.Brand,
+                Brand = string.IsNullOrEmpty(m.Brand) ? "unknown" : m.Brand,
                 Last4 = m.Last4,
                 ExpirationMonth = m.ExpirationMonth,
                 ExpirationYear = m.ExpirationYear,
@@ -196,19 +180,6 @@ public class PaymentService : IPaymentService
             _logger.LogError(ex, "Error retrieving payment methods for company {CompanyId}", companyId);
             return ApiResponse<IEnumerable<StorePaymentMethodResponse>>.ErrorResponse(
                 "An error occurred while retrieving payment methods.");
-        }
-    }
-
-    private async Task TryPersistBrandAsync(Models.PaymentMethod method, string brand)
-    {
-        method.Brand = brand;
-        try
-        {
-            await _paymentRepository.UpdateBrandAsync(method.Id, brand);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to persist backfilled brand '{Brand}' for payment method {PaymentMethodId}; returning in-memory value only.", brand, method.Id);
         }
     }
 
