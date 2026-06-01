@@ -7,6 +7,13 @@ on:
       - development
   workflow_dispatch:
 
+# Serialize deploys to the shared dev Function App. Concurrent merges previously
+# raced on config-zip (failed/half deploys) and finished out of order, leaving
+# dev on a stale build. Run one at a time; let the newest queued deploy win.
+concurrency:
+  group: deploy-function-app-dev
+  cancel-in-progress: false
+
 jobs:
   build-and-deploy:
     if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
