@@ -361,4 +361,196 @@ public class PromotionServiceTests
         result.Success.Should().BeTrue();
         result.Data!.Name.Should().Be("New");
     }
+
+    [Fact]
+    public async Task CreateAsync_BxgyWithoutBuyOrGetQuantity_ReturnsValidationError()
+    {
+        var request = new CreatePromotionRequest
+        {
+            Name = "Bad BXGY",
+            Type = "bxgy",
+            Scope = "store_wide",
+            StartDate = DateTime.UtcNow,
+            IsActive = true,
+        };
+
+        var result = await _service.CreateAsync(request, 10);
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("BuyQuantity").And.Contain("GetQuantity");
+        _repositoryMock.Verify(r => r.CreateAsync(It.IsAny<Promotion>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateAsync_BxgyWithZeroBuyQuantity_ReturnsValidationError()
+    {
+        var request = new CreatePromotionRequest
+        {
+            Name = "Bad BXGY",
+            Type = "bxgy",
+            BuyQuantity = 0,
+            GetQuantity = 1,
+            Scope = "store_wide",
+            StartDate = DateTime.UtcNow,
+        };
+
+        var result = await _service.CreateAsync(request, 10);
+
+        result.Success.Should().BeFalse();
+        _repositoryMock.Verify(r => r.CreateAsync(It.IsAny<Promotion>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateAsync_CategoryScopeWithoutScopeValue_ReturnsValidationError()
+    {
+        var request = new CreatePromotionRequest
+        {
+            Name = "No ScopeValue",
+            Type = "percentage",
+            DiscountPercent = 10m,
+            Scope = "category",
+            StartDate = DateTime.UtcNow,
+        };
+
+        var result = await _service.CreateAsync(request, 10);
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("ScopeValue");
+        _repositoryMock.Verify(r => r.CreateAsync(It.IsAny<Promotion>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateAsync_ItemScopeWithoutScopeValue_ReturnsValidationError()
+    {
+        var request = new CreatePromotionRequest
+        {
+            Name = "No ScopeValue",
+            Type = "percentage",
+            DiscountPercent = 10m,
+            Scope = "item",
+            StartDate = DateTime.UtcNow,
+        };
+
+        var result = await _service.CreateAsync(request, 10);
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("ScopeValue");
+        _repositoryMock.Verify(r => r.CreateAsync(It.IsAny<Promotion>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateAsync_PercentageGreaterThan100_ReturnsValidationError()
+    {
+        var request = new CreatePromotionRequest
+        {
+            Name = "Too High",
+            Type = "percentage",
+            DiscountPercent = 150m,
+            Scope = "store_wide",
+            StartDate = DateTime.UtcNow,
+        };
+
+        var result = await _service.CreateAsync(request, 10);
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("DiscountPercent");
+        _repositoryMock.Verify(r => r.CreateAsync(It.IsAny<Promotion>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateAsync_PercentageBelowZero_ReturnsValidationError()
+    {
+        var request = new CreatePromotionRequest
+        {
+            Name = "Negative",
+            Type = "percentage",
+            DiscountPercent = -5m,
+            Scope = "store_wide",
+            StartDate = DateTime.UtcNow,
+        };
+
+        var result = await _service.CreateAsync(request, 10);
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("DiscountPercent");
+        _repositoryMock.Verify(r => r.CreateAsync(It.IsAny<Promotion>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateAsync_PercentageMissing_ReturnsValidationError()
+    {
+        var request = new CreatePromotionRequest
+        {
+            Name = "Missing Pct",
+            Type = "percentage",
+            Scope = "store_wide",
+            StartDate = DateTime.UtcNow,
+        };
+
+        var result = await _service.CreateAsync(request, 10);
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("DiscountPercent");
+        _repositoryMock.Verify(r => r.CreateAsync(It.IsAny<Promotion>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateAsync_ValidBxgy_PersistsPromotion()
+    {
+        var request = new CreatePromotionRequest
+        {
+            Name = "Buy 2 Get 1",
+            Type = "bxgy",
+            BuyQuantity = 2,
+            GetQuantity = 1,
+            Scope = "store_wide",
+            StartDate = DateTime.UtcNow,
+        };
+        var created = new Promotion { Id = 7, CompanyId = 10, Name = "Buy 2 Get 1", Type = "bxgy", BuyQuantity = 2, GetQuantity = 1, Scope = "store_wide", StartDate = request.StartDate, IsActive = true };
+        _repositoryMock.Setup(r => r.CreateAsync(It.IsAny<Promotion>())).ReturnsAsync(created);
+
+        var result = await _service.CreateAsync(request, 10);
+
+        result.Success.Should().BeTrue();
+        result.Data!.Id.Should().Be(7);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ChangeTypeToBxgyWithoutQuantities_ReturnsValidationError()
+    {
+        var existing = new Promotion { Id = 1, CompanyId = 10, Name = "Old", Type = "percentage", Scope = "store_wide", DiscountPercent = 5m, StartDate = DateTime.UtcNow, IsActive = true };
+        _repositoryMock.Setup(r => r.GetByIdAsync(1, 10)).ReturnsAsync(existing);
+
+        var result = await _service.UpdateAsync(1, new UpdatePromotionRequest { Type = "bxgy" }, 10);
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("BuyQuantity").And.Contain("GetQuantity");
+        _repositoryMock.Verify(r => r.UpdateAsync(It.IsAny<Promotion>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ChangeScopeToCategoryWithoutScopeValue_ReturnsValidationError()
+    {
+        var existing = new Promotion { Id = 1, CompanyId = 10, Name = "Old", Type = "percentage", Scope = "store_wide", DiscountPercent = 5m, StartDate = DateTime.UtcNow, IsActive = true };
+        _repositoryMock.Setup(r => r.GetByIdAsync(1, 10)).ReturnsAsync(existing);
+
+        var result = await _service.UpdateAsync(1, new UpdatePromotionRequest { Scope = "category" }, 10);
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("ScopeValue");
+        _repositoryMock.Verify(r => r.UpdateAsync(It.IsAny<Promotion>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_PercentageOutOfRange_ReturnsValidationError()
+    {
+        var existing = new Promotion { Id = 1, CompanyId = 10, Name = "Old", Type = "percentage", Scope = "store_wide", DiscountPercent = 5m, StartDate = DateTime.UtcNow, IsActive = true };
+        _repositoryMock.Setup(r => r.GetByIdAsync(1, 10)).ReturnsAsync(existing);
+
+        var result = await _service.UpdateAsync(1, new UpdatePromotionRequest { DiscountPercent = 150m }, 10);
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("DiscountPercent");
+        _repositoryMock.Verify(r => r.UpdateAsync(It.IsAny<Promotion>()), Times.Never);
+    }
 }

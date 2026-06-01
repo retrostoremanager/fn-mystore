@@ -53,6 +53,18 @@ public class PromotionService : IPromotionService
     {
         try
         {
+            var validationError = ValidatePromotionFields(
+                request.Type,
+                request.Scope,
+                request.ScopeValue,
+                request.DiscountPercent,
+                request.BuyQuantity,
+                request.GetQuantity);
+            if (validationError != null)
+            {
+                return ApiResponse<Promotion>.ErrorResponse(validationError);
+            }
+
             var promotion = new Promotion
             {
                 CompanyId = companyId,
@@ -101,6 +113,18 @@ public class PromotionService : IPromotionService
             if (request.StartDate.HasValue) existing.StartDate = request.StartDate.Value;
             if (request.EndDate.HasValue) existing.EndDate = request.EndDate;
             if (request.IsActive.HasValue) existing.IsActive = request.IsActive.Value;
+
+            var validationError = ValidatePromotionFields(
+                existing.Type,
+                existing.Scope,
+                existing.ScopeValue,
+                existing.DiscountPercent,
+                existing.BuyQuantity,
+                existing.GetQuantity);
+            if (validationError != null)
+            {
+                return ApiResponse<Promotion>.ErrorResponse(validationError);
+            }
 
             var updated = await _repository.UpdateAsync(existing);
             if (updated == null)
@@ -194,6 +218,42 @@ public class PromotionService : IPromotionService
         return discounts
             .Where(kv => kv.Value > 0)
             .Select(kv => new LineDiscount { ItemId = kv.Key, DiscountAmount = kv.Value });
+    }
+
+    private static string? ValidatePromotionFields(
+        string type,
+        string scope,
+        string? scopeValue,
+        decimal? discountPercent,
+        int? buyQuantity,
+        int? getQuantity)
+    {
+        if (string.Equals(type, "bxgy", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!buyQuantity.HasValue || buyQuantity.Value < 1 || !getQuantity.HasValue || getQuantity.Value < 1)
+            {
+                return "BuyQuantity and GetQuantity must be at least 1 for bxgy promotions";
+            }
+        }
+
+        if (string.Equals(scope, "category", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(scope, "item", StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(scopeValue))
+            {
+                return "ScopeValue is required when scope is 'category' or 'item'";
+            }
+        }
+
+        if (string.Equals(type, "percentage", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!discountPercent.HasValue || discountPercent.Value < 0m || discountPercent.Value > 100m)
+            {
+                return "DiscountPercent must be between 0 and 100 for percentage promotions";
+            }
+        }
+
+        return null;
     }
 
     private static List<CartItem> GetMatchingItems(List<CartItem> items, Promotion promotion)
