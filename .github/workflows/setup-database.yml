@@ -3,6 +3,12 @@ name: Setup Database (temp)
 on:
   workflow_dispatch:
 
+# Shares the function deploy's lock so a manual DB setup can't race the deploy
+# workflow while both write mystore-func-dev app settings.
+concurrency:
+  group: deploy-function-app-dev
+  cancel-in-progress: false
+
 jobs:
   setup:
     runs-on: ubuntu-latest
