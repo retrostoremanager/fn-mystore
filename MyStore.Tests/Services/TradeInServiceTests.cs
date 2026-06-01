@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Microsoft.Extensions.Logging;
 using Moq;
 using MyStore.Models;
 using MyStore.Repositories;
@@ -20,8 +21,10 @@ public class TradeInServiceTests
         _tradeInRepoMock = new Mock<ITradeInRepository>();
         _inventoryRepoMock = new Mock<IInventoryRepository>();
         _loyaltyMock = new Mock<ILoyaltyService>();
-        _service = new TradeInService(_tradeInRepoMock.Object, _inventoryRepoMock.Object, _loyaltyMock.Object);
-        _serviceNoLoyalty = new TradeInService(_tradeInRepoMock.Object, _inventoryRepoMock.Object, null);
+        var httpClient = new HttpClient();
+        var logger = new Mock<ILogger<TradeInService>>().Object;
+        _service = new TradeInService(_tradeInRepoMock.Object, _inventoryRepoMock.Object, httpClient, logger, _loyaltyMock.Object);
+        _serviceNoLoyalty = new TradeInService(_tradeInRepoMock.Object, _inventoryRepoMock.Object, httpClient, logger, null);
     }
 
     [Fact]

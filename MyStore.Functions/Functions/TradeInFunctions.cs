@@ -204,6 +204,44 @@ public class TradeInFunctions
         return await CreateHttpResponse(req, response);
     }
 
+    [Function("ParseTradeInImage")]
+    [RequirePermission("trade_in.create")]
+    public async Task<HttpResponseData> ParseTradeInImage(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "trade-ins/parse-image")] HttpRequestData req)
+    {
+        int companyId;
+        try
+        {
+            companyId = CompanyHelper.GetCompanyIdRequired(req);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return await CreateHttpResponse(req, ApiResponse<ParseImageResult>.ErrorResponse(ex.Message), HttpStatusCode.Unauthorized);
+        }
+
+        var requestBody = await new StreamReader(req.Body).ReadToEndAsync();
+        ParseImageRequest? parseRequest;
+        try
+        {
+            parseRequest = JsonSerializer.Deserialize<ParseImageRequest>(requestBody, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+        }
+        catch (JsonException)
+        {
+            return await CreateHttpResponse(req, ApiResponse<ParseImageResult>.ErrorResponse("Invalid request body"), HttpStatusCode.BadRequest);
+        }
+
+        if (parseRequest == null || string.IsNullOrWhiteSpace(parseRequest.ImageBase64))
+            return await CreateHttpResponse(req, ApiResponse<ParseImageResult>.ErrorResponse("imageBase64 is required"), HttpStatusCode.BadRequest);
+
+        _logger.LogInformation("Parsing trade-in image for company {CompanyId}", companyId);
+        var response = await _tradeInService.ParseImageAsync(parseRequest.ImageBase64, parseRequest.MimeType, companyId);
+        var statusCode = response.Success ? HttpStatusCode.OK : HttpStatusCode.InternalServerError;
+        return await CreateHttpResponse(req, response, statusCode);
+    }
+
     [Function("RejectTradeIn")]
     [RequirePermission("trade_in.complete")]
     public async Task<HttpResponseData> RejectTradeIn(

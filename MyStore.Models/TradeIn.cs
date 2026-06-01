@@ -1,5 +1,24 @@
 namespace MyStore.Models;
 
+public class ParseImageRequest
+{
+    public string ImageBase64 { get; set; } = string.Empty;
+    public string MimeType { get; set; } = "image/jpeg";
+}
+
+public class ParsedTradeInItem
+{
+    public string GameTitle { get; set; } = string.Empty;
+    public string Platform { get; set; } = string.Empty;
+    public string Condition { get; set; } = string.Empty;
+    public decimal? OfferedValue { get; set; }
+}
+
+public class ParseImageResult
+{
+    public List<ParsedTradeInItem> Items { get; set; } = new();
+}
+
 public class TradeIn
 {
     public int Id { get; set; }
