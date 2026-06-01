@@ -93,7 +93,7 @@ public class GameFunctionsTests
         deserialized!.Success.Should().BeTrue();
         deserialized.Data.Should().NotBeNull();
         deserialized.Data!.Should().HaveCount(2);
-        deserialized.Data[0].Title.Should().Be("Super Mario Bros");
+        deserialized.Data![0].Title.Should().Be("Super Mario Bros");
     }
 
     [Fact]
