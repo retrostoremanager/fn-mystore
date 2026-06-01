@@ -149,8 +149,7 @@ public class PaymentService : IPaymentService
                     _logger.LogWarning("Brand backfill skipped for company {CompanyId}: Stripe__SecretKey is not configured. Persisting 'unknown' brand to prevent empty-string state.", companyId);
                     foreach (var method in methodsNeedingBackfill)
                     {
-                        await _paymentRepository.UpdateBrandAsync(method.Id, "unknown");
-                        method.Brand = "unknown";
+                        await TryPersistBrandAsync(method, "unknown");
                     }
                 }
                 else
@@ -165,20 +164,17 @@ public class PaymentService : IPaymentService
                             var brand = stripePaymentMethod.Card?.Brand ?? string.Empty;
                             if (!string.IsNullOrEmpty(brand))
                             {
-                                await _paymentRepository.UpdateBrandAsync(method.Id, brand);
-                                method.Brand = brand;
+                                await TryPersistBrandAsync(method, brand);
                             }
                             else
                             {
-                                await _paymentRepository.UpdateBrandAsync(method.Id, "unknown");
-                                method.Brand = "unknown";
+                                await TryPersistBrandAsync(method, "unknown");
                             }
                         }
                         catch (StripeException ex)
                         {
                             _logger.LogWarning(ex, "Could not backfill brand for payment method {PaymentMethodId} (StripeError.Code={Code})", method.Id, ex.StripeError?.Code);
-                            await _paymentRepository.UpdateBrandAsync(method.Id, "unknown");
-                            method.Brand = "unknown";
+                            await TryPersistBrandAsync(method, "unknown");
                         }
                     }
                 }
@@ -200,6 +196,19 @@ public class PaymentService : IPaymentService
             _logger.LogError(ex, "Error retrieving payment methods for company {CompanyId}", companyId);
             return ApiResponse<IEnumerable<StorePaymentMethodResponse>>.ErrorResponse(
                 "An error occurred while retrieving payment methods.");
+        }
+    }
+
+    private async Task TryPersistBrandAsync(Models.PaymentMethod method, string brand)
+    {
+        method.Brand = brand;
+        try
+        {
+            await _paymentRepository.UpdateBrandAsync(method.Id, brand);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to persist backfilled brand '{Brand}' for payment method {PaymentMethodId}; returning in-memory value only.", brand, method.Id);
         }
     }
 
