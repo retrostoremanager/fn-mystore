@@ -1,4 +1,6 @@
+using System.Linq;
 using System.Net;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using Azure.Storage.Blobs;
@@ -8,6 +10,7 @@ using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
 using Moq;
 using MyStore.Functions;
+using MyStore.Functions.Attributes;
 using MyStore.Functions.Services;
 using MyStore.Models;
 using MyStore.Repositories;
@@ -277,6 +280,48 @@ public class CompanyProfileFunctionsTests
         var result = await _functions.UpdateProfile(req);
 
         result.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
+    }
+
+    [Fact]
+    public async Task UpdateProfile_CompanyAddress2_IsPersisted()
+    {
+        var updateRequest = new CompanyProfileUpdateRequest
+        {
+            CompanyName = "Test Store",
+            CompanyAddress = "123 Main St",
+            CompanyAddress2 = "Suite 400",
+            CompanyCity = "Springfield"
+        };
+
+        CompanyProfileUpdateRequest? capturedRequest = null;
+        _companyRepoMock
+            .Setup(r => r.UpdateProfileAsync(TestCompanyId, It.IsAny<CompanyProfileUpdateRequest>()))
+            .Callback<int, CompanyProfileUpdateRequest>((_, r) => capturedRequest = r)
+            .Returns(Task.CompletedTask);
+
+        var updatedProfile = CreateTestProfile();
+        updatedProfile.CompanyAddress2 = "Suite 400";
+        _companyRepoMock
+            .Setup(r => r.GetProfileAsync(TestCompanyId))
+            .ReturnsAsync(updatedProfile);
+
+        var context = CreateAuthenticatedContext();
+        var req = TestHelpers.CreateHttpRequestData(context, updateRequest, CompanyIdHeaders());
+
+        var result = await _functions.UpdateProfile(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        capturedRequest.Should().NotBeNull();
+        capturedRequest!.CompanyAddress2.Should().Be("Suite 400", because: "the secondary address line must be passed through to the repository for persistence");
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<CompanyProfile>>(
+            body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        deserialized!.Data!.CompanyAddress2.Should().Be("Suite 400");
+
+        _companyRepoMock.Verify(
+            r => r.UpdateProfileAsync(TestCompanyId, It.Is<CompanyProfileUpdateRequest>(req => req.CompanyAddress2 == "Suite 400")),
+            Times.Once);
     }
 
     #endregion
@@ -557,6 +602,32 @@ public class CompanyProfileFunctionsTests
     }
 
     [Fact]
+    public async Task UploadLogo_NoFileProvided_Returns400BadRequest()
+    {
+        var uploadRequest = new LogoUploadRequest
+        {
+            File = string.Empty,
+            FileName = "logo.png",
+            ContentType = "image/png"
+        };
+
+        var context = CreateAuthenticatedContext();
+        var req = TestHelpers.CreateHttpRequestData(context, uploadRequest, CompanyIdHeaders());
+
+        var result = await _functions.UploadLogo(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<CompanyProfile>>(
+            body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized.Should().NotBeNull();
+        deserialized!.Success.Should().BeFalse();
+        deserialized.Message.Should().Contain("required");
+    }
+
+    [Fact]
     public async Task UploadLogo_MissingFileName_Returns400BadRequest()
     {
         var fileBytes = Encoding.UTF8.GetBytes("fake-png-content");
@@ -674,6 +745,38 @@ public class CompanyProfileFunctionsTests
         var result = await _functions.UploadLogo(req);
 
         result.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
+    }
+
+    #endregion
+
+    #region Permission Attribute Tests
+
+    [Fact]
+    public void GetTaxSettings_RequiresCompanyViewPermission()
+    {
+        var method = typeof(CompanyProfileFunctions).GetMethod(
+            nameof(CompanyProfileFunctions.GetTaxSettings),
+            BindingFlags.Public | BindingFlags.Instance);
+
+        method.Should().NotBeNull();
+        var attributes = method!.GetCustomAttributes<RequirePermissionAttribute>(inherit: false).ToList();
+        attributes.Should().Contain(
+            a => a.Permission == "company.view",
+            because: "GET /company/tax must enforce the company.view permission via RbacMiddleware. A user lacking this permission must receive 403 Forbidden.");
+    }
+
+    [Fact]
+    public void UpdateTaxSettings_RequiresCompanyEditPermission()
+    {
+        var method = typeof(CompanyProfileFunctions).GetMethod(
+            nameof(CompanyProfileFunctions.UpdateTaxSettings),
+            BindingFlags.Public | BindingFlags.Instance);
+
+        method.Should().NotBeNull();
+        var attributes = method!.GetCustomAttributes<RequirePermissionAttribute>(inherit: false).ToList();
+        attributes.Should().Contain(
+            a => a.Permission == "company.edit",
+            because: "PUT /company/tax must enforce the company.edit permission via RbacMiddleware. A user lacking this permission must receive 403 Forbidden.");
     }
 
     #endregion
