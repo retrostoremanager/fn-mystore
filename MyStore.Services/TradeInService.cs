@@ -7,15 +7,18 @@ public class TradeInService : ITradeInService
 {
     private readonly ITradeInRepository _tradeInRepository;
     private readonly IInventoryRepository _inventoryRepository;
+    private readonly IGameRepository _gameRepository;
     private readonly ILoyaltyService? _loyaltyService;
 
     public TradeInService(
         ITradeInRepository tradeInRepository,
         IInventoryRepository inventoryRepository,
+        IGameRepository gameRepository,
         ILoyaltyService? loyaltyService = null)
     {
         _tradeInRepository = tradeInRepository;
         _inventoryRepository = inventoryRepository;
+        _gameRepository = gameRepository;
         _loyaltyService = loyaltyService;
     }
 
@@ -141,6 +144,8 @@ public class TradeInService : ITradeInService
 
             foreach (var item in tradeIn.Items.Where(i => i.AcceptedValue > 0))
             {
+                var game = await EnsureGameForTradeInItemAsync(item);
+
                 var inventoryItem = new InventoryItem
                 {
                     CompanyId = companyId,
@@ -151,6 +156,7 @@ public class TradeInService : ITradeInService
                     BuyPrice = item.AcceptedValue,
                     SellPrice = 0,
                     AddedDate = DateTime.UtcNow,
+                    Game = game,
                 };
 
                 var created = await _inventoryRepository.CreateAsync(inventoryItem);
@@ -224,6 +230,31 @@ public class TradeInService : ITradeInService
                 "Failed to update trade-in",
                 new List<string> { ex.Message });
         }
+    }
+
+    private async Task<Game> EnsureGameForTradeInItemAsync(TradeInItem item)
+    {
+        var title = (item.GameTitle ?? string.Empty).Trim();
+        var platform = (item.Platform ?? string.Empty).Trim();
+        var key = $"{title.ToLowerInvariant()}|{platform.ToLowerInvariant()}";
+        var gameId = $"tradein:{ComputeShortHash(key)}";
+
+        var game = new Game
+        {
+            Id = gameId,
+            Title = string.IsNullOrWhiteSpace(title) ? "Unknown" : title,
+            Console = string.IsNullOrWhiteSpace(platform) ? "Unknown" : platform
+        };
+
+        await _gameRepository.UpsertAsync(game);
+        return game;
+    }
+
+    private static string ComputeShortHash(string input)
+    {
+        using var sha = System.Security.Cryptography.SHA1.Create();
+        var bytes = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(input));
+        return Convert.ToHexString(bytes).ToLowerInvariant().Substring(0, 32);
     }
 
     public async Task<ApiResponse<TradeIn>> RejectAsync(int id, int companyId)

@@ -11,6 +11,7 @@ public class TradeInServiceTests
 {
     private readonly Mock<ITradeInRepository> _tradeInRepoMock;
     private readonly Mock<IInventoryRepository> _inventoryRepoMock;
+    private readonly Mock<IGameRepository> _gameRepoMock;
     private readonly Mock<ILoyaltyService> _loyaltyMock;
     private readonly TradeInService _service;
     private readonly TradeInService _serviceNoLoyalty;
@@ -19,9 +20,10 @@ public class TradeInServiceTests
     {
         _tradeInRepoMock = new Mock<ITradeInRepository>();
         _inventoryRepoMock = new Mock<IInventoryRepository>();
+        _gameRepoMock = new Mock<IGameRepository>();
         _loyaltyMock = new Mock<ILoyaltyService>();
-        _service = new TradeInService(_tradeInRepoMock.Object, _inventoryRepoMock.Object, _loyaltyMock.Object);
-        _serviceNoLoyalty = new TradeInService(_tradeInRepoMock.Object, _inventoryRepoMock.Object, null);
+        _service = new TradeInService(_tradeInRepoMock.Object, _inventoryRepoMock.Object, _gameRepoMock.Object, _loyaltyMock.Object);
+        _serviceNoLoyalty = new TradeInService(_tradeInRepoMock.Object, _inventoryRepoMock.Object, _gameRepoMock.Object, null);
     }
 
     [Fact]
@@ -94,6 +96,86 @@ public class TradeInServiceTests
         result.Success.Should().BeTrue();
         _inventoryRepoMock.Verify(r => r.CreateAsync(It.IsAny<InventoryItem>()), Times.Once);
         _loyaltyMock.Verify(l => l.EarnFromTradeInAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<decimal>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_AcceptedItem_UpsertsGameAndSetsInventoryGameId()
+    {
+        var items = new List<TradeInItem>
+        {
+            new() { Id = 1, TradeInId = 1, GameTitle = "Mario Kart", Platform = "N64", Condition = "good", OfferedValue = 20m, AcceptedValue = 20m },
+        };
+        var draft = new TradeIn { Id = 1, CompanyId = 5, CustomerId = 53, Status = "draft", PaymentType = "store_credit", Items = items };
+        var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
+
+        InventoryItem? capturedInventory = null;
+        Game? capturedGame = null;
+
+        _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
+        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, "store_credit", It.IsAny<DateTime>())).ReturnsAsync(completed);
+        _tradeInRepoMock.Setup(r => r.UpdateItemAsync(It.IsAny<TradeInItem>())).ReturnsAsync((TradeInItem i) => i);
+        _gameRepoMock
+            .Setup(r => r.UpsertAsync(It.IsAny<Game>()))
+            .Callback<Game>(g => capturedGame = g)
+            .Returns(Task.CompletedTask);
+        _inventoryRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
+            .Callback<InventoryItem>(inv => capturedInventory = inv)
+            .ReturnsAsync((InventoryItem inv) => { inv.Id = 99; return inv; });
+
+        _loyaltyMock
+            .Setup(l => l.GetSettingsAsync(5))
+            .ReturnsAsync(ApiResponse<LoyaltySettings>.SuccessResponse(new LoyaltySettings { IsEnabled = false }));
+
+        var result = await _service.CompleteAsync(1, 5, "store_credit");
+
+        result.Success.Should().BeTrue();
+        _gameRepoMock.Verify(r => r.UpsertAsync(It.IsAny<Game>()), Times.Once);
+        capturedGame.Should().NotBeNull();
+        capturedGame!.Id.Should().NotBeNullOrWhiteSpace();
+        capturedGame.Title.Should().Be("Mario Kart");
+        capturedGame.Console.Should().Be("N64");
+        capturedInventory.Should().NotBeNull();
+        capturedInventory!.Game.Should().NotBeNull();
+        capturedInventory.Game!.Id.Should().Be(capturedGame.Id);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_SameTitleAndPlatform_ProducesStableGameId()
+    {
+        var firstItems = new List<TradeInItem>
+        {
+            new() { Id = 1, TradeInId = 1, GameTitle = "Mario Kart", Platform = "N64", Condition = "good", OfferedValue = 20m, AcceptedValue = 20m },
+        };
+        var secondItems = new List<TradeInItem>
+        {
+            new() { Id = 2, TradeInId = 2, GameTitle = "  mario kart  ", Platform = "n64", Condition = "good", OfferedValue = 20m, AcceptedValue = 20m },
+        };
+        var firstDraft = new TradeIn { Id = 1, CompanyId = 5, Status = "draft", PaymentType = "cash", Items = firstItems };
+        var secondDraft = new TradeIn { Id = 2, CompanyId = 5, Status = "draft", PaymentType = "cash", Items = secondItems };
+        var firstCompleted = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = firstItems };
+        var secondCompleted = new TradeIn { Id = 2, CompanyId = 5, Status = "completed", Items = secondItems };
+
+        var capturedGameIds = new List<string>();
+
+        _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(firstDraft);
+        _tradeInRepoMock.Setup(r => r.GetByIdAsync(2, 5)).ReturnsAsync(secondDraft);
+        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, "cash", It.IsAny<DateTime>())).ReturnsAsync(firstCompleted);
+        _tradeInRepoMock.Setup(r => r.CompleteAsync(2, "cash", It.IsAny<DateTime>())).ReturnsAsync(secondCompleted);
+        _tradeInRepoMock.Setup(r => r.UpdateItemAsync(It.IsAny<TradeInItem>())).ReturnsAsync((TradeInItem i) => i);
+        _gameRepoMock
+            .Setup(r => r.UpsertAsync(It.IsAny<Game>()))
+            .Callback<Game>(g => capturedGameIds.Add(g.Id))
+            .Returns(Task.CompletedTask);
+        _inventoryRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
+            .ReturnsAsync((InventoryItem inv) => { inv.Id = 99; return inv; });
+
+        await _service.CompleteAsync(1, 5, "cash");
+        await _service.CompleteAsync(2, 5, "cash");
+
+        capturedGameIds.Should().HaveCount(2);
+        capturedGameIds[0].Should().Be(capturedGameIds[1]);
     }
 
     [Fact]
