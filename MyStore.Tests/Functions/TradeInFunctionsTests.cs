@@ -599,6 +599,262 @@ public class TradeInFunctionsTests
 
     #endregion
 
+    #region ParseTradeInImage Tests
+
+    private sealed class StubHttpMessageHandler : HttpMessageHandler
+    {
+        private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder;
+        public List<HttpRequestMessage> Captured { get; } = new();
+
+        public StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder)
+        {
+            _responder = responder;
+        }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Captured.Add(request);
+            return Task.FromResult(_responder(request));
+        }
+    }
+
+    private void SetupHttpClient(StubHttpMessageHandler handler)
+    {
+        var client = new HttpClient(handler);
+        _httpClientFactoryMock.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(client);
+    }
+
+    private void SetupAnthropicKey(string? key)
+    {
+        _configurationMock.Setup(c => c["Anthropic__ApiKey"]).Returns(key);
+        _configurationMock.Setup(c => c["Anthropic:ApiKey"]).Returns((string?)null);
+    }
+
+    private static string BuildAnthropicResponse(string text)
+    {
+        var payload = new
+        {
+            content = new object[]
+            {
+                new { type = "text", text }
+            }
+        };
+        return JsonSerializer.Serialize(payload);
+    }
+
+    [Fact]
+    public async Task ParseTradeInImage_ValidImage_Returns200WithItems()
+    {
+        SetupAnthropicKey("test-api-key");
+        var anthropicBody = BuildAnthropicResponse(
+            "[{\"gameTitle\":\"Sonic the Hedgehog\",\"platform\":\"Sega Genesis\",\"estimatedCondition\":\"Good\"}]");
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(anthropicBody, System.Text.Encoding.UTF8, "application/json")
+        });
+        SetupHttpClient(handler);
+
+        var context = new Mock<FunctionContext>();
+        var body = new { imageBase64 = "ZmFrZS1pbWFnZS1ieXRlcw==", mimeType = "image/jpeg" };
+        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+
+        var result = await _functions.ParseTradeInImage(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        var responseBody = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<ParseTradeInImageResponse>>(
+            responseBody, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Success.Should().BeTrue();
+        deserialized.Data!.Items.Should().HaveCount(1);
+        deserialized.Data.Items[0].GameTitle.Should().Be("Sonic the Hedgehog");
+        deserialized.Data.Items[0].Platform.Should().Be("Sega Genesis");
+        deserialized.Data.Items[0].EstimatedCondition.Should().Be("Good");
+
+        handler.Captured.Should().ContainSingle();
+        handler.Captured[0].RequestUri!.ToString().Should().Be("https://api.anthropic.com/v1/messages");
+        handler.Captured[0].Headers.GetValues("x-api-key").Should().Contain("test-api-key");
+    }
+
+    [Fact]
+    public async Task ParseTradeInImage_EmptyArrayResponse_Returns200WithNoItems()
+    {
+        SetupAnthropicKey("test-api-key");
+        var anthropicBody = BuildAnthropicResponse("[]");
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(anthropicBody, System.Text.Encoding.UTF8, "application/json")
+        });
+        SetupHttpClient(handler);
+
+        var context = new Mock<FunctionContext>();
+        var body = new { imageBase64 = "ZmFrZS1pbWFnZS1ieXRlcw==", mimeType = "image/png" };
+        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+
+        var result = await _functions.ParseTradeInImage(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        var responseBody = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<ParseTradeInImageResponse>>(
+            responseBody, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Success.Should().BeTrue();
+        deserialized.Data!.Items.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ParseTradeInImage_ResponseWithCodeFence_StripsAndParses()
+    {
+        SetupAnthropicKey("test-api-key");
+        var anthropicBody = BuildAnthropicResponse(
+            "```json\n[{\"gameTitle\":\"Mario\",\"platform\":\"NES\",\"estimatedCondition\":\"Mint\"}]\n```");
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(anthropicBody, System.Text.Encoding.UTF8, "application/json")
+        });
+        SetupHttpClient(handler);
+
+        var context = new Mock<FunctionContext>();
+        var body = new { imageBase64 = "ZmFrZQ==", mimeType = "image/jpeg" };
+        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+
+        var result = await _functions.ParseTradeInImage(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        var responseBody = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<ParseTradeInImageResponse>>(
+            responseBody, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Success.Should().BeTrue();
+        deserialized.Data!.Items.Should().HaveCount(1);
+        deserialized.Data.Items[0].GameTitle.Should().Be("Mario");
+    }
+
+    [Fact]
+    public async Task ParseTradeInImage_MissingImageBase64_Returns400()
+    {
+        SetupAnthropicKey("test-api-key");
+
+        var context = new Mock<FunctionContext>();
+        var body = new { mimeType = "image/jpeg" };
+        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+
+        var result = await _functions.ParseTradeInImage(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        _httpClientFactoryMock.Verify(f => f.CreateClient(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ParseTradeInImage_MissingMimeType_Returns400()
+    {
+        SetupAnthropicKey("test-api-key");
+
+        var context = new Mock<FunctionContext>();
+        var body = new { imageBase64 = "ZmFrZQ==" };
+        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+
+        var result = await _functions.ParseTradeInImage(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        _httpClientFactoryMock.Verify(f => f.CreateClient(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ParseTradeInImage_InvalidBody_Returns400()
+    {
+        SetupAnthropicKey("test-api-key");
+
+        var req = TestHelpers.CreateHttpRequestDataWithRawBody("not-json", _companyHeaders);
+
+        var result = await _functions.ParseTradeInImage(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        _httpClientFactoryMock.Verify(f => f.CreateClient(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ParseTradeInImage_MissingApiKey_Returns502()
+    {
+        SetupAnthropicKey(null);
+
+        var context = new Mock<FunctionContext>();
+        var body = new { imageBase64 = "ZmFrZQ==", mimeType = "image/jpeg" };
+        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+
+        var result = await _functions.ParseTradeInImage(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.BadGateway);
+        _httpClientFactoryMock.Verify(f => f.CreateClient(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ParseTradeInImage_AnthropicReturnsError_Returns502()
+    {
+        SetupAnthropicKey("test-api-key");
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError)
+        {
+            Content = new StringContent("server error")
+        });
+        SetupHttpClient(handler);
+
+        var context = new Mock<FunctionContext>();
+        var body = new { imageBase64 = "ZmFrZQ==", mimeType = "image/jpeg" };
+        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+
+        var result = await _functions.ParseTradeInImage(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.BadGateway);
+    }
+
+    [Fact]
+    public async Task ParseTradeInImage_AnthropicReturnsMalformedJson_Returns502()
+    {
+        SetupAnthropicKey("test-api-key");
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("not valid json at all", System.Text.Encoding.UTF8, "application/json")
+        });
+        SetupHttpClient(handler);
+
+        var context = new Mock<FunctionContext>();
+        var body = new { imageBase64 = "ZmFrZQ==", mimeType = "image/jpeg" };
+        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+
+        var result = await _functions.ParseTradeInImage(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.BadGateway);
+    }
+
+    [Fact]
+    public async Task ParseTradeInImage_MissingCompanyHeader_Returns401()
+    {
+        SetupAnthropicKey("test-api-key");
+
+        var context = new Mock<FunctionContext>();
+        var body = new { imageBase64 = "ZmFrZQ==", mimeType = "image/jpeg" };
+        var req = TestHelpers.CreateHttpRequestData(context.Object, body);
+
+        var result = await _functions.ParseTradeInImage(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        _httpClientFactoryMock.Verify(f => f.CreateClient(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public void ParseTradeInImage_MethodLevel_RequiresTradeInCreatePermission()
+    {
+        var method = typeof(TradeInFunctions).GetMethod(nameof(TradeInFunctions.ParseTradeInImage));
+        var attrs = method!
+            .GetCustomAttributes(typeof(RequirePermissionAttribute), inherit: false)
+            .Cast<RequirePermissionAttribute>()
+            .ToList();
+
+        attrs.Should().ContainSingle(a => a.Permission == "trade_in.create");
+    }
+
+    #endregion
+
     #region Permission Attribute Tests
 
     [Fact]
