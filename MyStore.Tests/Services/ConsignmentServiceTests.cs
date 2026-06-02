@@ -115,6 +115,7 @@ public class ConsignmentServiceTests
     [InlineData(50, 50, 25, 25)]
     [InlineData(100, 70, 70, 30)]
     [InlineData(100, 100, 100, 0)]
+    [InlineData(100, 0, 0, 100)]
     public async Task MarkSoldAsync_PayoutCalculation_IsCorrect(
         decimal salePrice, decimal splitPercent, decimal expectedPayout, decimal expectedStore)
     {
@@ -132,6 +133,40 @@ public class ConsignmentServiceTests
         result.Data.Should().NotBeNull();
         result.Data.PayoutAmount.Should().Be(expectedPayout);
         result.Data.StoreAmount.Should().Be(expectedStore);
+    }
+
+    [Fact]
+    public async Task MarkSoldAsync_FractionalResult_RoundsToTwoDecimalPlaces()
+    {
+        var existing = new ConsignmentItem { Id = 1, CompanyId = 1, Status = "pending", SplitPercent = 33.33m };
+        var updated = new ConsignmentItem { Id = 1, CompanyId = 1, Status = "sold", SplitPercent = 33.33m, SalePrice = 99.99m };
+
+        _repositoryMock.Setup(r => r.GetByIdAsync(1, 1)).ReturnsAsync(existing);
+        _repositoryMock.Setup(r => r.MarkSoldAsync(1, 99.99m, 1)).ReturnsAsync(updated);
+
+        var result = await _service.MarkSoldAsync(1, 99.99m, 1);
+
+        result.Success.Should().BeTrue();
+        result.Data.Should().NotBeNull();
+        result.Data!.PayoutAmount.Should().Be(33.33m);
+        result.Data.StoreAmount.Should().Be(66.66m);
+    }
+
+    [Fact]
+    public async Task ProcessPayoutAsync_FractionalResult_RoundsToTwoDecimalPlaces()
+    {
+        var item = new ConsignmentItem { Id = 1, CompanyId = 1, Status = "sold", SplitPercent = 33.33m, SalePrice = 99.99m };
+
+        _repositoryMock.Setup(r => r.GetByIdAsync(1, 1)).ReturnsAsync(item);
+        _repositoryMock.Setup(r => r.GetPayoutsAsync(1, 1)).ReturnsAsync(new List<ConsignmentPayout>());
+        _repositoryMock
+            .Setup(r => r.CreatePayoutAsync(It.IsAny<ConsignmentPayout>()))
+            .ReturnsAsync((ConsignmentPayout p) => p);
+
+        var result = await _service.ProcessPayoutAsync(1, null, 1);
+
+        result.Success.Should().BeTrue();
+        _repositoryMock.Verify(r => r.CreatePayoutAsync(It.Is<ConsignmentPayout>(p => p.Amount == 33.33m)), Times.Once);
     }
 
     [Fact]
