@@ -12,7 +12,6 @@ public class SalesService : ISalesService
     private readonly ICompanyRepository _companyRepository;
     private readonly ILoyaltyService? _loyaltyService;
     private readonly IPromotionService? _promotionService;
-    private readonly IEmailService? _emailService;
 
     public SalesService(
         ISalesRepository salesRepository,
@@ -21,8 +20,7 @@ public class SalesService : ISalesService
         IInventoryRepository inventoryRepository,
         ICompanyRepository companyRepository,
         ILoyaltyService? loyaltyService = null,
-        IPromotionService? promotionService = null,
-        IEmailService? emailService = null)
+        IPromotionService? promotionService = null)
     {
         _salesRepository = salesRepository;
         _customerRepository = customerRepository;
@@ -31,7 +29,6 @@ public class SalesService : ISalesService
         _companyRepository = companyRepository;
         _loyaltyService = loyaltyService;
         _promotionService = promotionService;
-        _emailService = emailService;
     }
 
     public async Task<ApiResponse<List<Sale>>> GetAllSalesAsync(int companyId)
@@ -324,63 +321,6 @@ public class SalesService : ISalesService
                 "Failed to retrieve receipt",
                 new List<string> { ex.Message }
             );
-        }
-    }
-
-    public async Task<ApiResponse<bool>> EmailReceiptAsync(int id, int companyId, string email)
-    {
-        try
-        {
-            if (string.IsNullOrWhiteSpace(email))
-            {
-                return ApiResponse<bool>.ErrorResponse("Email address is required");
-            }
-
-            if (!IsValidEmail(email))
-            {
-                return ApiResponse<bool>.ErrorResponse("Email address is not valid");
-            }
-
-            var receiptResponse = await GetReceiptAsync(id, companyId);
-            if (!receiptResponse.Success || receiptResponse.Data == null)
-            {
-                return ApiResponse<bool>.ErrorResponse(receiptResponse.Message ?? $"Sale with ID {id} not found");
-            }
-
-            if (_emailService == null)
-            {
-                return ApiResponse<bool>.ErrorResponse("Email service is not configured");
-            }
-
-            var sendResult = await _emailService.SendReceiptEmailAsync(email, receiptResponse.Data);
-            if (!sendResult.Success)
-            {
-                return ApiResponse<bool>.ErrorResponse(
-                    sendResult.ErrorMessage ?? "Failed to send receipt email"
-                );
-            }
-
-            return ApiResponse<bool>.SuccessResponse(true, "Receipt email sent successfully");
-        }
-        catch (Exception ex)
-        {
-            return ApiResponse<bool>.ErrorResponse(
-                "Failed to send receipt email",
-                new List<string> { ex.Message }
-            );
-        }
-    }
-
-    private static bool IsValidEmail(string email)
-    {
-        try
-        {
-            var addr = new System.Net.Mail.MailAddress(email);
-            return addr.Address == email;
-        }
-        catch
-        {
-            return false;
         }
     }
 
