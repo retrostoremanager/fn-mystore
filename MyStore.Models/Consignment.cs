@@ -19,6 +19,7 @@ public class MarkSoldResponse
     public ConsignmentItem Item { get; set; } = null!;
     public decimal PayoutAmount { get; set; }
     public decimal StoreAmount { get; set; }
+    public decimal PayoutDue => PayoutAmount;
 }
 
 public class ConsignmentPayout
