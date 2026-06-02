@@ -3,6 +3,7 @@ using System.Net;
 using System.Text.Json;
 using FluentAssertions;
 using Microsoft.Azure.Functions.Worker;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Moq;
 using MyStore.Functions;
@@ -17,6 +18,8 @@ namespace MyStore.Tests.Functions;
 public class TradeInFunctionsTests
 {
     private readonly Mock<ITradeInService> _serviceMock;
+    private readonly Mock<IHttpClientFactory> _httpClientFactoryMock;
+    private readonly Mock<IConfiguration> _configurationMock;
     private readonly Mock<ILoggerFactory> _loggerFactoryMock;
     private readonly Mock<ILogger<TradeInFunctions>> _loggerMock;
     private readonly TradeInFunctions _functions;
@@ -28,6 +31,8 @@ public class TradeInFunctionsTests
     public TradeInFunctionsTests()
     {
         _serviceMock = new Mock<ITradeInService>();
+        _httpClientFactoryMock = new Mock<IHttpClientFactory>();
+        _configurationMock = new Mock<IConfiguration>();
         _loggerMock = new Mock<ILogger<TradeInFunctions>>();
         _loggerFactoryMock = new Mock<ILoggerFactory>();
 
@@ -35,7 +40,11 @@ public class TradeInFunctionsTests
             .Setup(f => f.CreateLogger(It.IsAny<string>()))
             .Returns(_loggerMock.Object);
 
-        _functions = new TradeInFunctions(_serviceMock.Object, _loggerFactoryMock.Object);
+        _functions = new TradeInFunctions(
+            _serviceMock.Object,
+            _httpClientFactoryMock.Object,
+            _configurationMock.Object,
+            _loggerFactoryMock.Object);
     }
 
     private static TradeIn CreateTradeIn(int id = 1, string status = "draft") =>

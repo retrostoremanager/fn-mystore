@@ -1,7 +1,10 @@
 using System.Net;
+using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MyStore.Functions.Attributes;
 using MyStore.Functions.Helpers;
@@ -14,11 +17,19 @@ namespace MyStore.Functions;
 public class TradeInFunctions
 {
     private readonly ITradeInService _tradeInService;
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IConfiguration _configuration;
     private readonly ILogger _logger;
 
-    public TradeInFunctions(ITradeInService tradeInService, ILoggerFactory loggerFactory)
+    public TradeInFunctions(
+        ITradeInService tradeInService,
+        IHttpClientFactory httpClientFactory,
+        IConfiguration configuration,
+        ILoggerFactory loggerFactory)
     {
         _tradeInService = tradeInService;
+        _httpClientFactory = httpClientFactory;
+        _configuration = configuration;
         _logger = loggerFactory.CreateLogger<TradeInFunctions>();
     }
 
@@ -230,6 +241,186 @@ public class TradeInFunctions
         return await CreateHttpResponse(req, response);
     }
 
+    [Function("ParseTradeInImage")]
+    [RequirePermission("trade_in.create")]
+    public async Task<HttpResponseData> ParseTradeInImage(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "trade-ins/parse-image")] HttpRequestData req)
+    {
+        try
+        {
+            CompanyHelper.GetCompanyIdRequired(req);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return await CreateHttpResponse(req, ApiResponse<ParseTradeInImageResponse>.ErrorResponse(ex.Message), HttpStatusCode.Unauthorized);
+        }
+
+        var requestBody = await new StreamReader(req.Body).ReadToEndAsync();
+        ParseTradeInImageRequest? parseRequest;
+        try
+        {
+            parseRequest = JsonSerializer.Deserialize<ParseTradeInImageRequest>(requestBody, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+        }
+        catch (JsonException)
+        {
+            return await CreateHttpResponse(req, ApiResponse<ParseTradeInImageResponse>.ErrorResponse("Invalid request body"), HttpStatusCode.BadRequest);
+        }
+
+        if (parseRequest == null
+            || string.IsNullOrWhiteSpace(parseRequest.ImageBase64)
+            || string.IsNullOrWhiteSpace(parseRequest.MimeType))
+        {
+            return await CreateHttpResponse(req, ApiResponse<ParseTradeInImageResponse>.ErrorResponse("imageBase64 and mimeType are required"), HttpStatusCode.BadRequest);
+        }
+
+        var apiKey = _configuration["Anthropic__ApiKey"]
+            ?? _configuration["Anthropic:ApiKey"];
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            _logger.LogError("Anthropic API key is not configured");
+            return await CreateHttpResponse(req, ApiResponse<ParseTradeInImageResponse>.ErrorResponse("Image parsing service is not configured"), HttpStatusCode.BadGateway);
+        }
+
+        const string prompt = "Identify all video games visible in this image. " +
+            "Return ONLY a JSON array (no prose, no markdown, no code fences) of objects, " +
+            "each with exactly these fields: \"gameTitle\" (string), \"platform\" (string, e.g. " +
+            "\"PlayStation 2\", \"Nintendo Switch\", \"Xbox 360\"), and \"estimatedCondition\" " +
+            "(string, one of: \"Mint\", \"Good\", \"Fair\", \"Poor\"). " +
+            "If you cannot identify any games, return an empty array []. " +
+            "Do not include any text outside the JSON array.";
+
+        var anthropicPayload = new
+        {
+            model = "claude-haiku-4-5",
+            max_tokens = 1024,
+            messages = new object[]
+            {
+                new
+                {
+                    role = "user",
+                    content = new object[]
+                    {
+                        new
+                        {
+                            type = "image",
+                            source = new
+                            {
+                                type = "base64",
+                                media_type = parseRequest.MimeType,
+                                data = parseRequest.ImageBase64
+                            }
+                        },
+                        new
+                        {
+                            type = "text",
+                            text = prompt
+                        }
+                    }
+                }
+            }
+        };
+
+        string anthropicJson;
+        try
+        {
+            anthropicJson = await CallAnthropicAsync(apiKey, anthropicPayload);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Anthropic API call failed");
+            return await CreateHttpResponse(req, ApiResponse<ParseTradeInImageResponse>.ErrorResponse("Failed to parse image"), HttpStatusCode.BadGateway);
+        }
+
+        List<ParsedTradeInItem>? items;
+        try
+        {
+            items = ExtractItemsFromAnthropicResponse(anthropicJson);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to parse Anthropic response");
+            return await CreateHttpResponse(req, ApiResponse<ParseTradeInImageResponse>.ErrorResponse("Failed to parse image"), HttpStatusCode.BadGateway);
+        }
+
+        if (items == null)
+        {
+            return await CreateHttpResponse(req, ApiResponse<ParseTradeInImageResponse>.ErrorResponse("Failed to parse image"), HttpStatusCode.BadGateway);
+        }
+
+        var result = new ParseTradeInImageResponse { Items = items };
+        return await CreateHttpResponse(req, ApiResponse<ParseTradeInImageResponse>.SuccessResponse(result));
+    }
+
+    private async Task<string> CallAnthropicAsync(string apiKey, object payload)
+    {
+        var client = _httpClientFactory.CreateClient();
+        var json = JsonSerializer.Serialize(payload);
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "https://api.anthropic.com/v1/messages")
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json")
+        };
+        httpRequest.Headers.Add("x-api-key", apiKey);
+        httpRequest.Headers.Add("anthropic-version", "2023-06-01");
+
+        using var response = await client.SendAsync(httpRequest);
+        var body = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException($"Anthropic API returned status {(int)response.StatusCode}");
+        }
+        return body;
+    }
+
+    private static List<ParsedTradeInItem>? ExtractItemsFromAnthropicResponse(string anthropicJson)
+    {
+        using var doc = JsonDocument.Parse(anthropicJson);
+        if (!doc.RootElement.TryGetProperty("content", out var contentArray)
+            || contentArray.ValueKind != JsonValueKind.Array)
+        {
+            return null;
+        }
+
+        string? text = null;
+        foreach (var block in contentArray.EnumerateArray())
+        {
+            if (block.TryGetProperty("type", out var typeEl)
+                && typeEl.GetString() == "text"
+                && block.TryGetProperty("text", out var textEl))
+            {
+                text = textEl.GetString();
+                break;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(text))
+            return null;
+
+        var trimmed = text.Trim();
+        if (trimmed.StartsWith("```"))
+        {
+            var firstNewline = trimmed.IndexOf('\n');
+            if (firstNewline >= 0) trimmed = trimmed.Substring(firstNewline + 1);
+            if (trimmed.EndsWith("```"))
+                trimmed = trimmed.Substring(0, trimmed.Length - 3);
+            trimmed = trimmed.Trim();
+        }
+
+        var startIdx = trimmed.IndexOf('[');
+        var endIdx = trimmed.LastIndexOf(']');
+        if (startIdx < 0 || endIdx <= startIdx)
+            return null;
+        var jsonArray = trimmed.Substring(startIdx, endIdx - startIdx + 1);
+
+        var items = JsonSerializer.Deserialize<List<ParsedTradeInItem>>(jsonArray, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+        return items ?? new List<ParsedTradeInItem>();
+    }
+
     private static bool IsNotFound(string? message)
     {
         if (string.IsNullOrEmpty(message)) return false;
@@ -269,4 +460,22 @@ internal class UpdateTradeInRequest
 internal class CompleteTradeInRequest
 {
     public string? PaymentType { get; set; }
+}
+
+internal class ParseTradeInImageRequest
+{
+    public string? ImageBase64 { get; set; }
+    public string? MimeType { get; set; }
+}
+
+public class ParseTradeInImageResponse
+{
+    public List<ParsedTradeInItem> Items { get; set; } = new();
+}
+
+public class ParsedTradeInItem
+{
+    public string? GameTitle { get; set; }
+    public string? Platform { get; set; }
+    public string? EstimatedCondition { get; set; }
 }
