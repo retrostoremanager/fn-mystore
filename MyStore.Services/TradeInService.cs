@@ -161,11 +161,15 @@ public class TradeInService : ITradeInService
 
             if (paymentType == "store_credit" && tradeIn.CustomerId.HasValue && _loyaltyService is not null)
             {
-                var totalAccepted = tradeIn.Items
-                    .Where(i => i.AcceptedValue > 0)
-                    .Sum(i => i.AcceptedValue ?? 0);
+                var settingsResponse = await _loyaltyService.GetSettingsAsync(companyId);
+                if (settingsResponse.Success && settingsResponse.Data is not null && settingsResponse.Data.IsEnabled)
+                {
+                    var totalAccepted = tradeIn.Items
+                        .Where(i => i.AcceptedValue > 0)
+                        .Sum(i => i.AcceptedValue ?? 0);
 
-                await _loyaltyService.EarnFromTradeInAsync(tradeIn.CustomerId.Value, companyId, totalAccepted);
+                    await _loyaltyService.EarnFromTradeInAsync(tradeIn.CustomerId.Value, companyId, totalAccepted);
+                }
             }
 
             var result = await _tradeInRepository.GetByIdAsync(id, companyId);
