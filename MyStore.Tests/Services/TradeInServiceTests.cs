@@ -643,6 +643,28 @@ public class TradeInServiceTests
     }
 
     [Fact]
+    public async Task CompleteAsync_InventoryCreationFails_DoesNotMarkTradeInCompleted()
+    {
+        var items = new List<TradeInItem>
+        {
+            new() { Id = 1, TradeInId = 1, GameTitle = "Mario", Platform = "NES", Condition = "good", OfferedValue = 15m, AcceptedValue = 15m },
+        };
+        var draft = new TradeIn { Id = 1, CompanyId = 5, Status = "draft", PaymentType = "cash", Items = items };
+
+        _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
+        _inventoryRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
+            .ThrowsAsync(new Exception("23505: duplicate key value violates unique constraint \"ix_inventory_company_game_condition\""));
+
+        var result = await _service.CompleteAsync(1, 5, "cash");
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("Failed to complete trade-in");
+        _tradeInRepoMock.Verify(r => r.CompleteAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<DateTime>()), Times.Never);
+        _tradeInRepoMock.Verify(r => r.UpdateItemAsync(It.IsAny<TradeInItem>()), Times.Never);
+    }
+
+    [Fact]
     public async Task CompleteAsync_NoLocationsForCompany_ReturnsErrorAndDoesNotCreateInventory()
     {
         var items = new List<TradeInItem>
