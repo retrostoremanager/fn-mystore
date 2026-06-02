@@ -1,0 +1,52 @@
+name: Reset Company Billing (temp)
+
+# One-off maintenance: clears a company's stale Stripe payment_method + subscription
+# rows in the dev DB so the app can re-create real Stripe objects via its checkout
+# flow. Scoped strictly by company slug. Wrapped in a transaction.
+
+on:
+  workflow_dispatch:
+    inputs:
+      company_slug:
+        description: 'Company slug whose billing rows to clear'
+        required: true
+        default: 'my-first-store'
+
+concurrency:
+  group: reset-company-billing-dev
+  cancel-in-progress: false
+
+jobs:
+  reset-billing:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Clear stale billing rows
+      env:
+        POSTGRES_ADMIN_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+        PGSSLMODE: require
+        COMPANY_SLUG: ${{ github.event.inputs.company_slug }}
+      run: |
+        sudo apt-get install -y postgresql-client --quiet
+        PGPASSWORD="$POSTGRES_ADMIN_PASSWORD" psql \
+          "postgresql://sqladmin@mystore-postgres-b1.postgres.database.azure.com/mystore-db-dev" \
+          -v ON_ERROR_STOP=1 \
+          -v slug="$COMPANY_SLUG" \
+          <<'SQL'
+        \set slug :slug
+        BEGIN;
+        SELECT id AS company_id, name, slug FROM company WHERE slug = :'slug';
+        SELECT 'payment_method rows before' AS label, count(*) FROM payment_method
+          WHERE company_id = (SELECT id FROM company WHERE slug = :'slug');
+        SELECT 'subscription rows before' AS label, count(*) FROM subscription
+          WHERE company_id = (SELECT id FROM company WHERE slug = :'slug');
+        DELETE FROM payment_method
+          WHERE company_id = (SELECT id FROM company WHERE slug = :'slug');
+        DELETE FROM subscription
+          WHERE company_id = (SELECT id FROM company WHERE slug = :'slug');
+        SELECT 'payment_method rows after' AS label, count(*) FROM payment_method
+          WHERE company_id = (SELECT id FROM company WHERE slug = :'slug');
+        SELECT 'subscription rows after' AS label, count(*) FROM subscription
+          WHERE company_id = (SELECT id FROM company WHERE slug = :'slug');
+        COMMIT;
+        SQL
+        echo "Done."
