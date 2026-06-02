@@ -271,6 +271,29 @@ public class ConsignmentFunctions
         return await CreateHttpResponse(req, response);
     }
 
+    [Function("GetConsignmentPayouts")]
+    public async Task<HttpResponseData> GetConsignmentPayouts(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "consignment/{id:int}/payouts")] HttpRequestData req,
+        int id)
+    {
+        int companyId;
+        try
+        {
+            companyId = CompanyHelper.GetCompanyIdRequired(req);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            var errorResponse = ApiResponse<List<ConsignmentPayout>>.ErrorResponse(ex.Message);
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
+        }
+
+        _logger.LogInformation("Getting payouts for consignment item {Id} for company {CompanyId}", id, companyId);
+        var response = await _consignmentService.GetPayoutsAsync(id, companyId);
+        if (!response.Success)
+            return await CreateHttpResponse(req, response, HttpStatusCode.NotFound);
+        return await CreateHttpResponse(req, response);
+    }
+
     [Function("ReturnConsignmentItemToCustomer")]
     [RequirePermission("consignment.edit")]
     public async Task<HttpResponseData> ReturnConsignmentItemToCustomer(

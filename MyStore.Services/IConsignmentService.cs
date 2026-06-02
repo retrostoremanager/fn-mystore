@@ -10,5 +10,6 @@ public interface IConsignmentService
     Task<ApiResponse<ConsignmentItem>> UpdateAsync(ConsignmentItem item, int companyId);
     Task<ApiResponse<MarkSoldResponse>> MarkSoldAsync(int id, decimal salePrice, int companyId);
     Task<ApiResponse<ConsignmentPayout>> ProcessPayoutAsync(int itemId, string? notes, int companyId);
+    Task<ApiResponse<List<ConsignmentPayout>>> GetPayoutsAsync(int itemId, int companyId);
     Task<ApiResponse<ConsignmentItem>> ReturnToCustomerAsync(int id, int companyId);
 }

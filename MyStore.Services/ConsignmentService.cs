@@ -192,6 +192,28 @@ public class ConsignmentService : IConsignmentService
         }
     }
 
+    public async Task<ApiResponse<List<ConsignmentPayout>>> GetPayoutsAsync(int itemId, int companyId)
+    {
+        try
+        {
+            var item = await _repository.GetByIdAsync(itemId, companyId);
+            if (item == null)
+            {
+                return ApiResponse<List<ConsignmentPayout>>.ErrorResponse($"Consignment item with ID {itemId} not found");
+            }
+
+            var payouts = await _repository.GetPayoutsAsync(itemId, companyId);
+            return ApiResponse<List<ConsignmentPayout>>.SuccessResponse(payouts);
+        }
+        catch (Exception ex)
+        {
+            return ApiResponse<List<ConsignmentPayout>>.ErrorResponse(
+                "Failed to retrieve consignment payouts",
+                new List<string> { ex.Message }
+            );
+        }
+    }
+
     public async Task<ApiResponse<ConsignmentItem>> ReturnToCustomerAsync(int id, int companyId)
     {
         try
