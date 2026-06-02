@@ -113,6 +113,9 @@ public class TradeInServiceTests
             .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
             .ReturnsAsync((InventoryItem inv) => { inv.Id = 99; return inv; });
         _loyaltyMock
+            .Setup(l => l.GetSettingsAsync(5))
+            .ReturnsAsync(ApiResponse<LoyaltySettings>.SuccessResponse(new LoyaltySettings { IsEnabled = true }));
+        _loyaltyMock
             .Setup(l => l.EarnFromTradeInAsync(10, 5, 15m))
             .Returns(Task.CompletedTask);
 
@@ -370,6 +373,9 @@ public class TradeInServiceTests
         _inventoryRepoMock
             .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
             .ReturnsAsync((InventoryItem inv) => { inv.Id = 99; return inv; });
+        _loyaltyMock
+            .Setup(l => l.GetSettingsAsync(5))
+            .ReturnsAsync(ApiResponse<LoyaltySettings>.SuccessResponse(new LoyaltySettings { IsEnabled = true }));
         _loyaltyMock
             .Setup(l => l.EarnFromTradeInAsync(10, 5, 22m))
             .Returns(Task.CompletedTask);
