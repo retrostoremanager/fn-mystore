@@ -34,7 +34,7 @@ jobs:
           <<'SQL'
         \set slug :slug
         BEGIN;
-        SELECT id AS company_id, name, slug FROM company WHERE slug = :'slug';
+        SELECT id AS company_id, slug FROM company WHERE slug = :'slug';
         SELECT 'payment_method rows before' AS label, count(*) FROM payment_method
           WHERE company_id = (SELECT id FROM company WHERE slug = :'slug');
         SELECT 'subscription rows before' AS label, count(*) FROM subscription
