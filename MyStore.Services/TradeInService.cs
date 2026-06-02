@@ -141,10 +141,6 @@ public class TradeInService : ITradeInService
                 return ApiResponse<TradeIn>.ErrorResponse(
                     $"Cannot complete a trade-in with status '{tradeIn.Status}'. Only draft trade-ins can be completed.");
 
-            var completed = await _tradeInRepository.CompleteAsync(id, paymentType, DateTime.UtcNow);
-            if (completed is null)
-                return ApiResponse<TradeIn>.ErrorResponse($"Failed to complete trade-in with ID {id}");
-
             var acceptedItems = tradeIn.Items.Where(i => i.AcceptedValue > 0).ToList();
             int locationId = 0;
             if (acceptedItems.Count > 0)
@@ -183,6 +179,10 @@ public class TradeInService : ITradeInService
                 item.InventoryItemId = created.Id;
                 await _tradeInRepository.UpdateItemAsync(item);
             }
+
+            var completed = await _tradeInRepository.CompleteAsync(id, paymentType, DateTime.UtcNow);
+            if (completed is null)
+                return ApiResponse<TradeIn>.ErrorResponse($"Failed to complete trade-in with ID {id}");
 
             if (paymentType == "store_credit" && tradeIn.CustomerId.HasValue && _loyaltyService is not null)
             {
