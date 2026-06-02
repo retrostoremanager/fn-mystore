@@ -326,6 +326,12 @@ public class SalesService : ISalesService
 
     private async Task LoadRelatedDataAsync(List<Sale> sales, int companyId)
     {
+        TaxSettingsResponse? taxSettings = null;
+        if (sales.Count > 0)
+        {
+            taxSettings = await _companyRepository.GetTaxSettingsAsync(companyId);
+        }
+
         foreach (var sale in sales)
         {
             // Load customer (must belong to same company)
@@ -348,6 +354,17 @@ public class SalesService : ISalesService
                 {
                     saleItem.InventoryItem = await _inventoryRepository.GetByIdAsync(saleItem.InventoryItemId, companyId);
                 }
+            }
+
+            if (taxSettings is { TaxEnabled: true })
+            {
+                sale.TaxRate = taxSettings.TaxRate;
+                sale.TaxLabel = taxSettings.TaxLabel;
+            }
+            else
+            {
+                sale.TaxRate = 0m;
+                sale.TaxLabel = null;
             }
         }
     }

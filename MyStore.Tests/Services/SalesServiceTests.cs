@@ -216,6 +216,177 @@ public class SalesServiceTests
     }
 
     [Fact]
+    public async Task GetSaleByIdAsync_TaxEnabled_PopulatesTaxRateAndTaxLabelFromCompanySettings()
+    {
+        var sale = CreateSaleWithStoredTotals();
+        sale.TaxAmount = 7m;
+
+        _companyRepositoryMock
+            .Setup(r => r.GetTaxSettingsAsync(CompanyId))
+            .ReturnsAsync(new TaxSettingsResponse { TaxEnabled = true, TaxRate = 0.0875m, TaxLabel = "GST" });
+        _salesRepositoryMock.Setup(r => r.GetByIdAsync(1, CompanyId)).ReturnsAsync(sale);
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(new Customer { Id = 10, CompanyId = CompanyId });
+        _inventoryRepositoryMock.Setup(r => r.GetByIdAsync(It.IsAny<int>(), CompanyId)).ReturnsAsync((InventoryItem?)null);
+
+        var result = await _service.GetSaleByIdAsync(1, CompanyId);
+
+        result.Success.Should().BeTrue();
+        result.Data!.TaxRate.Should().Be(0.0875m);
+        result.Data.TaxLabel.Should().Be("GST");
+        result.Data.TaxAmount.Should().Be(7m);
+    }
+
+    [Fact]
+    public async Task GetAllSalesAsync_TaxDisabled_ReturnsZeroTaxRateAndNullLabel()
+    {
+        var sale = CreateSaleWithStoredTotals();
+
+        _companyRepositoryMock
+            .Setup(r => r.GetTaxSettingsAsync(CompanyId))
+            .ReturnsAsync(new TaxSettingsResponse { TaxEnabled = false, TaxRate = 0m, TaxLabel = "Sales Tax" });
+        _salesRepositoryMock.Setup(r => r.GetAllAsync(CompanyId)).ReturnsAsync(new List<Sale> { sale });
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(new Customer { Id = 10, CompanyId = CompanyId });
+        _inventoryRepositoryMock.Setup(r => r.GetByIdAsync(It.IsAny<int>(), CompanyId)).ReturnsAsync((InventoryItem?)null);
+
+        var result = await _service.GetAllSalesAsync(CompanyId);
+
+        result.Success.Should().BeTrue();
+        result.Data![0].TaxRate.Should().Be(0m);
+        result.Data[0].TaxLabel.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetSaleByIdAsync_LegacySaleWithoutTaxAmount_DoesNotThrow()
+    {
+        var sale = new Sale
+        {
+            Id = 1,
+            CompanyId = CompanyId,
+            CustomerId = 10,
+            Subtotal = 0m,
+            Tax = 0m,
+            TaxAmount = 0m,
+            Total = 50m,
+            PaymentMethod = "Cash",
+            SaleDate = DateTime.UtcNow,
+            Items = new List<SaleItem>()
+        };
+
+        _salesRepositoryMock.Setup(r => r.GetByIdAsync(1, CompanyId)).ReturnsAsync(sale);
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(new Customer { Id = 10, CompanyId = CompanyId });
+
+        var result = await _service.GetSaleByIdAsync(1, CompanyId);
+
+        result.Success.Should().BeTrue();
+        result.Data!.TaxAmount.Should().Be(0m);
+        result.Data.TaxRate.Should().Be(0m);
+        result.Data.TaxLabel.Should().BeNull();
+        result.Data.Total.Should().Be(50m);
+    }
+
+    [Fact]
+    public async Task CreateSaleAsync_TaxEnabled_ComputesSubtotalTaxAmountAndTotal()
+    {
+        var request = new CreateSaleRequest
+        {
+            CustomerId = 10,
+            PaymentMethod = "Cash",
+            Items = new List<CreateSaleItemRequest>
+            {
+                new CreateSaleItemRequest { InventoryItemId = 100, Quantity = 2, UnitPrice = 50m }
+            }
+        };
+
+        _companyRepositoryMock
+            .Setup(r => r.GetTaxSettingsAsync(CompanyId))
+            .ReturnsAsync(new TaxSettingsResponse { TaxEnabled = true, TaxRate = 0.0875m, TaxLabel = "Sales Tax" });
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(new Customer { Id = 10, CompanyId = CompanyId });
+        _inventoryRepositoryMock.Setup(r => r.GetByIdAsync(100, CompanyId))
+            .ReturnsAsync(new InventoryItem { Id = 100, CompanyId = CompanyId, Name = "Game", Quantity = 5 });
+        _salesRepositoryMock.Setup(r => r.CreateAsync(It.IsAny<Sale>())).ReturnsAsync((Sale s) =>
+        {
+            s.Id = 1;
+            return s;
+        });
+
+        var result = await _service.CreateSaleAsync(request, CompanyId);
+
+        result.Success.Should().BeTrue();
+        result.Data!.Subtotal.Should().Be(100m);
+        result.Data.TaxAmount.Should().Be(8.75m);
+        result.Data.TaxRate.Should().Be(0.0875m);
+        result.Data.TaxLabel.Should().Be("Sales Tax");
+        result.Data.Total.Should().Be(108.75m);
+    }
+
+    [Fact]
+    public async Task CreateSaleAsync_TaxDisabled_TaxAmountZeroAndSubtotalEqualsTotal()
+    {
+        var request = new CreateSaleRequest
+        {
+            CustomerId = 10,
+            PaymentMethod = "Cash",
+            Items = new List<CreateSaleItemRequest>
+            {
+                new CreateSaleItemRequest { InventoryItemId = 100, Quantity = 1, UnitPrice = 25m }
+            }
+        };
+
+        _companyRepositoryMock
+            .Setup(r => r.GetTaxSettingsAsync(CompanyId))
+            .ReturnsAsync(new TaxSettingsResponse { TaxEnabled = false, TaxRate = 0m, TaxLabel = "Sales Tax" });
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(new Customer { Id = 10, CompanyId = CompanyId });
+        _inventoryRepositoryMock.Setup(r => r.GetByIdAsync(100, CompanyId))
+            .ReturnsAsync(new InventoryItem { Id = 100, CompanyId = CompanyId, Name = "Game", Quantity = 5 });
+        _salesRepositoryMock.Setup(r => r.CreateAsync(It.IsAny<Sale>())).ReturnsAsync((Sale s) =>
+        {
+            s.Id = 1;
+            return s;
+        });
+
+        var result = await _service.CreateSaleAsync(request, CompanyId);
+
+        result.Success.Should().BeTrue();
+        result.Data!.Subtotal.Should().Be(25m);
+        result.Data.TaxAmount.Should().Be(0m);
+        result.Data.TaxRate.Should().Be(0m);
+        result.Data.TaxLabel.Should().BeNull();
+        result.Data.Total.Should().Be(25m);
+    }
+
+    [Fact]
+    public async Task CreateSaleAsync_TaxEnabled_RoundingEdgeCase_RoundsAwayFromZero()
+    {
+        var request = new CreateSaleRequest
+        {
+            CustomerId = 10,
+            PaymentMethod = "Cash",
+            Items = new List<CreateSaleItemRequest>
+            {
+                new CreateSaleItemRequest { InventoryItemId = 100, Quantity = 1, UnitPrice = 1.005m }
+            }
+        };
+
+        _companyRepositoryMock
+            .Setup(r => r.GetTaxSettingsAsync(CompanyId))
+            .ReturnsAsync(new TaxSettingsResponse { TaxEnabled = true, TaxRate = 0.08m, TaxLabel = "Sales Tax" });
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(new Customer { Id = 10, CompanyId = CompanyId });
+        _inventoryRepositoryMock.Setup(r => r.GetByIdAsync(100, CompanyId))
+            .ReturnsAsync(new InventoryItem { Id = 100, CompanyId = CompanyId, Name = "Game", Quantity = 5 });
+        _salesRepositoryMock.Setup(r => r.CreateAsync(It.IsAny<Sale>())).ReturnsAsync((Sale s) =>
+        {
+            s.Id = 1;
+            return s;
+        });
+
+        var result = await _service.CreateSaleAsync(request, CompanyId);
+
+        result.Success.Should().BeTrue();
+        result.Data!.TaxAmount.Should().Be(0.08m);
+        result.Data.TaxAmount.Should().NotBe(0.07m);
+    }
+
+    [Fact]
     public async Task CreateSaleAsync_NullCustomerId_ReturnsErrorWithoutCallingRepository()
     {
         var request = new CreateSaleRequest
