@@ -162,7 +162,7 @@ public class TradeInFunctions
         var response = await _tradeInService.UpdateTradeInAsync(id, companyId, updateRequest.Notes, updateRequest.CustomerId, updateRequest.Items ?? new List<TradeInItem>());
         if (!response.Success)
         {
-            var statusCode = IsNotFound(response.Message) ? HttpStatusCode.NotFound : HttpStatusCode.BadRequest;
+            var statusCode = ResolveErrorStatus(response.Message, HttpStatusCode.BadRequest);
             return await CreateHttpResponse(req, response, statusCode);
         }
         return await CreateHttpResponse(req, response);
@@ -209,7 +209,7 @@ public class TradeInFunctions
         var response = await _tradeInService.CompleteAsync(id, companyId, completeRequest.PaymentType);
         if (!response.Success)
         {
-            var statusCode = IsNotFound(response.Message) ? HttpStatusCode.NotFound : HttpStatusCode.BadRequest;
+            var statusCode = ResolveErrorStatus(response.Message, HttpStatusCode.BadRequest);
             return await CreateHttpResponse(req, response, statusCode);
         }
         return await CreateHttpResponse(req, response);
@@ -235,7 +235,7 @@ public class TradeInFunctions
         var response = await _tradeInService.RejectAsync(id, companyId);
         if (!response.Success)
         {
-            var statusCode = IsNotFound(response.Message) ? HttpStatusCode.NotFound : HttpStatusCode.BadRequest;
+            var statusCode = ResolveErrorStatus(response.Message, HttpStatusCode.BadRequest);
             return await CreateHttpResponse(req, response, statusCode);
         }
         return await CreateHttpResponse(req, response);
@@ -425,6 +425,23 @@ public class TradeInFunctions
     {
         if (string.IsNullOrEmpty(message)) return false;
         return message.Contains("not found", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsStatusConflict(string? message)
+    {
+        if (string.IsNullOrEmpty(message)) return false;
+        return message.Contains("Cannot complete", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("Cannot reject", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("Cannot update", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("Cannot add items", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("Only draft trade-ins", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static HttpStatusCode ResolveErrorStatus(string? message, HttpStatusCode fallback)
+    {
+        if (IsNotFound(message)) return HttpStatusCode.NotFound;
+        if (IsStatusConflict(message)) return HttpStatusCode.Conflict;
+        return fallback;
     }
 
     private static async Task<HttpResponseData> CreateHttpResponse<T>(
