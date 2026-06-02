@@ -300,7 +300,7 @@ public class TradeInFunctionsTests
     }
 
     [Fact]
-    public async Task UpdateTradeIn_NotDraftStatus_Returns400()
+    public async Task UpdateTradeIn_NotDraftStatus_Returns409()
     {
         _serviceMock
             .Setup(s => s.UpdateTradeInAsync(1, CompanyId, It.IsAny<string?>(), It.IsAny<int?>(), It.IsAny<List<TradeInItem>>()))
@@ -312,7 +312,7 @@ public class TradeInFunctionsTests
 
         var result = await _functions.UpdateTradeIn(req, 1);
 
-        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        result.StatusCode.Should().Be(HttpStatusCode.Conflict);
         var body = await TestHelpers.ReadResponseBody(result);
         var deserialized = JsonSerializer.Deserialize<ApiResponse<TradeIn>>(
             body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
@@ -444,7 +444,7 @@ public class TradeInFunctionsTests
     }
 
     [Fact]
-    public async Task CompleteTradeIn_AlreadyCompleted_Returns400()
+    public async Task CompleteTradeIn_AlreadyCompleted_Returns409()
     {
         _serviceMock
             .Setup(s => s.CompleteAsync(1, CompanyId, "cash"))
@@ -456,7 +456,7 @@ public class TradeInFunctionsTests
 
         var result = await _functions.CompleteTradeIn(req, 1);
 
-        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        result.StatusCode.Should().Be(HttpStatusCode.Conflict);
         var responseBody = await TestHelpers.ReadResponseBody(result);
         var deserialized = JsonSerializer.Deserialize<ApiResponse<TradeIn>>(
             responseBody, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
@@ -465,7 +465,7 @@ public class TradeInFunctionsTests
     }
 
     [Fact]
-    public async Task CompleteTradeIn_AlreadyRejected_Returns400()
+    public async Task CompleteTradeIn_AlreadyRejected_Returns409()
     {
         _serviceMock
             .Setup(s => s.CompleteAsync(1, CompanyId, "cash"))
@@ -477,7 +477,7 @@ public class TradeInFunctionsTests
 
         var result = await _functions.CompleteTradeIn(req, 1);
 
-        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        result.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
 
     [Fact]
@@ -536,7 +536,7 @@ public class TradeInFunctionsTests
     }
 
     [Fact]
-    public async Task RejectTradeIn_AlreadyCompleted_Returns400()
+    public async Task RejectTradeIn_AlreadyCompleted_Returns409()
     {
         _serviceMock
             .Setup(s => s.RejectAsync(1, CompanyId))
@@ -547,7 +547,7 @@ public class TradeInFunctionsTests
 
         var result = await _functions.RejectTradeIn(req, 1);
 
-        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        result.StatusCode.Should().Be(HttpStatusCode.Conflict);
         var responseBody = await TestHelpers.ReadResponseBody(result);
         var deserialized = JsonSerializer.Deserialize<ApiResponse<TradeIn>>(
             responseBody, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
@@ -556,7 +556,7 @@ public class TradeInFunctionsTests
     }
 
     [Fact]
-    public async Task RejectTradeIn_AlreadyRejected_Returns400()
+    public async Task RejectTradeIn_AlreadyRejected_Returns409()
     {
         _serviceMock
             .Setup(s => s.RejectAsync(1, CompanyId))
@@ -567,7 +567,7 @@ public class TradeInFunctionsTests
 
         var result = await _functions.RejectTradeIn(req, 1);
 
-        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        result.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
 
     [Fact]
