@@ -44,11 +44,11 @@ public interface ICompanyRepository
     /// </summary>
     Task UpdateProfileAsync(int companyId, CompanyProfileUpdateRequest request);
     /// <summary>
-    /// Gets tax settings for a company (Issue #163).
+    /// Gets tax settings for a company (Issues #163, #288).
     /// </summary>
     Task<TaxSettingsResponse?> GetTaxSettingsAsync(int companyId);
     /// <summary>
-    /// Updates tax settings for a company (Issue #163).
+    /// Updates tax settings for a company (Issues #163, #288).
     /// </summary>
     Task UpdateTaxSettingsAsync(int companyId, TaxSettingsRequest request);
     Task<Company?> GetByVerificationTokenAsync(string token);

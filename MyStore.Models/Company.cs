@@ -229,7 +229,7 @@ public class SubscriptionDetailResponse
 }
 
 /// <summary>
-/// Tax settings for a company (Issue #163).
+/// Tax settings for a company (Issues #163, #288).
 /// </summary>
 public class TaxSettingsResponse
 {
@@ -239,7 +239,7 @@ public class TaxSettingsResponse
 }
 
 /// <summary>
-/// Request to update company tax settings (Issue #163).
+/// Request to update company tax settings (Issues #163, #288).
 /// </summary>
 public class TaxSettingsRequest
 {
