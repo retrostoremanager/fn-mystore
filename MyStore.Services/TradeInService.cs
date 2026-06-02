@@ -8,17 +8,20 @@ public class TradeInService : ITradeInService
     private readonly ITradeInRepository _tradeInRepository;
     private readonly IInventoryRepository _inventoryRepository;
     private readonly IGameRepository _gameRepository;
+    private readonly ILocationRepository _locationRepository;
     private readonly ILoyaltyService? _loyaltyService;
 
     public TradeInService(
         ITradeInRepository tradeInRepository,
         IInventoryRepository inventoryRepository,
         IGameRepository gameRepository,
+        ILocationRepository locationRepository,
         ILoyaltyService? loyaltyService = null)
     {
         _tradeInRepository = tradeInRepository;
         _inventoryRepository = inventoryRepository;
         _gameRepository = gameRepository;
+        _locationRepository = locationRepository;
         _loyaltyService = loyaltyService;
     }
 
@@ -142,7 +145,22 @@ public class TradeInService : ITradeInService
             if (completed is null)
                 return ApiResponse<TradeIn>.ErrorResponse($"Failed to complete trade-in with ID {id}");
 
-            foreach (var item in tradeIn.Items.Where(i => i.AcceptedValue > 0))
+            var acceptedItems = tradeIn.Items.Where(i => i.AcceptedValue > 0).ToList();
+            int locationId = 0;
+            if (acceptedItems.Count > 0)
+            {
+                var locations = await _locationRepository.GetByCompanyIdAsync(companyId);
+                var resolved = locations
+                    .OrderByDescending(l => l.IsPrimary)
+                    .ThenBy(l => l.Id)
+                    .FirstOrDefault();
+                if (resolved is null)
+                    return ApiResponse<TradeIn>.ErrorResponse(
+                        "Cannot complete trade-in: no location configured for this company. Create a location before completing trade-ins.");
+                locationId = resolved.Id;
+            }
+
+            foreach (var item in acceptedItems)
             {
                 var game = await EnsureGameForTradeInItemAsync(item);
 
@@ -157,6 +175,7 @@ public class TradeInService : ITradeInService
                     SellPrice = 0,
                     AddedDate = DateTime.UtcNow,
                     Game = game,
+                    LocationId = locationId,
                 };
 
                 var created = await _inventoryRepository.CreateAsync(inventoryItem);
