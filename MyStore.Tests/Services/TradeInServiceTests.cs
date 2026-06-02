@@ -610,6 +610,39 @@ public class TradeInServiceTests
     }
 
     [Fact]
+    public async Task CompleteAsync_AcceptedItem_WritesCreatedInventoryIdBackToTradeInItem()
+    {
+        var items = new List<TradeInItem>
+        {
+            new() { Id = 1, TradeInId = 1, GameTitle = "Mario Kart", Platform = "N64", Condition = "good", OfferedValue = 20m, AcceptedValue = 20m },
+        };
+        var draft = new TradeIn { Id = 1, CompanyId = 5, CustomerId = 53, Status = "draft", PaymentType = "store_credit", Items = items };
+        var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
+
+        TradeInItem? capturedItemUpdate = null;
+
+        _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
+        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, "store_credit", It.IsAny<DateTime>())).ReturnsAsync(completed);
+        _tradeInRepoMock
+            .Setup(r => r.UpdateItemAsync(It.IsAny<TradeInItem>()))
+            .Callback<TradeInItem>(i => capturedItemUpdate = i)
+            .ReturnsAsync((TradeInItem i) => i);
+        _inventoryRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
+            .ReturnsAsync((InventoryItem inv) => { inv.Id = 4242; return inv; });
+        _loyaltyMock
+            .Setup(l => l.GetSettingsAsync(5))
+            .ReturnsAsync(ApiResponse<LoyaltySettings>.SuccessResponse(new LoyaltySettings { IsEnabled = false }));
+
+        var result = await _service.CompleteAsync(1, 5, "store_credit");
+
+        result.Success.Should().BeTrue();
+        capturedItemUpdate.Should().NotBeNull();
+        capturedItemUpdate!.InventoryItemId.Should().Be(4242);
+        _tradeInRepoMock.Verify(r => r.UpdateItemAsync(It.Is<TradeInItem>(i => i.InventoryItemId == 4242)), Times.Once);
+    }
+
+    [Fact]
     public async Task CompleteAsync_NoLocationsForCompany_ReturnsErrorAndDoesNotCreateInventory()
     {
         var items = new List<TradeInItem>
