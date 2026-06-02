@@ -195,11 +195,12 @@ public class SalesServiceTests
     }
 
     [Theory]
-    [InlineData(64, "REC-000064")]
-    [InlineData(1, "REC-000001")]
+    [InlineData(64, "REC-64")]
+    [InlineData(1, "REC-1")]
+    [InlineData(1042, "REC-1042")]
     [InlineData(123456, "REC-123456")]
     [InlineData(1234567, "REC-1234567")]
-    public async Task GetReceiptAsync_ReturnsReceiptNumberWithRecPrefixAndZeroPadding(int saleId, string expectedReceiptNumber)
+    public async Task GetReceiptAsync_ReturnsReceiptNumberWithRecPrefix(int saleId, string expectedReceiptNumber)
     {
         var sale = CreateSaleWithStoredTotals(id: saleId);
 

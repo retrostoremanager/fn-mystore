@@ -11,5 +11,6 @@ public interface ISalesService
     Task<ApiResponse<Sale>> CreateSaleAsync(CreateSaleRequest request, int companyId);
     Task<ApiResponse<bool>> DeleteSaleAsync(int id, int companyId);
     Task<ApiResponse<ReceiptResponse>> GetReceiptAsync(int id, int companyId);
+    Task<ApiResponse<bool>> EmailReceiptAsync(int id, int companyId, string email);
 }
 

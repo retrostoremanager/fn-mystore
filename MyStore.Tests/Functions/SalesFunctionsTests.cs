@@ -1122,7 +1122,7 @@ public class SalesFunctionsTests
     {
         var receipt = new ReceiptResponse
         {
-            ReceiptNumber = "REC-000001",
+            ReceiptNumber = "REC-1",
             Date = new DateTime(2024, 6, 1, 12, 0, 0, DateTimeKind.Utc),
             StoreName = "Test Store",
             StoreAddress = "123 Main St",
@@ -1158,7 +1158,7 @@ public class SalesFunctionsTests
 
         deserialized!.Success.Should().BeTrue();
         deserialized.Data.Should().NotBeNull();
-        deserialized.Data!.ReceiptNumber.Should().Be("REC-000001");
+        deserialized.Data!.ReceiptNumber.Should().Be("REC-1");
         deserialized.Data.Date.Should().Be(new DateTime(2024, 6, 1, 12, 0, 0, DateTimeKind.Utc));
         deserialized.Data.StoreName.Should().Be("Test Store");
         deserialized.Data.Items.Should().HaveCount(1);
@@ -1209,7 +1209,7 @@ public class SalesFunctionsTests
     {
         var receipt = new ReceiptResponse
         {
-            ReceiptNumber = "REC-000001",
+            ReceiptNumber = "REC-1",
             Date = DateTime.UtcNow,
             StoreName = "Test Store",
             Items = new List<ReceiptLineItem>(),
@@ -1227,6 +1227,138 @@ public class SalesFunctionsTests
         await _functions.GetSaleReceipt(httpRequest, 1);
 
         _salesServiceMock.Verify(s => s.GetReceiptAsync(1, CompanyId), Times.Once);
+    }
+
+    #endregion
+
+    #region EmailSaleReceipt Tests
+
+    [Fact]
+    public async Task EmailSaleReceipt_ValidRequest_Returns200OK()
+    {
+        var apiResponse = ApiResponse<bool>.SuccessResponse(true, "Receipt email sent successfully");
+
+        _salesServiceMock
+            .Setup(s => s.EmailReceiptAsync(1, CompanyId, "buyer@example.com"))
+            .ReturnsAsync(apiResponse);
+
+        var context = new Mock<FunctionContext>();
+        var httpRequest = TestHelpers.CreateHttpRequestData(
+            context.Object,
+            new SendReceiptEmailRequest { Email = "buyer@example.com" },
+            CompanyHeaders);
+
+        var result = await _functions.EmailSaleReceipt(httpRequest, 1);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<bool>>(body,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Success.Should().BeTrue();
+        _salesServiceMock.Verify(s => s.EmailReceiptAsync(1, CompanyId, "buyer@example.com"), Times.Once);
+    }
+
+    [Fact]
+    public async Task EmailSaleReceipt_MissingEmail_Returns400BadRequest()
+    {
+        var context = new Mock<FunctionContext>();
+        var httpRequest = TestHelpers.CreateHttpRequestData(
+            context.Object,
+            new SendReceiptEmailRequest { Email = string.Empty },
+            CompanyHeaders);
+
+        var result = await _functions.EmailSaleReceipt(httpRequest, 1);
+
+        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<bool>>(body,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Success.Should().BeFalse();
+        deserialized.Message.Should().ContainEquivalentOf("email");
+        _salesServiceMock.Verify(
+            s => s.EmailReceiptAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task EmailSaleReceipt_MalformedEmail_Returns400BadRequest()
+    {
+        var apiResponse = ApiResponse<bool>.ErrorResponse("Email address is not valid");
+
+        _salesServiceMock
+            .Setup(s => s.EmailReceiptAsync(1, CompanyId, "not-an-email"))
+            .ReturnsAsync(apiResponse);
+
+        var context = new Mock<FunctionContext>();
+        var httpRequest = TestHelpers.CreateHttpRequestData(
+            context.Object,
+            new SendReceiptEmailRequest { Email = "not-an-email" },
+            CompanyHeaders);
+
+        var result = await _functions.EmailSaleReceipt(httpRequest, 1);
+
+        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<bool>>(body,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Success.Should().BeFalse();
+        deserialized.Message.Should().ContainEquivalentOf("not valid");
+    }
+
+    [Fact]
+    public async Task EmailSaleReceipt_SaleNotFound_Returns404()
+    {
+        var apiResponse = ApiResponse<bool>.ErrorResponse("Sale with ID 999 not found");
+
+        _salesServiceMock
+            .Setup(s => s.EmailReceiptAsync(999, CompanyId, "buyer@example.com"))
+            .ReturnsAsync(apiResponse);
+
+        var context = new Mock<FunctionContext>();
+        var httpRequest = TestHelpers.CreateHttpRequestData(
+            context.Object,
+            new SendReceiptEmailRequest { Email = "buyer@example.com" },
+            CompanyHeaders);
+
+        var result = await _functions.EmailSaleReceipt(httpRequest, 999);
+
+        result.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task EmailSaleReceipt_MissingCompanyId_Returns401Unauthorized()
+    {
+        var context = new Mock<FunctionContext>();
+        var httpRequest = TestHelpers.CreateHttpRequestData(
+            context.Object,
+            new SendReceiptEmailRequest { Email = "buyer@example.com" });
+
+        var result = await _functions.EmailSaleReceipt(httpRequest, 1);
+
+        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task EmailSaleReceipt_EmptyBody_Returns400BadRequest()
+    {
+        var context = new Mock<FunctionContext>();
+        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+
+        var result = await _functions.EmailSaleReceipt(httpRequest, 1);
+
+        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<bool>>(body,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Success.Should().BeFalse();
     }
 
     #endregion
