@@ -119,8 +119,8 @@ public class ConsignmentService : IConsignmentService
                 return ApiResponse<MarkSoldResponse>.ErrorResponse($"Failed to mark consignment item {id} as sold");
             }
 
-            var payoutAmount = salePrice * updated.SplitPercent / 100m;
-            var storeAmount = salePrice - payoutAmount;
+            var payoutAmount = Math.Round(salePrice * updated.SplitPercent / 100m, 2, MidpointRounding.AwayFromZero);
+            var storeAmount = Math.Round(salePrice - payoutAmount, 2, MidpointRounding.AwayFromZero);
 
             var response = new MarkSoldResponse
             {
@@ -170,7 +170,7 @@ public class ConsignmentService : IConsignmentService
                 return ApiResponse<ConsignmentPayout>.ErrorResponse("Cannot process payout: item has no recorded sale price");
             }
 
-            var payoutAmount = item.SalePrice.Value * item.SplitPercent / 100m;
+            var payoutAmount = Math.Round(item.SalePrice.Value * item.SplitPercent / 100m, 2, MidpointRounding.AwayFromZero);
 
             var payout = new ConsignmentPayout
             {
