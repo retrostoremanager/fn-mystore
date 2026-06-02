@@ -653,6 +653,9 @@ public class TradeInServiceTests
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
         _inventoryRepoMock
+            .Setup(r => r.FindByCompanyGameConditionAsync(5, It.IsAny<string>(), "good"))
+            .ReturnsAsync((InventoryItem?)null);
+        _inventoryRepoMock
             .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
             .ThrowsAsync(new Exception("23505: duplicate key value violates unique constraint \"ix_inventory_company_game_condition\""));
 
@@ -662,6 +665,78 @@ public class TradeInServiceTests
         result.Message.Should().Contain("Failed to complete trade-in");
         _tradeInRepoMock.Verify(r => r.CompleteAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<DateTime>()), Times.Never);
         _tradeInRepoMock.Verify(r => r.UpdateItemAsync(It.IsAny<TradeInItem>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_ItemMatchesExistingInventory_IncrementsQuantityInsteadOfCreating()
+    {
+        var items = new List<TradeInItem>
+        {
+            new() { Id = 1, TradeInId = 1, GameTitle = "Mario Kart", Platform = "N64", Condition = "good", OfferedValue = 20m, AcceptedValue = 20m },
+        };
+        var draft = new TradeIn { Id = 1, CompanyId = 5, Status = "draft", PaymentType = "cash", Items = items };
+        var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
+
+        var existing = new InventoryItem
+        {
+            Id = 70,
+            CompanyId = 5,
+            LocationId = 7,
+            Quantity = 1,
+            Condition = "good",
+            Game = new Game { Id = "tradein:abc", Title = "Mario Kart", Console = "N64" }
+        };
+
+        _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
+        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, "cash", It.IsAny<DateTime>())).ReturnsAsync(completed);
+        _tradeInRepoMock.Setup(r => r.UpdateItemAsync(It.IsAny<TradeInItem>())).ReturnsAsync((TradeInItem i) => i);
+        _inventoryRepoMock
+            .Setup(r => r.FindByCompanyGameConditionAsync(5, It.IsAny<string>(), "good"))
+            .ReturnsAsync(existing);
+        _inventoryRepoMock
+            .Setup(r => r.UpdateQuantityAsync(70, 1, 5))
+            .ReturnsAsync(true);
+
+        TradeInItem? capturedItemUpdate = null;
+        _tradeInRepoMock
+            .Setup(r => r.UpdateItemAsync(It.IsAny<TradeInItem>()))
+            .Callback<TradeInItem>(i => capturedItemUpdate = i)
+            .ReturnsAsync((TradeInItem i) => i);
+
+        var result = await _service.CompleteAsync(1, 5, "cash");
+
+        result.Success.Should().BeTrue();
+        _inventoryRepoMock.Verify(r => r.CreateAsync(It.IsAny<InventoryItem>()), Times.Never);
+        _inventoryRepoMock.Verify(r => r.UpdateQuantityAsync(70, 1, 5), Times.Once);
+        capturedItemUpdate.Should().NotBeNull();
+        capturedItemUpdate!.InventoryItemId.Should().Be(70);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_ItemDoesNotMatchExistingInventory_CreatesNewRow()
+    {
+        var items = new List<TradeInItem>
+        {
+            new() { Id = 1, TradeInId = 1, GameTitle = "Mario Kart", Platform = "N64", Condition = "good", OfferedValue = 20m, AcceptedValue = 20m },
+        };
+        var draft = new TradeIn { Id = 1, CompanyId = 5, Status = "draft", PaymentType = "cash", Items = items };
+        var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
+
+        _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
+        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, "cash", It.IsAny<DateTime>())).ReturnsAsync(completed);
+        _tradeInRepoMock.Setup(r => r.UpdateItemAsync(It.IsAny<TradeInItem>())).ReturnsAsync((TradeInItem i) => i);
+        _inventoryRepoMock
+            .Setup(r => r.FindByCompanyGameConditionAsync(5, It.IsAny<string>(), "good"))
+            .ReturnsAsync((InventoryItem?)null);
+        _inventoryRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
+            .ReturnsAsync((InventoryItem inv) => { inv.Id = 555; return inv; });
+
+        var result = await _service.CompleteAsync(1, 5, "cash");
+
+        result.Success.Should().BeTrue();
+        _inventoryRepoMock.Verify(r => r.CreateAsync(It.IsAny<InventoryItem>()), Times.Once);
+        _inventoryRepoMock.Verify(r => r.UpdateQuantityAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>()), Times.Never);
     }
 
     [Fact]

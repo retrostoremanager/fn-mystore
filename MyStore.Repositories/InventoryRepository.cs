@@ -58,6 +58,27 @@ public class InventoryRepository : IInventoryRepository
         return row == null ? null : MapToInventoryItem(row);
     }
 
+    public async Task<InventoryItem?> FindByCompanyGameConditionAsync(int companyId, string gameId, string condition)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        var row = await connection.QueryFirstOrDefaultAsync<InventoryItemRow>(
+            @"SELECT ii.id, ii.company_id, ii.location_id, ii.quantity, ii.price as sell_price, ii.cost as buy_price,
+                     ii.condition, ii.game_id, ii.notes, ii.created_date as added_date, ii.last_modified_date,
+                     COALESCE(g.title, '') as name, COALESCE(g.genre, '') as category,
+                     l.name as location_name,
+                     g.id as game_id_val, g.title as game_title, g.console as game_console, g.release_date as game_release_date,
+                     g.publisher as game_publisher, g.genre as game_genre
+              FROM game_inventory ii
+              LEFT JOIN location l ON ii.location_id = l.id
+              LEFT JOIN game_encyclopedia g ON ii.game_id = g.id
+              WHERE ii.company_id = @p_company_id
+                AND ii.game_id = @p_game_id
+                AND ii.condition = @p_condition
+              LIMIT 1",
+            new { p_company_id = companyId, p_game_id = gameId, p_condition = condition });
+        return row == null ? null : MapToInventoryItem(row);
+    }
+
     public async Task<InventoryItem> CreateAsync(InventoryItem item)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
