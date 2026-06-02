@@ -12,6 +12,7 @@ public class TradeInServiceTests
     private readonly Mock<ITradeInRepository> _tradeInRepoMock;
     private readonly Mock<IInventoryRepository> _inventoryRepoMock;
     private readonly Mock<IGameRepository> _gameRepoMock;
+    private readonly Mock<ILocationRepository> _locationRepoMock;
     private readonly Mock<ILoyaltyService> _loyaltyMock;
     private readonly TradeInService _service;
     private readonly TradeInService _serviceNoLoyalty;
@@ -21,9 +22,13 @@ public class TradeInServiceTests
         _tradeInRepoMock = new Mock<ITradeInRepository>();
         _inventoryRepoMock = new Mock<IInventoryRepository>();
         _gameRepoMock = new Mock<IGameRepository>();
+        _locationRepoMock = new Mock<ILocationRepository>();
         _loyaltyMock = new Mock<ILoyaltyService>();
-        _service = new TradeInService(_tradeInRepoMock.Object, _inventoryRepoMock.Object, _gameRepoMock.Object, _loyaltyMock.Object);
-        _serviceNoLoyalty = new TradeInService(_tradeInRepoMock.Object, _inventoryRepoMock.Object, _gameRepoMock.Object, null);
+        _locationRepoMock
+            .Setup(r => r.GetByCompanyIdAsync(It.IsAny<int>()))
+            .ReturnsAsync(new List<Location> { new() { Id = 7, CompanyId = 5, Name = "Main", IsPrimary = true } });
+        _service = new TradeInService(_tradeInRepoMock.Object, _inventoryRepoMock.Object, _gameRepoMock.Object, _locationRepoMock.Object, _loyaltyMock.Object);
+        _serviceNoLoyalty = new TradeInService(_tradeInRepoMock.Object, _inventoryRepoMock.Object, _gameRepoMock.Object, _locationRepoMock.Object, null);
     }
 
     [Fact]
@@ -530,5 +535,98 @@ public class TradeInServiceTests
 
         result.Success.Should().BeFalse();
         result.Message.Should().Contain("not found");
+    }
+
+    [Fact]
+    public async Task CompleteAsync_AcceptedItem_SetsInventoryLocationIdFromPrimaryLocation()
+    {
+        var items = new List<TradeInItem>
+        {
+            new() { Id = 1, TradeInId = 1, GameTitle = "Mario Kart", Platform = "N64", Condition = "good", OfferedValue = 20m, AcceptedValue = 20m },
+        };
+        var draft = new TradeIn { Id = 1, CompanyId = 5, CustomerId = 53, Status = "draft", PaymentType = "store_credit", Items = items };
+        var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
+
+        InventoryItem? capturedInventory = null;
+
+        _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
+        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, "store_credit", It.IsAny<DateTime>())).ReturnsAsync(completed);
+        _tradeInRepoMock.Setup(r => r.UpdateItemAsync(It.IsAny<TradeInItem>())).ReturnsAsync((TradeInItem i) => i);
+        _locationRepoMock
+            .Setup(r => r.GetByCompanyIdAsync(5))
+            .ReturnsAsync(new List<Location>
+            {
+                new() { Id = 11, CompanyId = 5, Name = "Secondary", IsPrimary = false },
+                new() { Id = 22, CompanyId = 5, Name = "Main", IsPrimary = true },
+            });
+        _inventoryRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
+            .Callback<InventoryItem>(inv => capturedInventory = inv)
+            .ReturnsAsync((InventoryItem inv) => { inv.Id = 99; return inv; });
+        _loyaltyMock
+            .Setup(l => l.GetSettingsAsync(5))
+            .ReturnsAsync(ApiResponse<LoyaltySettings>.SuccessResponse(new LoyaltySettings { IsEnabled = false }));
+
+        var result = await _service.CompleteAsync(1, 5, "store_credit");
+
+        result.Success.Should().BeTrue();
+        capturedInventory.Should().NotBeNull();
+        capturedInventory!.LocationId.Should().BeGreaterThan(0);
+        capturedInventory.LocationId.Should().Be(22);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_NoPrimaryLocation_UsesFirstLocationByIdAndSetsLocationId()
+    {
+        var items = new List<TradeInItem>
+        {
+            new() { Id = 1, TradeInId = 1, GameTitle = "Mario", Platform = "NES", Condition = "good", OfferedValue = 15m, AcceptedValue = 15m },
+        };
+        var draft = new TradeIn { Id = 1, CompanyId = 5, Status = "draft", PaymentType = "cash", Items = items };
+        var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
+
+        InventoryItem? capturedInventory = null;
+
+        _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
+        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, "cash", It.IsAny<DateTime>())).ReturnsAsync(completed);
+        _tradeInRepoMock.Setup(r => r.UpdateItemAsync(It.IsAny<TradeInItem>())).ReturnsAsync((TradeInItem i) => i);
+        _locationRepoMock
+            .Setup(r => r.GetByCompanyIdAsync(5))
+            .ReturnsAsync(new List<Location>
+            {
+                new() { Id = 33, CompanyId = 5, Name = "Second", IsPrimary = false },
+                new() { Id = 12, CompanyId = 5, Name = "First", IsPrimary = false },
+            });
+        _inventoryRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
+            .Callback<InventoryItem>(inv => capturedInventory = inv)
+            .ReturnsAsync((InventoryItem inv) => { inv.Id = 99; return inv; });
+
+        var result = await _service.CompleteAsync(1, 5, "cash");
+
+        result.Success.Should().BeTrue();
+        capturedInventory.Should().NotBeNull();
+        capturedInventory!.LocationId.Should().Be(12);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_NoLocationsForCompany_ReturnsErrorAndDoesNotCreateInventory()
+    {
+        var items = new List<TradeInItem>
+        {
+            new() { Id = 1, TradeInId = 1, GameTitle = "Mario", Platform = "NES", Condition = "good", OfferedValue = 15m, AcceptedValue = 15m },
+        };
+        var draft = new TradeIn { Id = 1, CompanyId = 5, Status = "draft", PaymentType = "cash", Items = items };
+        var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
+
+        _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
+        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, "cash", It.IsAny<DateTime>())).ReturnsAsync(completed);
+        _locationRepoMock.Setup(r => r.GetByCompanyIdAsync(5)).ReturnsAsync(new List<Location>());
+
+        var result = await _service.CompleteAsync(1, 5, "cash");
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("location");
+        _inventoryRepoMock.Verify(r => r.CreateAsync(It.IsAny<InventoryItem>()), Times.Never);
     }
 }
