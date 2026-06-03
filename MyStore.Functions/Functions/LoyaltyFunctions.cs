@@ -79,6 +79,22 @@ public class LoyaltyFunctions
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
         }
 
+        if (settings.PointsPerDollarSpent < 0)
+        {
+            var errorResponse = ApiResponse<LoyaltySettings>.ErrorResponse("PointsPerDollarSpent must be greater than or equal to zero");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+        }
+        if (settings.PointsPerDollarTradeIn < 0)
+        {
+            var errorResponse = ApiResponse<LoyaltySettings>.ErrorResponse("PointsPerDollarTradeIn must be greater than or equal to zero");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+        }
+        if (settings.RedemptionRate < 0)
+        {
+            var errorResponse = ApiResponse<LoyaltySettings>.ErrorResponse("RedemptionRate must be greater than or equal to zero");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+        }
+
         if (settings.IsEnabled)
         {
             if (settings.PointsPerDollarSpent <= 0)

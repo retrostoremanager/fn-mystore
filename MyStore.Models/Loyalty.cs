@@ -25,6 +25,7 @@ public class LoyaltyTransaction
 public class LoyaltyBalanceResponse
 {
     public int CustomerId { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("pointsBalance")]
     public int Balance { get; set; }
     public List<LoyaltyTransaction> Transactions { get; set; } = new();
 }
