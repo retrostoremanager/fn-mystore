@@ -184,17 +184,13 @@ public class TradeInService : ITradeInService
             if (completed is null)
                 return ApiResponse<TradeIn>.ErrorResponse($"Failed to complete trade-in with ID {id}");
 
-            if (paymentType == "store_credit" && tradeIn.CustomerId.HasValue && _loyaltyService is not null)
+            if (paymentType == "cash" && tradeIn.CustomerId.HasValue && _loyaltyService is not null)
             {
-                var settingsResponse = await _loyaltyService.GetSettingsAsync(companyId);
-                if (settingsResponse.Success && settingsResponse.Data is not null && settingsResponse.Data.IsEnabled)
-                {
-                    var totalAccepted = tradeIn.Items
-                        .Where(i => i.AcceptedValue > 0)
-                        .Sum(i => i.AcceptedValue ?? 0);
+                var totalAccepted = tradeIn.Items
+                    .Where(i => i.AcceptedValue > 0)
+                    .Sum(i => i.AcceptedValue ?? 0);
 
-                    await _loyaltyService.EarnFromTradeInAsync(tradeIn.CustomerId.Value, companyId, totalAccepted);
-                }
+                await _loyaltyService.EarnFromTradeInAsync(tradeIn.CustomerId.Value, companyId, totalAccepted, id);
             }
 
             var result = await _tradeInRepository.GetByIdAsync(id, companyId);

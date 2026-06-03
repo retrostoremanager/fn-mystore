@@ -252,7 +252,7 @@ public class LoyaltyFunctionsTests
             }
         };
         _serviceMock
-            .Setup(s => s.GetBalanceAsync(CompanyId, CustomerId))
+            .Setup(s => s.GetBalanceAsync(CustomerId, CompanyId))
             .ReturnsAsync(ApiResponse<LoyaltyBalanceResponse>.SuccessResponse(balanceResponse));
 
         var context = new Mock<FunctionContext>();
@@ -274,7 +274,7 @@ public class LoyaltyFunctionsTests
     public async Task GetCustomerLoyaltyBalance_CustomerNotFound_Returns404()
     {
         _serviceMock
-            .Setup(s => s.GetBalanceAsync(CompanyId, 99))
+            .Setup(s => s.GetBalanceAsync(99, CompanyId))
             .ReturnsAsync(ApiResponse<LoyaltyBalanceResponse>.ErrorResponse("Customer not found"));
 
         var context = new Mock<FunctionContext>();
@@ -316,7 +316,7 @@ public class LoyaltyFunctionsTests
             NewBalance = 50,
         };
         _serviceMock
-            .Setup(s => s.RedeemAsync(CompanyId, CustomerId, 100))
+            .Setup(s => s.RedeemAsync(CustomerId, CompanyId, 100))
             .ReturnsAsync(ApiResponse<RedeemPointsResponse>.SuccessResponse(redeemResponse, "Redeemed 100 points for $1.00 store credit"));
 
         var context = new Mock<FunctionContext>();
@@ -339,7 +339,7 @@ public class LoyaltyFunctionsTests
     public async Task RedeemLoyaltyPoints_CustomerNotFound_Returns404()
     {
         _serviceMock
-            .Setup(s => s.RedeemAsync(CompanyId, 99999, 10))
+            .Setup(s => s.RedeemAsync(99999, CompanyId, 10))
             .ReturnsAsync(ApiResponse<RedeemPointsResponse>.ErrorResponse("Customer not found"));
 
         var context = new Mock<FunctionContext>();
@@ -361,7 +361,7 @@ public class LoyaltyFunctionsTests
     public async Task RedeemLoyaltyPoints_InsufficientBalance_Returns400()
     {
         _serviceMock
-            .Setup(s => s.RedeemAsync(CompanyId, CustomerId, 500))
+            .Setup(s => s.RedeemAsync(CustomerId, CompanyId, 500))
             .ReturnsAsync(ApiResponse<RedeemPointsResponse>.ErrorResponse("Insufficient loyalty points. Available: 150, Requested: 500"));
 
         var context = new Mock<FunctionContext>();

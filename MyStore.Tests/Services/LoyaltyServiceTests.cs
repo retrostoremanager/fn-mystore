@@ -83,7 +83,7 @@ public class LoyaltyServiceTests
         _repositoryMock.Setup(r => r.GetBalanceAsync(1, 42)).ReturnsAsync(150);
         _repositoryMock.Setup(r => r.GetTransactionsAsync(1, 42)).ReturnsAsync(new List<LoyaltyTransaction>());
 
-        var result = await _service.GetBalanceAsync(1, 42);
+        var result = await _service.GetBalanceAsync(42, 1);
 
         result.Success.Should().BeTrue();
         result.Data!.Balance.Should().Be(150);
@@ -95,7 +95,7 @@ public class LoyaltyServiceTests
     {
         _customerRepositoryMock.Setup(r => r.GetByIdAsync(99999)).ReturnsAsync((Customer?)null);
 
-        var result = await _service.GetBalanceAsync(1, 99999);
+        var result = await _service.GetBalanceAsync(99999, 1);
 
         result.Success.Should().BeFalse();
         result.Message.Should().Be("Customer not found");
@@ -107,7 +107,7 @@ public class LoyaltyServiceTests
     {
         _customerRepositoryMock.Setup(r => r.GetByIdAsync(42)).ReturnsAsync(new Customer { Id = 42, CompanyId = 99 });
 
-        var result = await _service.GetBalanceAsync(1, 42);
+        var result = await _service.GetBalanceAsync(42, 1);
 
         result.Success.Should().BeFalse();
         result.Message.Should().Be("Customer not found");
@@ -122,7 +122,7 @@ public class LoyaltyServiceTests
         _repositoryMock.Setup(r => r.AddTransactionAsync(It.IsAny<LoyaltyTransaction>()))
             .ReturnsAsync(new LoyaltyTransaction());
 
-        await _service.EarnFromSaleAsync(1, 5, 50.75m);
+        await _service.EarnFromSaleAsync(5, 1, 50.75m);
 
         _repositoryMock.Verify(r => r.AddTransactionAsync(It.Is<LoyaltyTransaction>(t =>
             t.CompanyId == 1 &&
@@ -137,7 +137,7 @@ public class LoyaltyServiceTests
         var settings = new LoyaltySettings { CompanyId = 1, IsEnabled = false };
         _repositoryMock.Setup(r => r.GetSettingsAsync(1)).ReturnsAsync(settings);
 
-        await _service.EarnFromSaleAsync(1, 5, 100m);
+        await _service.EarnFromSaleAsync(5, 1, 100m);
 
         _repositoryMock.Verify(r => r.AddTransactionAsync(It.IsAny<LoyaltyTransaction>()), Times.Never);
     }
@@ -147,7 +147,7 @@ public class LoyaltyServiceTests
     {
         _repositoryMock.Setup(r => r.GetSettingsAsync(1)).ReturnsAsync((LoyaltySettings?)null);
 
-        await _service.EarnFromSaleAsync(1, 5, 100m);
+        await _service.EarnFromSaleAsync(5, 1, 100m);
 
         _repositoryMock.Verify(r => r.AddTransactionAsync(It.IsAny<LoyaltyTransaction>()), Times.Never);
     }
@@ -160,7 +160,7 @@ public class LoyaltyServiceTests
         _repositoryMock.Setup(r => r.AddTransactionAsync(It.IsAny<LoyaltyTransaction>()))
             .ReturnsAsync(new LoyaltyTransaction());
 
-        await _service.EarnFromSaleAsync(1, 5, 10m);
+        await _service.EarnFromSaleAsync(5, 1, 10m);
 
         _repositoryMock.Verify(r => r.AddTransactionAsync(It.Is<LoyaltyTransaction>(t =>
             t.Points == 15)), Times.Once);
@@ -199,7 +199,7 @@ public class LoyaltyServiceTests
     {
         _customerRepositoryMock.Setup(r => r.GetByIdAsync(99999)).ReturnsAsync((Customer?)null);
 
-        var result = await _service.RedeemAsync(1, 99999, 10);
+        var result = await _service.RedeemAsync(99999, 1, 10);
 
         result.Success.Should().BeFalse();
         result.Message.Should().Be("Customer not found");
@@ -213,7 +213,7 @@ public class LoyaltyServiceTests
     {
         _customerRepositoryMock.Setup(r => r.GetByIdAsync(5)).ReturnsAsync(new Customer { Id = 5, CompanyId = 99 });
 
-        var result = await _service.RedeemAsync(1, 5, 10);
+        var result = await _service.RedeemAsync(5, 1, 10);
 
         result.Success.Should().BeFalse();
         result.Message.Should().Be("Customer not found");
@@ -232,7 +232,7 @@ public class LoyaltyServiceTests
         _repositoryMock.Setup(r => r.AddTransactionAsync(It.IsAny<LoyaltyTransaction>()))
             .ReturnsAsync(new LoyaltyTransaction());
 
-        var result = await _service.RedeemAsync(1, 5, 200);
+        var result = await _service.RedeemAsync(5, 1, 200);
 
         result.Success.Should().BeTrue();
         result.Data!.PointsRedeemed.Should().Be(200);
@@ -248,7 +248,7 @@ public class LoyaltyServiceTests
         _repositoryMock.Setup(r => r.GetSettingsAsync(1)).ReturnsAsync(settings);
         _repositoryMock.Setup(r => r.GetBalanceAsync(1, 5)).ReturnsAsync(100);
 
-        var result = await _service.RedeemAsync(1, 5, 200);
+        var result = await _service.RedeemAsync(5, 1, 200);
 
         result.Success.Should().BeFalse();
         result.Message.Should().Contain("Insufficient");
@@ -262,7 +262,7 @@ public class LoyaltyServiceTests
         _customerRepositoryMock.Setup(r => r.GetByIdAsync(5)).ReturnsAsync(new Customer { Id = 5, CompanyId = 1 });
         _repositoryMock.Setup(r => r.GetSettingsAsync(1)).ReturnsAsync(settings);
 
-        var result = await _service.RedeemAsync(1, 5, 100);
+        var result = await _service.RedeemAsync(5, 1, 100);
 
         result.Success.Should().BeFalse();
         _repositoryMock.Verify(r => r.AddTransactionAsync(It.IsAny<LoyaltyTransaction>()), Times.Never);
@@ -271,7 +271,7 @@ public class LoyaltyServiceTests
     [Fact]
     public async Task RedeemAsync_ZeroPoints_ReturnsError()
     {
-        var result = await _service.RedeemAsync(1, 5, 0);
+        var result = await _service.RedeemAsync(5, 1, 0);
 
         result.Success.Should().BeFalse();
         _repositoryMock.Verify(r => r.GetSettingsAsync(It.IsAny<int>()), Times.Never);
@@ -287,7 +287,7 @@ public class LoyaltyServiceTests
         _repositoryMock.Setup(r => r.AddTransactionAsync(It.IsAny<LoyaltyTransaction>()))
             .ReturnsAsync(new LoyaltyTransaction());
 
-        await _service.RedeemAsync(1, 5, 100);
+        await _service.RedeemAsync(5, 1, 100);
 
         _repositoryMock.Verify(r => r.AddTransactionAsync(It.Is<LoyaltyTransaction>(t =>
             t.Points == -100 &&
@@ -302,7 +302,7 @@ public class LoyaltyServiceTests
         _repositoryMock.Setup(r => r.AddTransactionAsync(It.IsAny<LoyaltyTransaction>()))
             .ReturnsAsync(new LoyaltyTransaction());
 
-        await _service.EarnFromSaleAsync(1, 5, 1.99m);
+        await _service.EarnFromSaleAsync(5, 1, 1.99m);
 
         _repositoryMock.Verify(r => r.AddTransactionAsync(It.Is<LoyaltyTransaction>(t =>
             t.Points == 1)), Times.Once);
@@ -330,7 +330,7 @@ public class LoyaltyServiceTests
         _repositoryMock.Setup(r => r.GetSettingsAsync(1)).ReturnsAsync(settings);
         _repositoryMock.Setup(r => r.GetBalanceAsync(1, 5)).ReturnsAsync(0);
 
-        var result = await _service.RedeemAsync(1, 5, 1);
+        var result = await _service.RedeemAsync(5, 1, 1);
 
         result.Success.Should().BeFalse();
         result.Message.Should().Contain("Insufficient");
@@ -350,7 +350,7 @@ public class LoyaltyServiceTests
         _repositoryMock.Setup(r => r.GetBalanceAsync(1, 42)).ReturnsAsync(120);
         _repositoryMock.Setup(r => r.GetTransactionsAsync(1, 42)).ReturnsAsync(transactions);
 
-        var result = await _service.GetBalanceAsync(1, 42);
+        var result = await _service.GetBalanceAsync(42, 1);
 
         result.Success.Should().BeTrue();
         result.Data!.Balance.Should().Be(120);
@@ -368,7 +368,7 @@ public class LoyaltyServiceTests
         _repositoryMock.Setup(r => r.AddTransactionAsync(It.IsAny<LoyaltyTransaction>()))
             .ReturnsAsync(new LoyaltyTransaction());
 
-        var result = await _service.RedeemAsync(1, 5, 100);
+        var result = await _service.RedeemAsync(5, 1, 100);
 
         result.Success.Should().BeTrue();
         result.Data!.NewBalance.Should().Be(0);
