@@ -238,7 +238,7 @@ public class SalesService : ISalesService
             await LoadRelatedDataAsync(new List<Sale> { created }, companyId);
 
             if (_loyaltyService is not null)
-                await _loyaltyService.EarnFromSaleAsync(companyId, request.CustomerId, sale.Total);
+                await _loyaltyService.EarnFromSaleAsync(request.CustomerId, companyId, sale.Total, created.Id);
 
             return ApiResponse<Sale>.SuccessResponse(created, "Sale created successfully");
         }

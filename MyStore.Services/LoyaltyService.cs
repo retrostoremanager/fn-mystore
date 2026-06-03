@@ -67,7 +67,7 @@ public class LoyaltyService : ILoyaltyService
         }
     }
 
-    public async Task<ApiResponse<LoyaltyBalanceResponse>> GetBalanceAsync(int companyId, int customerId)
+    public async Task<ApiResponse<LoyaltyBalanceResponse>> GetBalanceAsync(int customerId, int companyId)
     {
         try
         {
@@ -92,10 +92,12 @@ public class LoyaltyService : ILoyaltyService
         }
     }
 
-    public async Task EarnFromSaleAsync(int companyId, int customerId, decimal saleTotal)
+    public async Task EarnFromSaleAsync(int customerId, int companyId, decimal saleTotal, int? referenceId = null)
     {
         var settings = await _repository.GetSettingsAsync(companyId);
         if (settings is null || !settings.IsEnabled)
+            return;
+        if (settings.PointsPerDollarSpent <= 0)
             return;
 
         var points = (int)Math.Floor(saleTotal * settings.PointsPerDollarSpent);
@@ -108,13 +110,16 @@ public class LoyaltyService : ILoyaltyService
             CustomerId = customerId,
             Points = points,
             TransactionType = "earn_sale",
+            ReferenceId = referenceId,
         });
     }
 
-    public async Task EarnFromTradeInAsync(int customerId, int companyId, decimal tradeInTotal)
+    public async Task EarnFromTradeInAsync(int customerId, int companyId, decimal tradeInTotal, int? referenceId = null)
     {
         var settings = await _repository.GetSettingsAsync(companyId);
         if (settings is null || !settings.IsEnabled)
+            return;
+        if (settings.PointsPerDollarTradeIn <= 0)
             return;
 
         var points = (int)Math.Floor(tradeInTotal * settings.PointsPerDollarTradeIn);
@@ -127,14 +132,15 @@ public class LoyaltyService : ILoyaltyService
             CustomerId = customerId,
             Points = points,
             TransactionType = "earn_tradein",
+            ReferenceId = referenceId,
         });
     }
 
-    public async Task<ApiResponse<RedeemPointsResponse>> RedeemAsync(int companyId, int customerId, int pointsToRedeem)
+    public async Task<ApiResponse<RedeemPointsResponse>> RedeemAsync(int customerId, int companyId, int points)
     {
         try
         {
-            if (pointsToRedeem <= 0)
+            if (points <= 0)
                 return ApiResponse<RedeemPointsResponse>.ErrorResponse("Points to redeem must be greater than zero");
 
             var customer = await _customerRepository.GetByIdAsync(customerId);
@@ -146,27 +152,27 @@ public class LoyaltyService : ILoyaltyService
                 return ApiResponse<RedeemPointsResponse>.ErrorResponse("Loyalty programme is not enabled for this company");
 
             var balance = await _repository.GetBalanceAsync(companyId, customerId);
-            if (pointsToRedeem > balance)
+            if (points > balance)
                 return ApiResponse<RedeemPointsResponse>.ErrorResponse(
-                    $"Insufficient loyalty points. Available: {balance}, Requested: {pointsToRedeem}");
+                    $"Insufficient loyalty points. Available: {balance}, Requested: {points}");
 
             await _repository.AddTransactionAsync(new LoyaltyTransaction
             {
                 CompanyId = companyId,
                 CustomerId = customerId,
-                Points = -pointsToRedeem,
+                Points = -points,
                 TransactionType = "redeem",
             });
 
-            var creditAmount = Math.Round(pointsToRedeem / settings.RedemptionRate, 2, MidpointRounding.AwayFromZero);
-            var newBalance = balance - pointsToRedeem;
+            var creditAmount = Math.Round(points / settings.RedemptionRate, 2, MidpointRounding.AwayFromZero);
+            var newBalance = balance - points;
 
             return ApiResponse<RedeemPointsResponse>.SuccessResponse(new RedeemPointsResponse
             {
-                PointsRedeemed = pointsToRedeem,
+                PointsRedeemed = points,
                 CreditAmount = creditAmount,
                 NewBalance = newBalance,
-            }, $"Redeemed {pointsToRedeem} points for {creditAmount:C} store credit");
+            }, $"Redeemed {points} points for {creditAmount:C} store credit");
         }
         catch (Exception ex)
         {

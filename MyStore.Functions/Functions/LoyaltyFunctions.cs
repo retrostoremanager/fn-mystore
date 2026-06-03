@@ -123,7 +123,7 @@ public class LoyaltyFunctions
         }
 
         _logger.LogInformation("Getting loyalty balance for customer {CustomerId} in company {CompanyId}", id, companyId);
-        var response = await _loyaltyService.GetBalanceAsync(companyId, id);
+        var response = await _loyaltyService.GetBalanceAsync(id, companyId);
         if (!response.Success)
             return await CreateHttpResponse(req, response, HttpStatusCode.NotFound);
         return await CreateHttpResponse(req, response);
@@ -168,7 +168,7 @@ public class LoyaltyFunctions
         }
 
         _logger.LogInformation("Redeeming {Points} loyalty points for customer {CustomerId} in company {CompanyId}", redeemRequest.PointsToRedeem, id, companyId);
-        var response = await _loyaltyService.RedeemAsync(companyId, id, redeemRequest.PointsToRedeem);
+        var response = await _loyaltyService.RedeemAsync(id, companyId, redeemRequest.PointsToRedeem);
         if (!response.Success)
         {
             if (response.Message == "Customer not found")
