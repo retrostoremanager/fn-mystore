@@ -67,6 +67,8 @@ jobs:
           -c "ALTER TABLE trade_in ADD CONSTRAINT chk_trade_in_payment_type CHECK (payment_type IS NULL OR payment_type IN ('cash', 'store_credit'));" \
           -c "ALTER TABLE trade_in ALTER COLUMN created_by DROP NOT NULL;" \
           -c "ALTER TABLE payment_method ADD COLUMN IF NOT EXISTS brand TEXT;" \
+          -c "SELECT 'PM_ROWS_13' AS marker, id, company_id, stripe_customer_id, stripe_payment_method_id, brand, last4, is_default FROM payment_method WHERE company_id = 13 ORDER BY created_date;" \
+          -c "SELECT 'SUB_ROWS_13' AS marker, id, company_id, stripe_subscription_id, stripe_customer_id, status FROM subscription WHERE company_id = 13;" \
           && echo "Migrations applied." || echo "Migration step had errors (constraint may already be in the desired state)."
 
     - name: Deploy to Azure Function App
