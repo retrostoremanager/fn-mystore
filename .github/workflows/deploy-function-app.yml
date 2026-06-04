@@ -66,6 +66,7 @@ jobs:
           -c "ALTER TABLE trade_in DROP CONSTRAINT IF EXISTS chk_trade_in_payment_type;" \
           -c "ALTER TABLE trade_in ADD CONSTRAINT chk_trade_in_payment_type CHECK (payment_type IS NULL OR payment_type IN ('cash', 'store_credit'));" \
           -c "ALTER TABLE trade_in ALTER COLUMN created_by DROP NOT NULL;" \
+          -c "ALTER TABLE payment_method ADD COLUMN IF NOT EXISTS brand TEXT;" \
           && echo "Migrations applied." || echo "Migration step had errors (constraint may already be in the desired state)."
 
     - name: Deploy to Azure Function App
