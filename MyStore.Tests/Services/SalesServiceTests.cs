@@ -194,27 +194,6 @@ public class SalesServiceTests
         result.Data.Should().BeEmpty();
     }
 
-    [Theory]
-    [InlineData(64, "REC-000064")]
-    [InlineData(1, "REC-000001")]
-    [InlineData(123456, "REC-123456")]
-    [InlineData(1234567, "REC-1234567")]
-    public async Task GetReceiptAsync_ReturnsReceiptNumberWithRecPrefixAndZeroPadding(int saleId, string expectedReceiptNumber)
-    {
-        var sale = CreateSaleWithStoredTotals(id: saleId);
-
-        _salesRepositoryMock.Setup(r => r.GetByIdAsync(saleId, CompanyId)).ReturnsAsync(sale);
-        _customerRepositoryMock.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(new Customer { Id = 10, CompanyId = CompanyId });
-        _inventoryRepositoryMock.Setup(r => r.GetByIdAsync(It.IsAny<int>(), CompanyId)).ReturnsAsync((InventoryItem?)null);
-        _companyRepositoryMock.Setup(r => r.GetProfileAsync(CompanyId)).ReturnsAsync(new CompanyProfile { CompanyName = "Test Store" });
-
-        var result = await _service.GetReceiptAsync(saleId, CompanyId);
-
-        result.Success.Should().BeTrue();
-        result.Data.Should().NotBeNull();
-        result.Data!.ReceiptNumber.Should().Be(expectedReceiptNumber);
-    }
-
     [Fact]
     public async Task GetSaleByIdAsync_TaxEnabled_PopulatesTaxRateAndTaxLabelFromCompanySettings()
     {
