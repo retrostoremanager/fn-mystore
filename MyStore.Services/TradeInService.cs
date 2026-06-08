@@ -160,23 +160,36 @@ public class TradeInService : ITradeInService
             {
                 var game = await EnsureGameForTradeInItemAsync(item);
 
-                var inventoryItem = new InventoryItem
+                var existing = await _inventoryRepository.FindByCompanyGameConditionAsync(
+                    companyId, game.Id, item.Condition ?? string.Empty);
+
+                int inventoryId;
+                if (existing is not null)
                 {
-                    CompanyId = companyId,
-                    Name = $"{item.GameTitle} ({item.Platform})",
-                    Category = "Game",
-                    Quantity = 1,
-                    Condition = item.Condition,
-                    BuyPrice = item.AcceptedValue,
-                    SellPrice = 0,
-                    AddedDate = DateTime.UtcNow,
-                    Game = game,
-                    LocationId = locationId,
-                };
+                    await _inventoryRepository.UpdateQuantityAsync(existing.Id, 1, companyId);
+                    inventoryId = existing.Id;
+                }
+                else
+                {
+                    var inventoryItem = new InventoryItem
+                    {
+                        CompanyId = companyId,
+                        Name = $"{item.GameTitle} ({item.Platform})",
+                        Category = "Game",
+                        Quantity = 1,
+                        Condition = item.Condition,
+                        BuyPrice = item.AcceptedValue,
+                        SellPrice = 0,
+                        AddedDate = DateTime.UtcNow,
+                        Game = game,
+                        LocationId = locationId,
+                    };
 
-                var created = await _inventoryRepository.CreateAsync(inventoryItem);
+                    var created = await _inventoryRepository.CreateAsync(inventoryItem);
+                    inventoryId = created.Id;
+                }
 
-                item.InventoryItemId = created.Id;
+                item.InventoryItemId = inventoryId;
                 await _tradeInRepository.UpdateItemAsync(item);
             }
 

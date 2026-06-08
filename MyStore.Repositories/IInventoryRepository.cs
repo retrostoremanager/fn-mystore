@@ -6,6 +6,7 @@ public interface IInventoryRepository
 {
     Task<List<InventoryItem>> GetAllAsync(int companyId, int? locationId = null);
     Task<InventoryItem?> GetByIdAsync(int id, int companyId);
+    Task<InventoryItem?> FindByCompanyGameConditionAsync(int companyId, string gameId, string condition);
     Task<InventoryItem> CreateAsync(InventoryItem item);
     Task<InventoryItem?> UpdateAsync(int id, InventoryItem item, int companyId);
     Task<bool> DeleteAsync(int id, int companyId);
