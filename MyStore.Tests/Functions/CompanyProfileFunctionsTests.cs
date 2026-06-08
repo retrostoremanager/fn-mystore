@@ -324,6 +324,46 @@ public class CompanyProfileFunctionsTests
             Times.Once);
     }
 
+    [Fact]
+    public async Task UpdateProfile_CompanyCountry_IsPersisted()
+    {
+        var updateRequest = new CompanyProfileUpdateRequest
+        {
+            CompanyName = "Test Store",
+            CompanyCountry = "USA"
+        };
+
+        CompanyProfileUpdateRequest? capturedRequest = null;
+        _companyRepoMock
+            .Setup(r => r.UpdateProfileAsync(TestCompanyId, It.IsAny<CompanyProfileUpdateRequest>()))
+            .Callback<int, CompanyProfileUpdateRequest>((_, r) => capturedRequest = r)
+            .Returns(Task.CompletedTask);
+
+        var updatedProfile = CreateTestProfile();
+        updatedProfile.CompanyCountry = "USA";
+        _companyRepoMock
+            .Setup(r => r.GetProfileAsync(TestCompanyId))
+            .ReturnsAsync(updatedProfile);
+
+        var context = CreateAuthenticatedContext();
+        var req = TestHelpers.CreateHttpRequestData(context, updateRequest, CompanyIdHeaders());
+
+        var result = await _functions.UpdateProfile(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        capturedRequest.Should().NotBeNull();
+        capturedRequest!.CompanyCountry.Should().Be("USA", because: "the country must be passed through to the repository for persistence");
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<CompanyProfile>>(
+            body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        deserialized!.Data!.CompanyCountry.Should().Be("USA");
+
+        _companyRepoMock.Verify(
+            r => r.UpdateProfileAsync(TestCompanyId, It.Is<CompanyProfileUpdateRequest>(req => req.CompanyCountry == "USA")),
+            Times.Once);
+    }
+
     #endregion
 
     #region GetTaxSettings Tests

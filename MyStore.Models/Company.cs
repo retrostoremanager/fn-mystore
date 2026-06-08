@@ -34,6 +34,7 @@ public class CompanyProfile
     public string? CompanyCity { get; set; }
     public string? CompanyState { get; set; }
     public string? CompanyZipCode { get; set; }
+    public string? CompanyCountry { get; set; }
     public string? CompanyPhone { get; set; }
     public string? Locale { get; set; }
     public string? LogoUrl { get; set; }
@@ -50,6 +51,7 @@ public class CompanyProfileUpdateRequest
     public string? CompanyCity { get; set; }
     public string? CompanyState { get; set; }
     public string? CompanyZipCode { get; set; }
+    public string? CompanyCountry { get; set; }
     public string? CompanyPhone { get; set; }
     public string? Locale { get; set; }
     public string? LogoUrl { get; set; }
