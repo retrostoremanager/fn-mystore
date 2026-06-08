@@ -68,7 +68,7 @@ public class ReceiptService : IReceiptService
 
             var receipt = new ReceiptResponse
             {
-                ReceiptNumber = sale.Id.ToString("D6"),
+                ReceiptNumber = $"REC-{sale.Id:D6}",
                 Date = sale.SaleDate,
                 StoreName = profile?.CompanyName ?? string.Empty,
                 StoreAddress = storeAddress,
