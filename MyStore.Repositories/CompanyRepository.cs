@@ -185,7 +185,7 @@ public class CompanyRepository : ICompanyRepository
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.ExecuteAsync(
-            "SELECT company_update_profile(@p_id, @p_company_name, @p_company_address, @p_company_address2, @p_company_city, @p_company_state, @p_company_zip_code, @p_company_country, @p_company_phone, @p_locale, @p_logo_url)",
+            "SELECT company_update_profile(@p_id, @p_company_name, @p_company_address, @p_company_address2, @p_company_city, @p_company_state, @p_company_zip_code, @p_company_phone, @p_locale, @p_logo_url)",
             new
             {
                 p_id = companyId,
@@ -195,7 +195,6 @@ public class CompanyRepository : ICompanyRepository
                 p_company_city = request.CompanyCity,
                 p_company_state = request.CompanyState,
                 p_company_zip_code = request.CompanyZipCode,
-                p_company_country = request.CompanyCountry,
                 p_company_phone = request.CompanyPhone,
                 p_locale = request.Locale,
                 p_logo_url = request.LogoUrl
