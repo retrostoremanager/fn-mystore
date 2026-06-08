@@ -51,101 +51,77 @@ STEP 5 — E2E tests with Playwright (for UI changes or complete user flows)
 STEP 6 — Report results
   If ALL tests pass: print "All tests passed for PR #{{PR}}." then proceed to STEP 7.
 
-  If a test FAILS: before filing, verify the failure is real and not already fixed.
-  This prevents duplicate and false-positive bug issues.
+  If one or more tests FAIL: collect ALL confirmed failures into a single list and file
+  exactly ONE consolidated bug issue for this PR. Do NOT create a separate issue per failure —
+  filing one bug per failure creates deep chains where each fix triggers another round of
+  separately-filed failures.
 
-  IMPORTANT — For any failure involving a unit test assertion or source file:
-    Read the ACTUAL file from the local checkout (e.g. cat MyStore.Tests/Functions/CustomerFunctionsTests.cs)
-    and confirm the wrong assertion is still present in the CURRENT code before filing.
-    The PR diff shows the state when the PR was opened — the development branch may already have the fix.
-    If the current file already has the correct code, skip this bug entirely.
+  STEP 6a — Verify each failure is real, then add it to the list.
+    For every failing test, before adding it to the list:
+    - Confirm the failure is real and not already fixed. The PR diff shows the state when the PR
+      was opened — the development branch may already have the fix.
+    - For any failure involving a unit-test assertion or source file: read the ACTUAL file from the
+      local checkout (e.g. cat MyStore.Tests/Functions/CustomerFunctionsTests.cs) and confirm the
+      wrong code is still present in the CURRENT code. If the current file is already correct, drop
+      this failure — do not include it.
+    Keep a running numbered list. For each confirmed failure record: a concise title, the exact
+    repro (copy-pasteable curl command or test code), the actual output, the expected result, and
+    technical notes (file/function to fix, full error).
 
-  For each distinct, confirmed bug:
+  STEP 6b — If the list is empty after verification:
+    Print "No confirmed failures after verification for PR #{{PR}}." and proceed to STEP 7.
 
-  STEP 6a — Check whether this bug was already filed or resolved:
-    Identify a short keyword from the failing endpoint or feature (e.g. "sales", "customers", "login").
-    KEYWORD="[the keyword]"
-
-    # Search open bugs across ALL repos — no repo filter so cross-repo duplicates are caught
+  STEP 6c — Check whether a consolidated bug for THIS PR was already filed:
+    # An earlier test run for the same orchestrator issue files a bug referencing {{ISSUE_REF}}.
+    # Find it so we update that one issue instead of opening duplicates.
     EXISTING=$(GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue list \
       --repo retrostoremanager/orchestrator-mystore \
       --label bug \
       --state open --limit 100 \
-      --json number,title \
-      --jq "[.[] | select(.title | ascii_downcase | contains(\"$KEYWORD\"))] | .[0].number // empty" \
+      --json number,body \
+      --jq "[.[] | select(.body | contains(\"{{ISSUE_REF}}\"))] | .[0].number // empty" \
       2>/dev/null || echo "")
 
-    # Secondary check: if no title match, search bug bodies for this orchestrator issue reference.
-    # Catches race-condition duplicates where two test runs fire simultaneously for the same PR.
-    if [ -z "$EXISTING" ]; then
-      EXISTING=$(GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue list \
-        --repo retrostoremanager/orchestrator-mystore \
-        --label bug \
-        --state open --limit 100 \
-        --json number,body \
-        --jq "[.[] | select(.body | contains(\"{{ISSUE_REF}}\"))] | .[0].number // empty" \
-        2>/dev/null || echo "")
-    fi
+  STEP 6d — Build ONE consolidated body containing every confirmed failure as a checklist.
+    Write the file, filling in one "- [ ]" block per failure (number them 1..N):
+    cat > /tmp/bug-body.md << 'EOF'
+    ## Summary
+    QA testing of PR #{{PR}} found N confirmed failure(s). Fix every checklist item below.
 
-    # Also check recently-resolved bugs (closed with done label) — skip if already fixed
-    RESOLVED=$(GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue list \
-      --repo retrostoremanager/orchestrator-mystore \
-      --label bug --label "done" \
-      --state closed --limit 100 \
-      --json number,title \
-      --jq "[.[] | select(.title | ascii_downcase | contains(\"$KEYWORD\"))] | .[0].number // empty" \
-      2>/dev/null || echo "")
-
-    If RESOLVED is non-empty: print "Bug already resolved (issue #$RESOLVED) — skipping." and move to the next bug.
-
-  STEP 6b — If EXISTING is non-empty: comment on the existing issue instead of creating a new one.
-    GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue comment "$EXISTING" \
-      --repo retrostoremanager/orchestrator-mystore \
-      --body "Still failing after PR #{{PR}}.
-
-    **Failing test:**
-    \`\`\`
-    [exact curl command or code]
-    \`\`\`
-
-    **Actual output:** [paste response]
-    **Expected:** [what should happen]
-    **Technical notes:** [file/function to fix, full error]"
-    echo "Updated existing bug #$EXISTING — not creating a duplicate."
-
-  STEP 6c — If EXISTING is empty and RESOLVED is empty: create a new bug issue.
-    cat > /tmp/bug-body-1.md << 'EOF'
-    ## Bug description
-    [What is wrong — be specific about the behavior]
-
-    ## Failing test
-    [Exact curl command or Playwright code that failed]
-
-    Actual output:
-    [paste the actual response or error]
-
-    Expected:
-    [what should have happened]
+    ## Failures
+    - [ ] **1. [concise title of failure 1]**
+      - Repro: [exact curl command or test code]
+      - Actual: [paste the actual response or error]
+      - Expected: [what should have happened]
+      - Technical notes: [file/function to fix; full error or stack trace]
+    - [ ] **2. [concise title of failure 2]**
+      - Repro: ...
+      - Actual: ...
+      - Expected: ...
+      - Technical notes: ...
 
     ## Context
     Related to: {{ISSUE_REF}}
     Deployed PR: https://github.com/retrostoremanager/{{REPO}}/pull/{{PR}}
-
-    ## Technical notes
-    [Which file, function, or component to fix; full error message or stack trace if available]
     EOF
 
-    GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue create \
-      --repo retrostoremanager/orchestrator-mystore \
-      --title "Bug: [concise description of what is broken]" \
-      --body-file /tmp/bug-body-1.md \
-      --label "bug" \
-      --label "ready" \
-      --label "priority:high" \
-      --label "repo:{{REPO}}"
+  STEP 6e — File or update the single consolidated bug:
+    If EXISTING is non-empty: comment the refreshed checklist on that issue instead of creating a new one.
+      GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue comment "$EXISTING" \
+        --repo retrostoremanager/orchestrator-mystore \
+        --body-file /tmp/bug-body.md
+      echo "Updated existing consolidated bug #$EXISTING — not creating a duplicate."
+    Otherwise create ONE new issue:
+      GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue create \
+        --repo retrostoremanager/orchestrator-mystore \
+        --title "Bug: QA found N issue(s) in PR #{{PR}}" \
+        --body-file /tmp/bug-body.md \
+        --label "bug" \
+        --label "ready" \
+        --label "priority:high" \
+        --label "repo:{{REPO}}"
 
-  Use different file names (/tmp/bug-body-2.md, etc.) for each additional distinct bug.
-  After handling all bugs, print "Processed N bug(s) for {{ISSUE_REF}} (M new, K updated). Keeping in-test." and STOP.
+    After filing or updating, print "Filed consolidated bug with N failure(s) for {{ISSUE_REF}}. Keeping in-test." and STOP.
 
 STEP 7 — Mark done (only reached when all tests passed)
   Check if any open bug issues are still linked to this issue:
