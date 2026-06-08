@@ -81,7 +81,7 @@ public class ReceiptServiceTests
 
         result.Success.Should().BeTrue();
         var receipt = result.Data!;
-        receipt.ReceiptNumber.Should().Be("000042");
+        receipt.ReceiptNumber.Should().Be("REC-000042");
         receipt.TaxRate.Should().Be(0m);
         receipt.TaxAmount.Should().Be(0m);
         receipt.Subtotal.Should().Be(100m);
@@ -174,7 +174,7 @@ public class ReceiptServiceTests
     }
 
     [Fact]
-    public async Task GetReceiptAsync_ReceiptNumberIsSaleIdZeroPaddedToSixDigits()
+    public async Task GetReceiptAsync_ReceiptNumberHasRecPrefixAndIsZeroPaddedToSixDigits()
     {
         var sale = BuildSale(id: 5);
         SetupDefaultMocks(sale);
@@ -183,7 +183,7 @@ public class ReceiptServiceTests
         var result = await _service.GetReceiptAsync(5, CompanyId);
 
         result.Success.Should().BeTrue();
-        result.Data!.ReceiptNumber.Should().Be("000005");
+        result.Data!.ReceiptNumber.Should().Be("REC-000005");
     }
 
     [Fact]
