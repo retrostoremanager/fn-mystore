@@ -272,58 +272,6 @@ public class SalesService : ISalesService
         }
     }
 
-    public async Task<ApiResponse<ReceiptResponse>> GetReceiptAsync(int id, int companyId)
-    {
-        try
-        {
-            var sale = await _salesRepository.GetByIdAsync(id, companyId);
-            if (sale == null)
-            {
-                return ApiResponse<ReceiptResponse>.ErrorResponse($"Sale with ID {id} not found");
-            }
-
-            await LoadRelatedDataAsync(new List<Sale> { sale }, companyId);
-
-            var profile = await _companyRepository.GetProfileAsync(companyId);
-
-            var receiptNumber = string.Format("REC-{0:D6}", sale.Id);
-
-            var receipt = new ReceiptResponse
-            {
-                ReceiptNumber = receiptNumber,
-                Date = sale.SaleDate,
-                StoreName = profile?.CompanyName ?? string.Empty,
-                StoreAddress = profile?.CompanyAddress,
-                StorePhone = profile?.CompanyPhone,
-                Subtotal = sale.Subtotal,
-                TaxLabel = sale.TaxLabel,
-                TaxRate = sale.TaxRate,
-                TaxAmount = sale.TaxAmount,
-                Total = sale.Total,
-                PaymentMethod = sale.PaymentMethod,
-                EmployeeName = sale.User != null
-                    ? $"{sale.User.FirstName} {sale.User.LastName}".Trim()
-                    : null,
-                Items = sale.Items.Select(i => new ReceiptLineItem
-                {
-                    Name = i.InventoryItem?.Name ?? $"Item #{i.InventoryItemId}",
-                    Qty = i.Quantity,
-                    UnitPrice = i.UnitPrice,
-                    LineTotal = i.TotalPrice
-                }).ToList()
-            };
-
-            return ApiResponse<ReceiptResponse>.SuccessResponse(receipt);
-        }
-        catch (Exception ex)
-        {
-            return ApiResponse<ReceiptResponse>.ErrorResponse(
-                "Failed to retrieve receipt",
-                new List<string> { ex.Message }
-            );
-        }
-    }
-
     private async Task LoadRelatedDataAsync(List<Sale> sales, int companyId)
     {
         TaxSettingsResponse? taxSettings = null;
