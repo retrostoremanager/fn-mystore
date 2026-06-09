@@ -1,4 +1,4 @@
--- Issue #310: Fix trade_in_item.inventory_item_id foreign key reference.
+-- Issue #310 / #311: Fix trade_in_item.inventory_item_id foreign key reference.
 --
 -- Migration 048_create_trade_in_tables.sql created the FK constraint
 -- fk_trade_in_item_inventory_item against inventory_item(id). However,
@@ -10,6 +10,12 @@
 -- raises 23503 (foreign key violation). This breaks
 -- POST /api/trade-ins/{id}/complete for every code path that links a
 -- trade-in item to inventory (both merge and create paths from PR #170).
+--
+-- PR #177 added this migration at the repo root, but the deploy-function-app.yml
+-- workflow only applies migrations from the scripts/ directory
+-- (`for f in $(ls scripts/*.sql | sort)`). The migration was therefore never
+-- applied to dev. This PR places the migration in scripts/ so it is picked up
+-- by the deploy workflow on the next deployment to dev.
 --
 -- This migration drops the broken constraint and re-adds it against the
 -- correct table, game_inventory(id). The constraint is renamed to
