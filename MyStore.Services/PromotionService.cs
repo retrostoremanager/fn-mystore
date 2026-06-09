@@ -206,12 +206,7 @@ public class PromotionService : IPromotionService
             }
             else if (promotion.Type == "bxgy" && promotion.BuyQuantity.HasValue && promotion.GetQuantity.HasValue)
             {
-                foreach (var item in matchingItems)
-                {
-                    var freeUnits = (item.Quantity / promotion.BuyQuantity.Value) * promotion.GetQuantity.Value;
-                    var discount = freeUnits * item.UnitPrice;
-                    discounts[item.InventoryItemId] += discount;
-                }
+                ApplyBxgyDiscount(matchingItems, promotion.BuyQuantity.Value, promotion.GetQuantity.Value, discounts);
             }
         }
 
@@ -254,6 +249,31 @@ public class PromotionService : IPromotionService
         }
 
         return null;
+    }
+
+    private static void ApplyBxgyDiscount(
+        List<CartItem> matchingItems,
+        int buyQuantity,
+        int getQuantity,
+        Dictionary<int, decimal> discounts)
+    {
+        if (matchingItems.Count == 0 || buyQuantity < 1 || getQuantity < 1)
+            return;
+
+        var units = matchingItems
+            .SelectMany(i => Enumerable.Repeat(new { i.InventoryItemId, i.UnitPrice }, i.Quantity))
+            .OrderBy(u => u.UnitPrice)
+            .ToList();
+
+        var groupSize = buyQuantity + getQuantity;
+        var totalGroups = units.Count / groupSize;
+        var freeUnitCount = totalGroups * getQuantity;
+
+        for (var idx = 0; idx < freeUnitCount && idx < units.Count; idx++)
+        {
+            var unit = units[idx];
+            discounts[unit.InventoryItemId] += unit.UnitPrice;
+        }
     }
 
     private static List<CartItem> GetMatchingItems(List<CartItem> items, Promotion promotion)

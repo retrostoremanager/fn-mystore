@@ -246,7 +246,52 @@ public class PromotionServiceTests
         var discounts = (await _service.ApplyPromotionsAsync(cartItems, 10)).ToList();
 
         discounts.Should().HaveCount(1);
-        discounts.Single(d => d.ItemId == 1).DiscountAmount.Should().Be(30m);
+        discounts.Single(d => d.ItemId == 1).DiscountAmount.Should().Be(20m);
+    }
+
+    [Fact]
+    public async Task ApplyPromotionsAsync_Bxgy_StoreWideMultipleItems_GivesCheapestFree()
+    {
+        var promotions = new List<Promotion>
+        {
+            new Promotion { Id = 1, CompanyId = 10, Name = "Buy 2 Get 1", Type = "bxgy", BuyQuantity = 2, GetQuantity = 1, Scope = "store_wide", StartDate = DateTime.UtcNow.AddDays(-1), IsActive = true }
+        };
+        _repositoryMock.Setup(r => r.GetActiveAsync(10, It.IsAny<DateTime>())).ReturnsAsync(promotions);
+
+        var cartItems = new List<CartItem>
+        {
+            new CartItem { InventoryItemId = 1, Quantity = 1, UnitPrice = 100m, Category = "Games" },
+            new CartItem { InventoryItemId = 2, Quantity = 1, UnitPrice = 50m, Category = "Games" },
+            new CartItem { InventoryItemId = 3, Quantity = 1, UnitPrice = 20m, Category = "Games" },
+        };
+
+        var discounts = (await _service.ApplyPromotionsAsync(cartItems, 10)).ToList();
+
+        discounts.Should().HaveCount(1);
+        discounts.Single(d => d.ItemId == 3).DiscountAmount.Should().Be(20m);
+    }
+
+    [Fact]
+    public async Task ApplyPromotionsAsync_Bxgy_CategoryScope_GivesCheapestQualifyingItemFree()
+    {
+        var promotions = new List<Promotion>
+        {
+            new Promotion { Id = 1, CompanyId = 10, Name = "Buy 2 Get 1 Games", Type = "bxgy", BuyQuantity = 2, GetQuantity = 1, Scope = "category", ScopeValue = "Games", StartDate = DateTime.UtcNow.AddDays(-1), IsActive = true }
+        };
+        _repositoryMock.Setup(r => r.GetActiveAsync(10, It.IsAny<DateTime>())).ReturnsAsync(promotions);
+
+        var cartItems = new List<CartItem>
+        {
+            new CartItem { InventoryItemId = 1, Quantity = 1, UnitPrice = 80m, Category = "Games" },
+            new CartItem { InventoryItemId = 2, Quantity = 1, UnitPrice = 40m, Category = "Games" },
+            new CartItem { InventoryItemId = 3, Quantity = 1, UnitPrice = 30m, Category = "Games" },
+            new CartItem { InventoryItemId = 4, Quantity = 5, UnitPrice = 5m, Category = "Accessories" },
+        };
+
+        var discounts = (await _service.ApplyPromotionsAsync(cartItems, 10)).ToList();
+
+        discounts.Should().HaveCount(1);
+        discounts.Single(d => d.ItemId == 3).DiscountAmount.Should().Be(30m);
     }
 
     [Fact]
