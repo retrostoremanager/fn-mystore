@@ -727,7 +727,7 @@ public class BillingFunctionsTests
     }
 
     [Fact]
-    public async Task GetSubscriptionStatus_StripeGetAsyncFails_NoCustomerId_ReturnsLocalSubscriptionData()
+    public async Task GetSubscriptionStatus_StripeGetAsyncFailsResourceMissing_NoCustomerId_ReturnsNoneStatus()
     {
         var companyId = 5;
         var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
@@ -743,18 +743,253 @@ public class BillingFunctionsTests
         };
 
         _subscriptionRepositoryMock.Setup(r => r.GetByCompanyIdAsync(companyId)).ReturnsAsync(localSub);
+        _companyRepositoryMock.Setup(r => r.GetByIdAsync(companyId)).ReturnsAsync((Company?)null);
         _stripeSubscriptionServiceMock
             .Setup(s => s.GetAsync("sub_missing123", It.IsAny<SubscriptionGetOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new StripeException("No such subscription") { StripeError = new StripeError { Code = "resource_missing" } });
-        _invoiceServiceMock
-            .Setup(s => s.CreatePreviewAsync(It.IsAny<InvoiceCreatePreviewOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new StripeException("No such customer") { StripeError = new StripeError { Code = "invoice_upcoming_none" } });
 
         var result = await _functions.GetSubscriptionStatus(request);
 
         result.StatusCode.Should().Be(HttpStatusCode.OK);
         var body = await TestHelpers.ReadResponseBody(result);
-        body.Should().Contain("active");
+        var parsed = JsonSerializer.Deserialize<JsonElement>(body);
+        parsed.GetProperty("success").GetBoolean().Should().BeTrue();
+        var data = parsed.GetProperty("data");
+        data.GetProperty("status").GetString().Should().Be("none");
+        data.GetProperty("planName").ValueKind.Should().Be(JsonValueKind.Null);
+        data.GetProperty("currentPeriodStart").ValueKind.Should().Be(JsonValueKind.Null);
+        data.GetProperty("currentPeriodEnd").ValueKind.Should().Be(JsonValueKind.Null);
+        data.GetProperty("trialStart").ValueKind.Should().Be(JsonValueKind.Null);
+        data.GetProperty("trialEnd").ValueKind.Should().Be(JsonValueKind.Null);
+        data.GetProperty("nextInvoiceAmount").ValueKind.Should().Be(JsonValueKind.Null);
+        data.GetProperty("currency").ValueKind.Should().Be(JsonValueKind.Null);
+    }
+
+    [Fact]
+    public async Task GetSubscriptionStatus_NullStripeSubscriptionId_ReturnsNoneStatus()
+    {
+        var companyId = 20;
+        var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+
+        var localSub = new MyStore.Models.Subscription
+        {
+            Id = 20,
+            CompanyId = companyId,
+            StripeSubscriptionId = "",
+            StripeCustomerId = "",
+            Status = "active",
+        };
+
+        _subscriptionRepositoryMock.Setup(r => r.GetByCompanyIdAsync(companyId)).ReturnsAsync(localSub);
+
+        var result = await _functions.GetSubscriptionStatus(request);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await TestHelpers.ReadResponseBody(result);
+        var parsed = JsonSerializer.Deserialize<JsonElement>(body);
+        parsed.GetProperty("success").GetBoolean().Should().BeTrue();
+        var data = parsed.GetProperty("data");
+        data.GetProperty("status").GetString().Should().Be("none");
+        data.GetProperty("planName").ValueKind.Should().Be(JsonValueKind.Null);
+        data.GetProperty("nextInvoiceAmount").ValueKind.Should().Be(JsonValueKind.Null);
+        _stripeSubscriptionServiceMock.Verify(
+            s => s.GetAsync(It.IsAny<string>(), It.IsAny<SubscriptionGetOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task GetSubscriptionStatus_UpcomingInvoiceResourceMissing_ReturnsNullNextInvoiceAmount()
+    {
+        var companyId = 21;
+        var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+
+        var periodStart = new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc);
+        var periodEnd = new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var periodStartUnix = new DateTimeOffset(periodStart).ToUnixTimeSeconds();
+        var periodEndUnix = new DateTimeOffset(periodEnd).ToUnixTimeSeconds();
+
+        var localSub = new MyStore.Models.Subscription
+        {
+            Id = 21,
+            CompanyId = companyId,
+            StripeSubscriptionId = "sub_no_upcoming",
+            StripeCustomerId = "cus_no_upcoming",
+            Status = "active",
+        };
+
+        var subJson = $$"""
+            {
+                "id": "sub_no_upcoming",
+                "object": "subscription",
+                "status": "active",
+                "current_period_start": {{periodStartUnix}},
+                "current_period_end": {{periodEndUnix}},
+                "cancel_at_period_end": false,
+                "customer": "cus_no_upcoming",
+                "items": {
+                    "object": "list",
+                    "data": [{
+                        "id": "si_test",
+                        "object": "subscription_item",
+                        "price": {
+                            "id": "price_test",
+                            "object": "price",
+                            "product": {
+                                "id": "prod_test",
+                                "object": "product",
+                                "name": "Basic Plan"
+                            }
+                        }
+                    }]
+                }
+            }
+            """;
+        var stripeSub = Newtonsoft.Json.JsonConvert.DeserializeObject<Stripe.Subscription>(subJson)!;
+
+        _subscriptionRepositoryMock.Setup(r => r.GetByCompanyIdAsync(companyId)).ReturnsAsync(localSub);
+        _stripeSubscriptionServiceMock
+            .Setup(s => s.GetAsync("sub_no_upcoming", It.IsAny<SubscriptionGetOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(stripeSub);
+        _invoiceServiceMock
+            .Setup(s => s.CreatePreviewAsync(It.IsAny<InvoiceCreatePreviewOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new StripeException("No such invoice")
+            {
+                StripeError = new StripeError { Code = "resource_missing" },
+                HttpStatusCode = HttpStatusCode.NotFound
+            });
+
+        var result = await _functions.GetSubscriptionStatus(request);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await TestHelpers.ReadResponseBody(result);
+        var parsed = JsonSerializer.Deserialize<JsonElement>(body);
+        parsed.GetProperty("success").GetBoolean().Should().BeTrue();
+        var data = parsed.GetProperty("data");
+        data.GetProperty("status").GetString().Should().Be("active");
+        data.GetProperty("planName").GetString().Should().Be("Basic Plan");
+        data.GetProperty("nextInvoiceAmount").ValueKind.Should().Be(JsonValueKind.Null);
+        data.GetProperty("currency").ValueKind.Should().Be(JsonValueKind.Null);
+    }
+
+    [Fact]
+    public async Task GetSubscriptionStatus_StripeApiTimeout_Returns500AndLogs()
+    {
+        var companyId = 22;
+        var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+
+        var localSub = new MyStore.Models.Subscription
+        {
+            Id = 22,
+            CompanyId = companyId,
+            StripeSubscriptionId = "sub_timeout",
+            StripeCustomerId = "cus_timeout",
+            Status = "active",
+        };
+
+        _subscriptionRepositoryMock.Setup(r => r.GetByCompanyIdAsync(companyId)).ReturnsAsync(localSub);
+        // Both the expanded and non-expanded fetches simulate a timeout (no resource_missing code).
+        _stripeSubscriptionServiceMock
+            .Setup(s => s.GetAsync("sub_timeout", It.IsAny<SubscriptionGetOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new StripeException("Request timed out")
+            {
+                StripeError = new StripeError { Code = "api_connection_error" }
+            });
+
+        var result = await _functions.GetSubscriptionStatus(request);
+
+        result.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
+        var body = await TestHelpers.ReadResponseBody(result);
+        body.Should().Contain("Unable to retrieve subscription from Stripe");
+
+        _loggerMock.Verify(
+            l => l.Log(
+                LogLevel.Error,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => true),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.AtLeastOnce);
+    }
+
+    [Fact]
+    public async Task GetSubscriptionStatus_NoStripeProductPlanName_FallsBackToCompanyDbSubscriptionTier()
+    {
+        var companyId = 23;
+        var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+
+        var periodStart = new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc);
+        var periodEnd = new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc);
+        var periodStartUnix = new DateTimeOffset(periodStart).ToUnixTimeSeconds();
+        var periodEndUnix = new DateTimeOffset(periodEnd).ToUnixTimeSeconds();
+
+        var localSub = new MyStore.Models.Subscription
+        {
+            Id = 23,
+            CompanyId = companyId,
+            StripeSubscriptionId = "sub_noproduct",
+            StripeCustomerId = "cus_noproduct",
+            Status = "active",
+            StripePriceId = "price_unmapped"
+        };
+
+        // Subscription with a product ID string but the product fetch will fail.
+        var subJson = $$"""
+            {
+                "id": "sub_noproduct",
+                "object": "subscription",
+                "status": "active",
+                "current_period_start": {{periodStartUnix}},
+                "current_period_end": {{periodEndUnix}},
+                "cancel_at_period_end": false,
+                "customer": "cus_noproduct",
+                "items": {
+                    "object": "list",
+                    "data": [{
+                        "id": "si_noproduct",
+                        "object": "subscription_item",
+                        "price": {
+                            "id": "price_unmapped",
+                            "object": "price",
+                            "product": "prod_unfetchable"
+                        }
+                    }]
+                }
+            }
+            """;
+        var stripeSub = Newtonsoft.Json.JsonConvert.DeserializeObject<Stripe.Subscription>(subJson)!;
+
+        var company = new Company
+        {
+            Id = companyId,
+            Email = "owner@example.com",
+            SubscriptionTier = "Premium"
+        };
+
+        _subscriptionRepositoryMock.Setup(r => r.GetByCompanyIdAsync(companyId)).ReturnsAsync(localSub);
+        _companyRepositoryMock.Setup(r => r.GetByIdAsync(companyId)).ReturnsAsync(company);
+        _stripeSubscriptionServiceMock
+            .Setup(s => s.GetAsync("sub_noproduct", It.IsAny<SubscriptionGetOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(stripeSub);
+        _stripeProductServiceMock
+            .Setup(s => s.GetAsync("prod_unfetchable", It.IsAny<ProductGetOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new StripeException("No such product") { StripeError = new StripeError { Code = "resource_missing" } });
+        _invoiceServiceMock
+            .Setup(s => s.CreatePreviewAsync(It.IsAny<InvoiceCreatePreviewOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Invoice { Total = 4999, Currency = "usd" });
+
+        var result = await _functions.GetSubscriptionStatus(request);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await TestHelpers.ReadResponseBody(result);
+        var parsed = JsonSerializer.Deserialize<JsonElement>(body);
+        parsed.GetProperty("success").GetBoolean().Should().BeTrue();
+        var data = parsed.GetProperty("data");
+        data.GetProperty("planName").GetString().Should().Be("Premium");
+        data.GetProperty("status").GetString().Should().Be("active");
     }
 
     [Fact]

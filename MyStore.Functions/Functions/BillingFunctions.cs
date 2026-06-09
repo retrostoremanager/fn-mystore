@@ -485,6 +485,14 @@ public class BillingFunctions
                 return await CreateHttpResponse(req, errorResponse, HttpStatusCode.NotFound);
             }
 
+            // If stripe_subscription_id is null/empty in the local DB, return a graceful "none" response.
+            if (string.IsNullOrWhiteSpace(localSub.StripeSubscriptionId))
+            {
+                _logger.LogInformation("Company {CompanyId} has no stripe_subscription_id; returning status=none", companyId);
+                return await CreateHttpResponse(req, ApiResponse<SubscriptionDetailResponse>.SuccessResponse(
+                    new SubscriptionDetailResponse { Status = "none" }), HttpStatusCode.OK);
+            }
+
             Stripe.Subscription? stripeSub = null;
             try
             {
@@ -494,14 +502,24 @@ public class BillingFunctions
             }
             catch (StripeException ex)
             {
-                _logger.LogWarning(ex, "Failed to fetch Stripe subscription {StripeSubscriptionId} with expansion", localSub.StripeSubscriptionId);
-                try
+                _logger.LogWarning(ex, "Failed to fetch Stripe subscription {StripeSubscriptionId} with expansion (code: {Code})", localSub.StripeSubscriptionId, ex.StripeError?.Code);
+                if (ex.StripeError?.Code != "resource_missing")
                 {
-                    stripeSub = await _stripeSubscriptionService.GetAsync(localSub.StripeSubscriptionId);
-                }
-                catch (StripeException ex2)
-                {
-                    _logger.LogWarning(ex2, "Failed to fetch Stripe subscription {StripeSubscriptionId}", localSub.StripeSubscriptionId);
+                    try
+                    {
+                        stripeSub = await _stripeSubscriptionService.GetAsync(localSub.StripeSubscriptionId);
+                    }
+                    catch (StripeException ex2)
+                    {
+                        _logger.LogWarning(ex2, "Failed to fetch Stripe subscription {StripeSubscriptionId} (code: {Code})", localSub.StripeSubscriptionId, ex2.StripeError?.Code);
+                        if (ex2.StripeError?.Code != "resource_missing")
+                        {
+                            // Unexpected Stripe error (e.g. timeout, auth) - surface as 500
+                            _logger.LogError(ex2, "Unexpected Stripe error fetching subscription {StripeSubscriptionId} for company {CompanyId}", localSub.StripeSubscriptionId, companyId);
+                            var errResp = ApiResponse<SubscriptionDetailResponse>.ErrorResponse("Unable to retrieve subscription from Stripe.");
+                            return await CreateHttpResponse(req, errResp, HttpStatusCode.InternalServerError);
+                        }
+                    }
                 }
             }
 
@@ -656,10 +674,30 @@ public class BillingFunctions
             }
             else
             {
-                status = localSub.Status;
-                currentPeriodStart = localSub.CurrentPeriodStart;
-                currentPeriodEnd = localSub.CurrentPeriodEnd;
-                planName = _stripeOptions.GetTierNameForPriceId(localSub.StripePriceId);
+                // Stripe subscription not found and recovery failed.
+                // Per acceptance criteria, return graceful "none" response with all other fields null.
+                _logger.LogInformation("No Stripe subscription resolvable for company {CompanyId} (sub {StripeSubscriptionId}); returning status=none",
+                    companyId, localSub.StripeSubscriptionId);
+                return await CreateHttpResponse(req, ApiResponse<SubscriptionDetailResponse>.SuccessResponse(
+                    new SubscriptionDetailResponse { Status = "none" }), HttpStatusCode.OK);
+            }
+
+            // planName fallback to local DB Companies table (per acceptance criteria) when Stripe-derived plan name is null.
+            if (planName is null)
+            {
+                try
+                {
+                    var company = await _companyRepository.GetByIdAsync(companyId);
+                    if (company is not null && !string.IsNullOrWhiteSpace(company.SubscriptionTier))
+                    {
+                        planName = company.SubscriptionTier;
+                        _logger.LogInformation("Resolved planName '{PlanName}' from Companies table for company {CompanyId}", planName, companyId);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to load company {CompanyId} for planName fallback", companyId);
+                }
             }
 
             decimal? nextInvoiceAmount = null;
