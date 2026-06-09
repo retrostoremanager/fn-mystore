@@ -11,7 +11,6 @@ using MyStore.Services;
 
 namespace MyStore.Functions;
 
-[RequirePermission("promotion.view")]
 public class PromotionFunctions
 {
     private readonly IPromotionService _promotionService;
@@ -26,6 +25,7 @@ public class PromotionFunctions
     }
 
     [Function("GetAllPromotions")]
+    [RequirePermission("promotion.manage")]
     public async Task<HttpResponseData> GetAllPromotions(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "promotions")] HttpRequestData req)
     {
@@ -82,10 +82,19 @@ public class PromotionFunctions
         }
 
         var requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-        var request = JsonSerializer.Deserialize<CreatePromotionRequest>(requestBody, new JsonSerializerOptions
+        CreatePromotionRequest? request;
+        try
         {
-            PropertyNameCaseInsensitive = true
-        });
+            request = JsonSerializer.Deserialize<CreatePromotionRequest>(requestBody, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+        }
+        catch (JsonException)
+        {
+            var errorResponse = ApiResponse<Promotion>.ErrorResponse("Invalid request body");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+        }
 
         if (request == null)
         {
@@ -93,27 +102,10 @@ public class PromotionFunctions
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
         }
 
-        if (string.IsNullOrWhiteSpace(request.Name))
+        var validationError = ValidatePromotion(request.Name, request.Type, request.DiscountPercent, request.BuyQuantity, request.GetQuantity, request.Scope, request.ScopeValue, request.StartDate);
+        if (validationError != null)
         {
-            var errorResponse = ApiResponse<Promotion>.ErrorResponse("Name is required");
-            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
-        }
-
-        if (string.IsNullOrWhiteSpace(request.Type))
-        {
-            var errorResponse = ApiResponse<Promotion>.ErrorResponse("Type is required");
-            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
-        }
-
-        if (string.IsNullOrWhiteSpace(request.Scope))
-        {
-            var errorResponse = ApiResponse<Promotion>.ErrorResponse("Scope is required");
-            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
-        }
-
-        if (request.StartDate == default)
-        {
-            var errorResponse = ApiResponse<Promotion>.ErrorResponse("StartDate is required");
+            var errorResponse = ApiResponse<Promotion>.ErrorResponse(validationError);
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
         }
 
@@ -149,15 +141,71 @@ public class PromotionFunctions
         }
 
         var requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-        var request = JsonSerializer.Deserialize<UpdatePromotionRequest>(requestBody, new JsonSerializerOptions
+        UpdatePromotionRequest? request;
+        try
         {
-            PropertyNameCaseInsensitive = true
-        });
+            request = JsonSerializer.Deserialize<UpdatePromotionRequest>(requestBody, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+        }
+        catch (JsonException)
+        {
+            var errorResponse = ApiResponse<Promotion>.ErrorResponse("Invalid request body");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+        }
 
         if (request == null)
         {
             var errorResponse = ApiResponse<Promotion>.ErrorResponse("Invalid request body");
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+        }
+
+        if (request.Name != null && string.IsNullOrWhiteSpace(request.Name))
+        {
+            var errorResponse = ApiResponse<Promotion>.ErrorResponse("Name is required");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+        }
+
+        if (request.Type != null)
+        {
+            var validationError = ValidatePromotion(
+                request.Name ?? "placeholder",
+                request.Type,
+                request.DiscountPercent,
+                request.BuyQuantity,
+                request.GetQuantity,
+                request.Scope ?? "all",
+                request.ScopeValue,
+                request.StartDate ?? DateTime.UtcNow);
+            if (validationError != null)
+            {
+                var errorResponse = ApiResponse<Promotion>.ErrorResponse(validationError);
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+            }
+        }
+        else
+        {
+            if (request.Scope != null && (request.Scope == "category" || request.Scope == "item") && string.IsNullOrWhiteSpace(request.ScopeValue))
+            {
+                var errorResponse = ApiResponse<Promotion>.ErrorResponse("ScopeValue is required when Scope is 'category' or 'item'");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+            }
+            if (request.DiscountPercent.HasValue && (request.DiscountPercent.Value < 0 || request.DiscountPercent.Value > 100))
+            {
+                var errorResponse = ApiResponse<Promotion>.ErrorResponse("DiscountPercent must be between 0 and 100");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+            }
+            if (request.BuyQuantity.HasValue && request.BuyQuantity.Value <= 0)
+            {
+                var errorResponse = ApiResponse<Promotion>.ErrorResponse("BuyQuantity must be greater than zero");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+            }
+            if (request.GetQuantity.HasValue && request.GetQuantity.Value <= 0)
+            {
+                var errorResponse = ApiResponse<Promotion>.ErrorResponse("GetQuantity must be greater than zero");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+            }
         }
 
         _logger.LogInformation("Updating promotion {Id} for company {CompanyId}", id, companyId);
@@ -193,6 +241,55 @@ public class PromotionFunctions
         var response = await _promotionService.DeleteAsync(id, companyId);
         var statusCode = response.Success ? HttpStatusCode.NoContent : HttpStatusCode.NotFound;
         return await CreateHttpResponse(req, response, statusCode);
+    }
+
+    private static string? ValidatePromotion(
+        string name,
+        string type,
+        decimal? discountPercent,
+        int? buyQuantity,
+        int? getQuantity,
+        string scope,
+        string? scopeValue,
+        DateTime startDate)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return "Name is required";
+
+        if (startDate == default)
+            return "StartDate is required";
+
+        if (string.IsNullOrWhiteSpace(type))
+            return "Type is required";
+
+        var normalizedType = type.Trim().ToLowerInvariant();
+        if (normalizedType != "percentage" && normalizedType != "bxgy")
+            return "Type must be 'percentage' or 'bxgy'";
+
+        if (normalizedType == "percentage")
+        {
+            if (!discountPercent.HasValue)
+                return "DiscountPercent is required for percentage promotions";
+            if (discountPercent.Value < 0 || discountPercent.Value > 100)
+                return "DiscountPercent must be between 0 and 100";
+        }
+
+        if (normalizedType == "bxgy")
+        {
+            if (!buyQuantity.HasValue || buyQuantity.Value <= 0)
+                return "BuyQuantity must be greater than zero for bxgy promotions";
+            if (!getQuantity.HasValue || getQuantity.Value <= 0)
+                return "GetQuantity must be greater than zero for bxgy promotions";
+        }
+
+        if (string.IsNullOrWhiteSpace(scope))
+            return "Scope is required";
+
+        var normalizedScope = scope.Trim().ToLowerInvariant();
+        if ((normalizedScope == "category" || normalizedScope == "item") && string.IsNullOrWhiteSpace(scopeValue))
+            return "ScopeValue is required when Scope is 'category' or 'item'";
+
+        return null;
     }
 
     private static async Task<HttpResponseData> CreateHttpResponse<T>(
