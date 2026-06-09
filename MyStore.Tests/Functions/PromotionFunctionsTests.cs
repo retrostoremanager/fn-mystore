@@ -5,6 +5,7 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using Moq;
 using MyStore.Functions;
+using MyStore.Functions.Attributes;
 using MyStore.Models;
 using MyStore.Repositories;
 using MyStore.Services;
@@ -392,6 +393,137 @@ public class PromotionFunctionsTests
         body.Should().Contain("\"data\"");
         body.Should().NotContain("\"Success\"");
         body.Should().NotContain("\"Data\"");
+    }
+
+    #endregion
+
+    #region Additional Validation
+
+    [Fact]
+    public async Task CreatePromotion_BxgyWithoutQuantities_Returns400()
+    {
+        var createRequest = new CreatePromotionRequest
+        {
+            Name = "Buy More Get More",
+            Type = "bxgy",
+            Scope = "store_wide",
+            StartDate = DateTime.UtcNow,
+        };
+
+        var req = TestHelpers.CreateHttpRequestData(new Mock<FunctionContext>().Object, createRequest, _companyHeaders);
+
+        var result = await _functions.CreatePromotion(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<Promotion>>(
+            body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        deserialized!.Message.Should().Contain("BuyQuantity");
+    }
+
+    [Fact]
+    public async Task CreatePromotion_DiscountPercentOver100_Returns400()
+    {
+        var createRequest = new CreatePromotionRequest
+        {
+            Name = "Too Generous",
+            Type = "percentage",
+            DiscountPercent = 150m,
+            Scope = "store_wide",
+            StartDate = DateTime.UtcNow,
+        };
+
+        var req = TestHelpers.CreateHttpRequestData(new Mock<FunctionContext>().Object, createRequest, _companyHeaders);
+
+        var result = await _functions.CreatePromotion(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<Promotion>>(
+            body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        deserialized!.Message.Should().Contain("DiscountPercent");
+    }
+
+    [Fact]
+    public async Task CreatePromotion_CategoryScopeWithoutScopeValue_Returns400()
+    {
+        var createRequest = new CreatePromotionRequest
+        {
+            Name = "Cat Sale",
+            Type = "percentage",
+            DiscountPercent = 10m,
+            Scope = "category",
+            StartDate = DateTime.UtcNow,
+        };
+
+        var req = TestHelpers.CreateHttpRequestData(new Mock<FunctionContext>().Object, createRequest, _companyHeaders);
+
+        var result = await _functions.CreatePromotion(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<Promotion>>(
+            body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        deserialized!.Message.Should().Contain("ScopeValue");
+    }
+
+    #endregion
+
+    #region Permission Attribute Tests
+
+    [Fact]
+    public void GetAllPromotions_MethodLevel_RequiresPromotionManagePermission()
+    {
+        var method = typeof(PromotionFunctions).GetMethod(nameof(PromotionFunctions.GetAllPromotions));
+        var attrs = method!
+            .GetCustomAttributes(typeof(RequirePermissionAttribute), inherit: false)
+            .Cast<RequirePermissionAttribute>()
+            .ToList();
+        attrs.Should().ContainSingle(a => a.Permission == "promotion.manage");
+    }
+
+    [Fact]
+    public void CreatePromotion_MethodLevel_RequiresPromotionManagePermission()
+    {
+        var method = typeof(PromotionFunctions).GetMethod(nameof(PromotionFunctions.CreatePromotion));
+        var attrs = method!
+            .GetCustomAttributes(typeof(RequirePermissionAttribute), inherit: false)
+            .Cast<RequirePermissionAttribute>()
+            .ToList();
+        attrs.Should().ContainSingle(a => a.Permission == "promotion.manage");
+    }
+
+    [Fact]
+    public void UpdatePromotion_MethodLevel_RequiresPromotionManagePermission()
+    {
+        var method = typeof(PromotionFunctions).GetMethod(nameof(PromotionFunctions.UpdatePromotion));
+        var attrs = method!
+            .GetCustomAttributes(typeof(RequirePermissionAttribute), inherit: false)
+            .Cast<RequirePermissionAttribute>()
+            .ToList();
+        attrs.Should().ContainSingle(a => a.Permission == "promotion.manage");
+    }
+
+    [Fact]
+    public void DeletePromotion_MethodLevel_RequiresPromotionManagePermission()
+    {
+        var method = typeof(PromotionFunctions).GetMethod(nameof(PromotionFunctions.DeletePromotion));
+        var attrs = method!
+            .GetCustomAttributes(typeof(RequirePermissionAttribute), inherit: false)
+            .Cast<RequirePermissionAttribute>()
+            .ToList();
+        attrs.Should().ContainSingle(a => a.Permission == "promotion.manage");
+    }
+
+    [Fact]
+    public void GetActivePromotions_MethodLevel_DoesNotRequireManagePermission()
+    {
+        var method = typeof(PromotionFunctions).GetMethod(nameof(PromotionFunctions.GetActivePromotions));
+        var attrs = method!
+            .GetCustomAttributes(typeof(RequirePermissionAttribute), inherit: false)
+            .Cast<RequirePermissionAttribute>()
+            .ToList();
+        attrs.Should().NotContain(a => a.Permission == "promotion.manage");
     }
 
     #endregion
