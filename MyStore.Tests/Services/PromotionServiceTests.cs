@@ -587,6 +587,32 @@ public class PromotionServiceTests
     }
 
     [Fact]
+    public async Task CreateAsync_SetsCreatedByFromRequest()
+    {
+        var request = new CreatePromotionRequest
+        {
+            Name = "Audit Sale",
+            Type = "percentage",
+            DiscountPercent = 10m,
+            Scope = "store_wide",
+            StartDate = DateTime.UtcNow,
+            IsActive = true,
+            CreatedBy = 42,
+        };
+        Promotion? captured = null;
+        _repositoryMock
+            .Setup(r => r.CreateAsync(It.IsAny<Promotion>()))
+            .Callback<Promotion>(p => captured = p)
+            .ReturnsAsync((Promotion p) => p);
+
+        var result = await _service.CreateAsync(request, 10);
+
+        result.Success.Should().BeTrue();
+        captured.Should().NotBeNull();
+        captured!.CreatedBy.Should().Be(42);
+    }
+
+    [Fact]
     public async Task UpdateAsync_PercentageOutOfRange_ReturnsValidationError()
     {
         var existing = new Promotion { Id = 1, CompanyId = 10, Name = "Old", Type = "percentage", Scope = "store_wide", DiscountPercent = 5m, StartDate = DateTime.UtcNow, IsActive = true };
