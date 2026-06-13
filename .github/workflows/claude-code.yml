@@ -160,6 +160,7 @@ jobs:
                 --repo retrostoremanager/orchestrator-mystore \
                 --body "Agent failed $RETRY_COUNT times — marking **agent-failed** ([run $GITHUB_RUN_ID](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID))."
               echo "Issue #$ISSUE_N marked agent-failed after $RETRY_COUNT retries"
+              exit 1  # genuine give-up after 3 retries — surface as a failed run
             else
               GH_TOKEN="$GH_DISPATCH_TOKEN" gh issue edit "$ISSUE_N" \
                 --repo retrostoremanager/orchestrator-mystore \
@@ -168,8 +169,10 @@ jobs:
                 --repo retrostoremanager/orchestrator-mystore \
                 --body "Agent workflow failed (retry $NEXT_RETRY/3, [run $GITHUB_RUN_ID](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)). Resetting to **ready**."
               echo "Issue #$ISSUE_N reset to ready (retry $NEXT_RETRY/3)"
+              # Issue was requeued for an automatic retry — this is expected,
+              # not a failure. Exit 0 so routine retries don't email a failed run.
+              exit 0
             fi
-            exit 1
           fi
           RESET_STR=$(echo "$STEP_OUTPUT" | grep -oP 'Spending cap reached resets \K[^"\\]+' | head -1)
           RESET_ISO=""
