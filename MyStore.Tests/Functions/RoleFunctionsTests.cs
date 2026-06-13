@@ -74,8 +74,8 @@ public class RoleFunctionsTests
             .Setup(r => r.GetForCompanyAsync(CompanyId, default))
             .ReturnsAsync(roles);
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.GetAllRoles(req);
 
@@ -98,8 +98,8 @@ public class RoleFunctionsTests
             .Setup(r => r.GetForCompanyAsync(CompanyId, default))
             .ReturnsAsync(new List<Role>());
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         await _functions.GetAllRoles(req);
 
@@ -114,8 +114,8 @@ public class RoleFunctionsTests
             .Setup(r => r.GetForCompanyAsync(CompanyId, default))
             .ReturnsAsync(new List<Role>());
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.GetAllRoles(req);
 
@@ -147,8 +147,8 @@ public class RoleFunctionsTests
             .Setup(r => r.GetForCompanyAsync(CompanyId, default))
             .ReturnsAsync(new List<Role> { MakeRole(1) });
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.GetAllRoles(req);
 
@@ -172,8 +172,8 @@ public class RoleFunctionsTests
             .Setup(r => r.GetByIdAsync(1, CompanyId, default))
             .ReturnsAsync(role);
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.GetRoleById(req, 1);
 
@@ -195,8 +195,8 @@ public class RoleFunctionsTests
             .Setup(r => r.GetByIdAsync(99, CompanyId, default))
             .ReturnsAsync((Role?)null);
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.GetRoleById(req, 99);
 
@@ -217,8 +217,8 @@ public class RoleFunctionsTests
             .Setup(r => r.GetByIdAsync(1, CompanyId, default))
             .ReturnsAsync((Role?)null);
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.GetRoleById(req, 1);
 
@@ -253,8 +253,8 @@ public class RoleFunctionsTests
             .Setup(r => r.GetByIdAsync(1, CompanyId, default))
             .ReturnsAsync(role);
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.GetRoleById(req, 1);
 
@@ -297,8 +297,8 @@ public class RoleFunctionsTests
             .Setup(r => r.GetByIdAsync(10, CompanyId, default))
             .ReturnsAsync(withPerms);
 
-        var context = new Mock<FunctionContext>();
-        var req = CreateRequestWithBody(context.Object, createRequest, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = CreateRequestWithBody(context, createRequest, CompanyHeaders);
 
         var result = await _functions.CreateRole(req);
 
@@ -318,8 +318,8 @@ public class RoleFunctionsTests
     {
         var createRequest = new CreateRoleRequest { Name = "", Description = "No name" };
 
-        var context = new Mock<FunctionContext>();
-        var req = CreateRequestWithBody(context.Object, createRequest, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = CreateRequestWithBody(context, createRequest, CompanyHeaders);
 
         var result = await _functions.CreateRole(req);
 
@@ -338,8 +338,8 @@ public class RoleFunctionsTests
     {
         var createRequest = new CreateRoleRequest { Name = "   " };
 
-        var context = new Mock<FunctionContext>();
-        var req = CreateRequestWithBody(context.Object, createRequest, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = CreateRequestWithBody(context, createRequest, CompanyHeaders);
 
         var result = await _functions.CreateRole(req);
 
@@ -372,8 +372,8 @@ public class RoleFunctionsTests
             .Setup(r => r.GetByIdAsync(5, CompanyId, default))
             .ReturnsAsync(created);
 
-        var context = new Mock<FunctionContext>();
-        var req = CreateRequestWithBody(context.Object, createRequest, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = CreateRequestWithBody(context, createRequest, CompanyHeaders);
 
         await _functions.CreateRole(req);
 
@@ -405,8 +405,8 @@ public class RoleFunctionsTests
             .Setup(r => r.GetByIdAsync(5, CompanyId, default))
             .ReturnsAsync(withPerms);
 
-        var context = new Mock<FunctionContext>();
-        var req = CreateRequestWithBody(context.Object, createRequest, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = CreateRequestWithBody(context, createRequest, CompanyHeaders);
 
         var result = await _functions.CreateRole(req);
 
@@ -441,8 +441,8 @@ public class RoleFunctionsTests
         _roleRepositoryMock.SetupSequence(r => r.GetByIdAsync(1, CompanyId, default)).ReturnsAsync(existing).ReturnsAsync(final);
         _roleRepositoryMock.Setup(r => r.UpdateAsync(1, "Updated Name", "Updated", CompanyId, default)).ReturnsAsync(updated);
 
-        var context = new Mock<FunctionContext>();
-        var req = CreateRequestWithBody(context.Object, updateRequest, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = CreateRequestWithBody(context, updateRequest, CompanyHeaders);
 
         var result = await _functions.UpdateRole(req, 1);
 
@@ -461,8 +461,8 @@ public class RoleFunctionsTests
     {
         _roleRepositoryMock.Setup(r => r.GetByIdAsync(99, CompanyId, default)).ReturnsAsync((Role?)null);
 
-        var context = new Mock<FunctionContext>();
-        var req = CreateRequestWithBody(context.Object, new UpdateRoleRequest { Name = "X" }, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = CreateRequestWithBody(context, new UpdateRoleRequest { Name = "X" }, CompanyHeaders);
 
         var result = await _functions.UpdateRole(req, 99);
 
@@ -483,8 +483,8 @@ public class RoleFunctionsTests
 
         _roleRepositoryMock.Setup(r => r.GetByIdAsync(1, CompanyId, default)).ReturnsAsync(systemRole);
 
-        var context = new Mock<FunctionContext>();
-        var req = CreateRequestWithBody(context.Object, new UpdateRoleRequest { Name = "Hack" }, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = CreateRequestWithBody(context, new UpdateRoleRequest { Name = "Hack" }, CompanyHeaders);
 
         var result = await _functions.UpdateRole(req, 1);
 
@@ -522,8 +522,8 @@ public class RoleFunctionsTests
             .Setup(r => r.AssignPermissionsAsync(1, It.IsAny<IEnumerable<string>>(), default))
             .Returns(Task.CompletedTask);
 
-        var context = new Mock<FunctionContext>();
-        var req = CreateRequestWithBody(context.Object, updateRequest, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = CreateRequestWithBody(context, updateRequest, CompanyHeaders);
 
         await _functions.UpdateRole(req, 1);
 
@@ -554,8 +554,8 @@ public class RoleFunctionsTests
         _roleRepositoryMock.Setup(r => r.GetByIdAsync(1, CompanyId, default)).ReturnsAsync(existing);
         _roleRepositoryMock.Setup(r => r.DeleteAsync(1, CompanyId, default)).ReturnsAsync(true);
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.DeleteRole(req, 1);
 
@@ -567,8 +567,8 @@ public class RoleFunctionsTests
     {
         _roleRepositoryMock.Setup(r => r.GetByIdAsync(99, CompanyId, default)).ReturnsAsync((Role?)null);
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.DeleteRole(req, 99);
 
@@ -589,8 +589,8 @@ public class RoleFunctionsTests
 
         _roleRepositoryMock.Setup(r => r.GetByIdAsync(1, CompanyId, default)).ReturnsAsync(systemRole);
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.DeleteRole(req, 1);
 
@@ -612,8 +612,8 @@ public class RoleFunctionsTests
         _roleRepositoryMock.Setup(r => r.GetByIdAsync(1, CompanyId, default)).ReturnsAsync(existing);
         _roleRepositoryMock.Setup(r => r.DeleteAsync(1, CompanyId, default)).ReturnsAsync(false);
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.DeleteRole(req, 1);
 
@@ -635,8 +635,8 @@ public class RoleFunctionsTests
         _roleRepositoryMock.Setup(r => r.GetByIdAsync(1, CompanyId, default)).ReturnsAsync(existing);
         _roleRepositoryMock.Setup(r => r.DeleteAsync(1, CompanyId, default)).ReturnsAsync(true);
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         await _functions.DeleteRole(req, 1);
 
@@ -672,8 +672,8 @@ public class RoleFunctionsTests
             .Setup(r => r.GetAllPermissionsAsync(default))
             .ReturnsAsync(permissions);
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.GetAvailablePermissions(req);
 

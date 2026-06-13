@@ -79,8 +79,8 @@ public class SalesFunctionsTests
             .Setup(s => s.CreateSaleAsync(It.IsAny<CreateSaleRequest>(), CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, request, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, request, CompanyHeaders);
 
         var result = await _functions.CreateSale(httpRequest);
 
@@ -135,8 +135,8 @@ public class SalesFunctionsTests
             .Setup(s => s.CreateSaleAsync(It.IsAny<CreateSaleRequest>(), CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, request, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, request, CompanyHeaders);
 
         var result = await _functions.CreateSale(httpRequest);
 
@@ -160,8 +160,8 @@ public class SalesFunctionsTests
             .Setup(s => s.CreateSaleAsync(It.IsAny<CreateSaleRequest>(), CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, request, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, request, CompanyHeaders);
 
         var result = await _functions.CreateSale(httpRequest);
 
@@ -191,8 +191,8 @@ public class SalesFunctionsTests
             .Setup(s => s.CreateSaleAsync(It.IsAny<CreateSaleRequest>(), CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, request, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, request, CompanyHeaders);
 
         var result = await _functions.CreateSale(httpRequest);
 
@@ -221,8 +221,8 @@ public class SalesFunctionsTests
             .Setup(s => s.CreateSaleAsync(It.IsAny<CreateSaleRequest>(), CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, request, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, request, CompanyHeaders);
 
         var result = await _functions.CreateSale(httpRequest);
 
@@ -254,8 +254,8 @@ public class SalesFunctionsTests
             .Setup(s => s.CreateSaleAsync(It.IsAny<CreateSaleRequest>(), CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, request, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, request, CompanyHeaders);
 
         var result = await _functions.CreateSale(httpRequest);
 
@@ -291,8 +291,8 @@ public class SalesFunctionsTests
             .Setup(s => s.CreateSaleAsync(It.IsAny<CreateSaleRequest>(), CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, request, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, request, CompanyHeaders);
 
         await _functions.CreateSale(httpRequest);
 
@@ -308,8 +308,8 @@ public class SalesFunctionsTests
             .Setup(s => s.CreateSaleAsync(It.IsAny<CreateSaleRequest>(), CompanyId))
             .ThrowsAsync(new Exception("Database error"));
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, request, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, request, CompanyHeaders);
 
         var response = await _functions.CreateSale(httpRequest);
 
@@ -332,8 +332,8 @@ public class SalesFunctionsTests
             .Setup(s => s.GetAllSalesAsync(CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.GetAllSales(httpRequest);
 
@@ -357,8 +357,8 @@ public class SalesFunctionsTests
             .Setup(s => s.GetAllSalesAsync(CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.GetAllSales(httpRequest);
 
@@ -383,8 +383,8 @@ public class SalesFunctionsTests
             .Setup(s => s.GetAllSalesAsync(CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.GetAllSales(httpRequest);
 
@@ -418,8 +418,8 @@ public class SalesFunctionsTests
             .Setup(s => s.GetAllSalesAsync(CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.GetAllSales(httpRequest);
 
@@ -441,8 +441,8 @@ public class SalesFunctionsTests
             .Setup(s => s.GetSaleByIdAsync(1, CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.GetSaleById(httpRequest, 1);
 
@@ -467,8 +467,8 @@ public class SalesFunctionsTests
             .Setup(s => s.GetSaleByIdAsync(999, CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.GetSaleById(httpRequest, 999);
 
@@ -491,8 +491,8 @@ public class SalesFunctionsTests
             .Setup(s => s.GetSaleByIdAsync(1, CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.GetSaleById(httpRequest, 1);
 
@@ -526,8 +526,8 @@ public class SalesFunctionsTests
             .Setup(s => s.GetSaleByIdAsync(1, CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         await _functions.GetSaleById(httpRequest, 1);
 
@@ -548,13 +548,13 @@ public class SalesFunctionsTests
             .Setup(s => s.GetSalesByDateRangeAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>(), CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var query = new NameValueCollection
         {
             { "startDate", "2024-01-01" },
             { "endDate", "2024-01-31" }
         };
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders, query);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders, query);
 
         var result = await _functions.GetSalesByDateRange(httpRequest);
 
@@ -571,9 +571,9 @@ public class SalesFunctionsTests
     [Fact]
     public async Task GetSalesByDateRange_MissingStartDate_Returns400BadRequest()
     {
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var query = new NameValueCollection { { "endDate", "2024-01-31" } };
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders, query);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders, query);
 
         var result = await _functions.GetSalesByDateRange(httpRequest);
 
@@ -590,9 +590,9 @@ public class SalesFunctionsTests
     [Fact]
     public async Task GetSalesByDateRange_MissingEndDate_Returns400BadRequest()
     {
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var query = new NameValueCollection { { "startDate", "2024-01-01" } };
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders, query);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders, query);
 
         var result = await _functions.GetSalesByDateRange(httpRequest);
 
@@ -608,13 +608,13 @@ public class SalesFunctionsTests
     [Fact]
     public async Task GetSalesByDateRange_InvalidDateFormat_Returns400BadRequest()
     {
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var query = new NameValueCollection
         {
             { "startDate", "not-a-date" },
             { "endDate", "also-not-a-date" }
         };
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders, query);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders, query);
 
         var result = await _functions.GetSalesByDateRange(httpRequest);
 
@@ -637,13 +637,13 @@ public class SalesFunctionsTests
             .Setup(s => s.GetSalesByDateRangeAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>(), CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var query = new NameValueCollection
         {
             { "startDate", "2024-01-01" },
             { "endDate", "2024-01-31" }
         };
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders, query);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders, query);
 
         await _functions.GetSalesByDateRange(httpRequest);
 
@@ -669,8 +669,8 @@ public class SalesFunctionsTests
             .Setup(s => s.GetSalesByCustomerIdAsync(10, CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.GetSalesByCustomer(httpRequest, 10);
 
@@ -693,8 +693,8 @@ public class SalesFunctionsTests
             .Setup(s => s.GetSalesByCustomerIdAsync(10, CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         await _functions.GetSalesByCustomer(httpRequest, 10);
 
@@ -738,8 +738,8 @@ public class SalesFunctionsTests
             .Setup(s => s.CreateSaleAsync(It.IsAny<CreateSaleRequest>(), CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, CreateValidSaleRequest(), CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, CreateValidSaleRequest(), CompanyHeaders);
 
         var result = await _functions.CreateSale(httpRequest);
 
@@ -777,8 +777,8 @@ public class SalesFunctionsTests
             .Setup(s => s.CreateSaleAsync(It.IsAny<CreateSaleRequest>(), CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, CreateValidSaleRequest(), CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, CreateValidSaleRequest(), CompanyHeaders);
 
         var result = await _functions.CreateSale(httpRequest);
 
@@ -812,8 +812,8 @@ public class SalesFunctionsTests
             .Setup(s => s.GetAllSalesAsync(CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.GetAllSales(httpRequest);
 
@@ -851,8 +851,8 @@ public class SalesFunctionsTests
             .Setup(s => s.GetSaleByIdAsync(1, CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.GetSaleById(httpRequest, 1);
 
@@ -878,8 +878,8 @@ public class SalesFunctionsTests
             .Setup(s => s.CreateSaleAsync(It.IsAny<CreateSaleRequest>(), CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, CreateValidSaleRequest(), CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, CreateValidSaleRequest(), CompanyHeaders);
 
         var result = await _functions.CreateSale(httpRequest);
 
@@ -916,8 +916,8 @@ public class SalesFunctionsTests
             .Setup(s => s.CreateSaleAsync(It.IsAny<CreateSaleRequest>(), CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, CreateValidSaleRequest(), CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, CreateValidSaleRequest(), CompanyHeaders);
 
         var result = await _functions.CreateSale(httpRequest);
 
@@ -960,8 +960,8 @@ public class SalesFunctionsTests
             .Setup(s => s.GetAllSalesAsync(CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.GetAllSales(httpRequest);
 
@@ -1008,8 +1008,8 @@ public class SalesFunctionsTests
             .Setup(s => s.CreateSaleAsync(It.IsAny<CreateSaleRequest>(), CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, CreateValidSaleRequest(), CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, CreateValidSaleRequest(), CompanyHeaders);
 
         var result = await _functions.CreateSale(httpRequest);
 
@@ -1052,8 +1052,8 @@ public class SalesFunctionsTests
             .Setup(s => s.CreateSaleAsync(It.IsAny<CreateSaleRequest>(), CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, CreateValidSaleRequest(), CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, CreateValidSaleRequest(), CompanyHeaders);
 
         var result = await _functions.CreateSale(httpRequest);
 
@@ -1098,8 +1098,8 @@ public class SalesFunctionsTests
             .Setup(s => s.CreateSaleAsync(It.IsAny<CreateSaleRequest>(), CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, CreateValidSaleRequest(), CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, CreateValidSaleRequest(), CompanyHeaders);
 
         var result = await _functions.CreateSale(httpRequest);
 
@@ -1126,8 +1126,8 @@ public class SalesFunctionsTests
             .Setup(s => s.DeleteSaleAsync(1, CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.DeleteSale(httpRequest, 1);
 
@@ -1143,8 +1143,8 @@ public class SalesFunctionsTests
             .Setup(s => s.DeleteSaleAsync(999, CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.DeleteSale(httpRequest, 999);
 

@@ -60,8 +60,8 @@ public class ConsignmentFunctionsTests
             .Setup(s => s.GetAllAsync(CompanyId, null))
             .ReturnsAsync(ApiResponse<List<ConsignmentItem>>.SuccessResponse(items));
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, _companyHeaders);
 
         var result = await _functions.GetAllConsignmentItems(req);
 
@@ -82,9 +82,9 @@ public class ConsignmentFunctionsTests
             .Setup(s => s.GetAllAsync(CompanyId, "active"))
             .ReturnsAsync(ApiResponse<List<ConsignmentItem>>.SuccessResponse(items));
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var query = new NameValueCollection { { "status", "active" } };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, _companyHeaders, query);
+        var req = TestHelpers.CreateHttpRequestData(context, null, _companyHeaders, query);
 
         var result = await _functions.GetAllConsignmentItems(req);
 
@@ -116,8 +116,8 @@ public class ConsignmentFunctionsTests
             .Setup(s => s.GetByIdAsync(1, CompanyId))
             .ReturnsAsync(ApiResponse<ConsignmentItem>.SuccessResponse(item));
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, _companyHeaders);
 
         var result = await _functions.GetConsignmentItemById(req, 1);
 
@@ -137,8 +137,8 @@ public class ConsignmentFunctionsTests
             .Setup(s => s.GetByIdAsync(99, CompanyId))
             .ReturnsAsync(ApiResponse<ConsignmentItem>.ErrorResponse("Consignment item with ID 99 not found"));
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, _companyHeaders);
 
         var result = await _functions.GetConsignmentItemById(req, 99);
 
@@ -158,8 +158,8 @@ public class ConsignmentFunctionsTests
             .Setup(s => s.GetByIdAsync(1, CompanyId))
             .ReturnsAsync(ApiResponse<ConsignmentItem>.ErrorResponse("Consignment item with ID 1 not found"));
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, _companyHeaders);
 
         var result = await _functions.GetConsignmentItemById(req, 1);
 
@@ -191,8 +191,8 @@ public class ConsignmentFunctionsTests
             .Setup(s => s.CreateAsync(It.IsAny<ConsignmentItem>(), CompanyId))
             .ReturnsAsync(ApiResponse<ConsignmentItem>.SuccessResponse(item, "Consignment item created successfully"));
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, item, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, item, _companyHeaders);
 
         var result = await _functions.CreateConsignmentItem(req);
 
@@ -216,8 +216,8 @@ public class ConsignmentFunctionsTests
             Status = "active"
         };
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, item, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, item, _companyHeaders);
 
         var result = await _functions.CreateConsignmentItem(req);
 
@@ -242,8 +242,8 @@ public class ConsignmentFunctionsTests
             Status = "active"
         };
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, item, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, item, _companyHeaders);
 
         var result = await _functions.CreateConsignmentItem(req);
 
@@ -268,8 +268,8 @@ public class ConsignmentFunctionsTests
             Status = "active"
         };
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, item, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, item, _companyHeaders);
 
         var result = await _functions.CreateConsignmentItem(req);
 
@@ -307,8 +307,8 @@ public class ConsignmentFunctionsTests
             .Setup(s => s.UpdateAsync(It.IsAny<ConsignmentItem>(), CompanyId))
             .ReturnsAsync(ApiResponse<ConsignmentItem>.SuccessResponse(item, "Consignment item updated successfully"));
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, item, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, item, _companyHeaders);
 
         var result = await _functions.UpdateConsignmentItem(req, 1);
 
@@ -328,8 +328,8 @@ public class ConsignmentFunctionsTests
             .Setup(s => s.UpdateAsync(It.IsAny<ConsignmentItem>(), CompanyId))
             .ReturnsAsync(ApiResponse<ConsignmentItem>.ErrorResponse("Consignment item with ID 99 not found"));
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, item, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, item, _companyHeaders);
 
         var result = await _functions.UpdateConsignmentItem(req, 99);
 
@@ -347,8 +347,8 @@ public class ConsignmentFunctionsTests
         var item = CreateItem();
         item.Status = "badstatus";
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, item, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, item, _companyHeaders);
 
         var result = await _functions.UpdateConsignmentItem(req, 1);
 
@@ -373,8 +373,8 @@ public class ConsignmentFunctionsTests
             SplitPercent = 60m
         };
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, item, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, item, _companyHeaders);
 
         var result = await _functions.UpdateConsignmentItem(req, 1);
 
@@ -401,8 +401,8 @@ public class ConsignmentFunctionsTests
             .Setup(s => s.UpdateAsync(It.IsAny<ConsignmentItem>(), CompanyId))
             .ReturnsAsync(ApiResponse<ConsignmentItem>.SuccessResponse(item));
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, item, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, item, _companyHeaders);
 
         var result = await _functions.UpdateConsignmentItem(req, 1);
 
@@ -418,8 +418,8 @@ public class ConsignmentFunctionsTests
             .Setup(s => s.UpdateAsync(It.IsAny<ConsignmentItem>(), CompanyId))
             .ReturnsAsync(ApiResponse<ConsignmentItem>.ErrorResponse("Failed to update consignment item"));
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, item, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, item, _companyHeaders);
 
         var result = await _functions.UpdateConsignmentItem(req, 1);
 
@@ -464,9 +464,9 @@ public class ConsignmentFunctionsTests
             .Setup(s => s.MarkSoldAsync(1, 100m, CompanyId))
             .ReturnsAsync(ApiResponse<MarkSoldResponse>.SuccessResponse(markSoldResponse));
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var body = new { salePrice = 100m };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+        var req = TestHelpers.CreateHttpRequestData(context, body, _companyHeaders);
 
         var result = await _functions.MarkConsignmentItemSold(req, 1);
 
@@ -488,9 +488,9 @@ public class ConsignmentFunctionsTests
             .ReturnsAsync(ApiResponse<MarkSoldResponse>.ErrorResponse(
                 "Cannot mark item as sold: current status is 'sold'. Only active items can be marked as sold."));
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var body = new { salePrice = 100m };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+        var req = TestHelpers.CreateHttpRequestData(context, body, _companyHeaders);
 
         var result = await _functions.MarkConsignmentItemSold(req, 1);
 
@@ -505,9 +505,9 @@ public class ConsignmentFunctionsTests
     [Fact]
     public async Task MarkConsignmentItemSold_ZeroSalePrice_Returns400()
     {
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var body = new { salePrice = 0m };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+        var req = TestHelpers.CreateHttpRequestData(context, body, _companyHeaders);
 
         var result = await _functions.MarkConsignmentItemSold(req, 1);
 
@@ -540,9 +540,9 @@ public class ConsignmentFunctionsTests
             .Setup(s => s.ProcessPayoutAsync(1, It.IsAny<string?>(), CompanyId))
             .ReturnsAsync(ApiResponse<ConsignmentPayout>.SuccessResponse(payout, "Payout processed successfully"));
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var body = new { notes = "Cash payment" };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+        var req = TestHelpers.CreateHttpRequestData(context, body, _companyHeaders);
 
         var result = await _functions.ProcessConsignmentPayout(req, 1);
 
@@ -563,8 +563,8 @@ public class ConsignmentFunctionsTests
             .ReturnsAsync(ApiResponse<ConsignmentPayout>.ErrorResponse(
                 "Cannot process payout: item status is 'active'. Only sold items can receive a payout."));
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, new { }, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, new { }, _companyHeaders);
 
         var result = await _functions.ProcessConsignmentPayout(req, 1);
 
@@ -584,8 +584,8 @@ public class ConsignmentFunctionsTests
             .ReturnsAsync(ApiResponse<ConsignmentPayout>.ErrorResponse(
                 "Payout has already been processed for consignment item 1"));
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, new { }, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, new { }, _companyHeaders);
 
         var result = await _functions.ProcessConsignmentPayout(req, 1);
 
@@ -616,8 +616,8 @@ public class ConsignmentFunctionsTests
             .Setup(s => s.ReturnToCustomerAsync(1, CompanyId))
             .ReturnsAsync(ApiResponse<ConsignmentItem>.SuccessResponse(returned, "Item returned to customer successfully"));
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, _companyHeaders);
 
         var result = await _functions.ReturnConsignmentItemToCustomer(req, 1);
 
@@ -638,8 +638,8 @@ public class ConsignmentFunctionsTests
             .ReturnsAsync(ApiResponse<ConsignmentItem>.ErrorResponse(
                 "Cannot return item: current status is 'sold'. Only active items can be returned."));
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, _companyHeaders);
 
         var result = await _functions.ReturnConsignmentItemToCustomer(req, 1);
 
@@ -683,9 +683,9 @@ public class ConsignmentFunctionsTests
             .Setup(s => s.MarkSoldAsync(1, 100m, CompanyId))
             .ReturnsAsync(ApiResponse<MarkSoldResponse>.SuccessResponse(markSoldResponse));
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var body = new { salePrice = 100m };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+        var req = TestHelpers.CreateHttpRequestData(context, body, _companyHeaders);
 
         var result = await _functions.MarkConsignmentItemSold(req, 1);
 
@@ -714,9 +714,9 @@ public class ConsignmentFunctionsTests
             .Setup(s => s.MarkSoldAsync(1, 100m, CompanyId))
             .ReturnsAsync(ApiResponse<MarkSoldResponse>.SuccessResponse(markSoldResponse));
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var body = new { salePrice = 100m };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+        var req = TestHelpers.CreateHttpRequestData(context, body, _companyHeaders);
 
         var result = await _functions.MarkConsignmentItemSold(req, 1);
 

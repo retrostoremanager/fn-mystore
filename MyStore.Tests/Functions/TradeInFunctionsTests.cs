@@ -82,8 +82,8 @@ public class TradeInFunctionsTests
             .Setup(s => s.GetAllAsync(CompanyId, null, null, null))
             .ReturnsAsync(ApiResponse<List<TradeIn>>.SuccessResponse(items));
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, _companyHeaders);
 
         var result = await _functions.GetAllTradeIns(req);
 
@@ -104,9 +104,9 @@ public class TradeInFunctionsTests
             .Setup(s => s.GetAllAsync(CompanyId, "completed", null, null))
             .ReturnsAsync(ApiResponse<List<TradeIn>>.SuccessResponse(items));
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var query = new NameValueCollection { { "status", "completed" } };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, _companyHeaders, query);
+        var req = TestHelpers.CreateHttpRequestData(context, null, _companyHeaders, query);
 
         var result = await _functions.GetAllTradeIns(req);
 
@@ -122,13 +122,13 @@ public class TradeInFunctionsTests
             .Setup(s => s.GetAllAsync(CompanyId, null, It.IsAny<DateTime?>(), It.IsAny<DateTime?>()))
             .ReturnsAsync(ApiResponse<List<TradeIn>>.SuccessResponse(items));
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var query = new NameValueCollection
         {
             { "dateFrom", "2024-01-01" },
             { "dateTo", "2024-12-31" }
         };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, _companyHeaders, query);
+        var req = TestHelpers.CreateHttpRequestData(context, null, _companyHeaders, query);
 
         var result = await _functions.GetAllTradeIns(req);
 
@@ -160,8 +160,8 @@ public class TradeInFunctionsTests
             .Setup(s => s.CreateDraftAsync(It.IsAny<TradeIn>(), CompanyId))
             .ReturnsAsync(ApiResponse<TradeIn>.SuccessResponse(tradeIn, "Trade-in draft created successfully"));
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, tradeIn, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, tradeIn, _companyHeaders);
 
         var result = await _functions.CreateTradeIn(req);
 
@@ -176,8 +176,8 @@ public class TradeInFunctionsTests
     [Fact]
     public async Task CreateTradeIn_InvalidBody_Returns400()
     {
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestDataWithRawBody("not-json", _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestDataWithRawBody("not-json", _companyHeaders, context);
 
         var result = await _functions.CreateTradeIn(req);
 
@@ -210,8 +210,8 @@ public class TradeInFunctionsTests
             .Setup(s => s.GetByIdAsync(1, CompanyId))
             .ReturnsAsync(ApiResponse<TradeIn>.SuccessResponse(tradeIn));
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, _companyHeaders);
 
         var result = await _functions.GetTradeInById(req, 1);
 
@@ -231,8 +231,8 @@ public class TradeInFunctionsTests
             .Setup(s => s.GetByIdAsync(99, CompanyId))
             .ReturnsAsync(ApiResponse<TradeIn>.ErrorResponse("Trade-in with ID 99 not found"));
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, _companyHeaders);
 
         var result = await _functions.GetTradeInById(req, 99);
 
@@ -252,8 +252,8 @@ public class TradeInFunctionsTests
             .Setup(s => s.GetByIdAsync(1, CompanyId))
             .ReturnsAsync(ApiResponse<TradeIn>.ErrorResponse("Trade-in with ID 1 not found"));
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, _companyHeaders);
 
         var result = await _functions.GetTradeInById(req, 1);
 
@@ -285,9 +285,9 @@ public class TradeInFunctionsTests
             .Setup(s => s.UpdateTradeInAsync(1, CompanyId, It.IsAny<string?>(), It.IsAny<int?>(), It.IsAny<List<TradeInItem>>()))
             .ReturnsAsync(ApiResponse<TradeIn>.SuccessResponse(tradeIn, "Trade-in updated successfully"));
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var updateBody = new { notes = "Updated notes", customerId = 5, items = new List<object>() };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, updateBody, _companyHeaders);
+        var req = TestHelpers.CreateHttpRequestData(context, updateBody, _companyHeaders);
 
         var result = await _functions.UpdateTradeIn(req, 1);
 
@@ -306,9 +306,9 @@ public class TradeInFunctionsTests
             .Setup(s => s.UpdateTradeInAsync(1, CompanyId, It.IsAny<string?>(), It.IsAny<int?>(), It.IsAny<List<TradeInItem>>()))
             .ReturnsAsync(ApiResponse<TradeIn>.ErrorResponse("Cannot update a trade-in with status 'completed'. Only draft trade-ins can be modified."));
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var updateBody = new { notes = "Updated notes" };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, updateBody, _companyHeaders);
+        var req = TestHelpers.CreateHttpRequestData(context, updateBody, _companyHeaders);
 
         var result = await _functions.UpdateTradeIn(req, 1);
 
@@ -327,9 +327,9 @@ public class TradeInFunctionsTests
             .Setup(s => s.UpdateTradeInAsync(99, CompanyId, It.IsAny<string?>(), It.IsAny<int?>(), It.IsAny<List<TradeInItem>>()))
             .ReturnsAsync(ApiResponse<TradeIn>.ErrorResponse("Trade-in with ID 99 not found"));
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var updateBody = new { notes = "Updated notes" };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, updateBody, _companyHeaders);
+        var req = TestHelpers.CreateHttpRequestData(context, updateBody, _companyHeaders);
 
         var result = await _functions.UpdateTradeIn(req, 99);
 
@@ -339,8 +339,8 @@ public class TradeInFunctionsTests
     [Fact]
     public async Task UpdateTradeIn_InvalidBody_Returns400()
     {
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestDataWithRawBody("not-json", _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestDataWithRawBody("not-json", _companyHeaders, context);
 
         var result = await _functions.UpdateTradeIn(req, 1);
 
@@ -373,9 +373,9 @@ public class TradeInFunctionsTests
             .Setup(s => s.CompleteAsync(1, CompanyId, "cash"))
             .ReturnsAsync(ApiResponse<TradeIn>.SuccessResponse(completed, "Trade-in completed successfully"));
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var body = new { paymentType = "cash" };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+        var req = TestHelpers.CreateHttpRequestData(context, body, _companyHeaders);
 
         var result = await _functions.CompleteTradeIn(req, 1);
 
@@ -396,9 +396,9 @@ public class TradeInFunctionsTests
             .Setup(s => s.CompleteAsync(1, CompanyId, "store_credit"))
             .ReturnsAsync(ApiResponse<TradeIn>.SuccessResponse(completed, "Trade-in completed successfully"));
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var body = new { paymentType = "store_credit" };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+        var req = TestHelpers.CreateHttpRequestData(context, body, _companyHeaders);
 
         var result = await _functions.CompleteTradeIn(req, 1);
 
@@ -408,9 +408,9 @@ public class TradeInFunctionsTests
     [Fact]
     public async Task CompleteTradeIn_MissingPaymentType_Returns400()
     {
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var body = new { };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+        var req = TestHelpers.CreateHttpRequestData(context, body, _companyHeaders);
 
         var result = await _functions.CompleteTradeIn(req, 1);
 
@@ -427,9 +427,9 @@ public class TradeInFunctionsTests
     [Fact]
     public async Task CompleteTradeIn_InvalidPaymentType_Returns400()
     {
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var body = new { paymentType = "bitcoin" };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+        var req = TestHelpers.CreateHttpRequestData(context, body, _companyHeaders);
 
         var result = await _functions.CompleteTradeIn(req, 1);
 
@@ -450,9 +450,9 @@ public class TradeInFunctionsTests
             .Setup(s => s.CompleteAsync(1, CompanyId, "cash"))
             .ReturnsAsync(ApiResponse<TradeIn>.ErrorResponse("Cannot complete a trade-in with status 'completed'. Only draft trade-ins can be completed."));
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var body = new { paymentType = "cash" };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+        var req = TestHelpers.CreateHttpRequestData(context, body, _companyHeaders);
 
         var result = await _functions.CompleteTradeIn(req, 1);
 
@@ -471,9 +471,9 @@ public class TradeInFunctionsTests
             .Setup(s => s.CompleteAsync(1, CompanyId, "cash"))
             .ReturnsAsync(ApiResponse<TradeIn>.ErrorResponse("Cannot complete a trade-in with status 'rejected'. Only draft trade-ins can be completed."));
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var body = new { paymentType = "cash" };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+        var req = TestHelpers.CreateHttpRequestData(context, body, _companyHeaders);
 
         var result = await _functions.CompleteTradeIn(req, 1);
 
@@ -487,9 +487,9 @@ public class TradeInFunctionsTests
             .Setup(s => s.CompleteAsync(99, CompanyId, "cash"))
             .ReturnsAsync(ApiResponse<TradeIn>.ErrorResponse("Trade-in with ID 99 not found"));
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var body = new { paymentType = "cash" };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+        var req = TestHelpers.CreateHttpRequestData(context, body, _companyHeaders);
 
         var result = await _functions.CompleteTradeIn(req, 99);
 
@@ -521,8 +521,8 @@ public class TradeInFunctionsTests
             .Setup(s => s.RejectAsync(1, CompanyId))
             .ReturnsAsync(ApiResponse<TradeIn>.SuccessResponse(rejected, "Trade-in rejected successfully"));
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, _companyHeaders);
 
         var result = await _functions.RejectTradeIn(req, 1);
 
@@ -542,8 +542,8 @@ public class TradeInFunctionsTests
             .Setup(s => s.RejectAsync(1, CompanyId))
             .ReturnsAsync(ApiResponse<TradeIn>.ErrorResponse("Cannot reject a trade-in with status 'completed'. Only draft trade-ins can be rejected."));
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, _companyHeaders);
 
         var result = await _functions.RejectTradeIn(req, 1);
 
@@ -562,8 +562,8 @@ public class TradeInFunctionsTests
             .Setup(s => s.RejectAsync(1, CompanyId))
             .ReturnsAsync(ApiResponse<TradeIn>.ErrorResponse("Cannot reject a trade-in with status 'rejected'. Only draft trade-ins can be rejected."));
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, _companyHeaders);
 
         var result = await _functions.RejectTradeIn(req, 1);
 
@@ -577,8 +577,8 @@ public class TradeInFunctionsTests
             .Setup(s => s.RejectAsync(99, CompanyId))
             .ReturnsAsync(ApiResponse<TradeIn>.ErrorResponse("Trade-in with ID 99 not found"));
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, _companyHeaders);
 
         var result = await _functions.RejectTradeIn(req, 99);
 
@@ -654,9 +654,9 @@ public class TradeInFunctionsTests
         });
         SetupHttpClient(handler);
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var body = new { imageBase64 = "ZmFrZS1pbWFnZS1ieXRlcw==", mimeType = "image/jpeg" };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+        var req = TestHelpers.CreateHttpRequestData(context, body, _companyHeaders);
 
         var result = await _functions.ParseTradeInImage(req);
 
@@ -687,9 +687,9 @@ public class TradeInFunctionsTests
         });
         SetupHttpClient(handler);
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var body = new { imageBase64 = "ZmFrZS1pbWFnZS1ieXRlcw==", mimeType = "image/png" };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+        var req = TestHelpers.CreateHttpRequestData(context, body, _companyHeaders);
 
         var result = await _functions.ParseTradeInImage(req);
 
@@ -714,9 +714,9 @@ public class TradeInFunctionsTests
         });
         SetupHttpClient(handler);
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var body = new { imageBase64 = "ZmFrZQ==", mimeType = "image/jpeg" };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+        var req = TestHelpers.CreateHttpRequestData(context, body, _companyHeaders);
 
         var result = await _functions.ParseTradeInImage(req);
 
@@ -735,9 +735,9 @@ public class TradeInFunctionsTests
     {
         SetupAnthropicKey("test-api-key");
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var body = new { mimeType = "image/jpeg" };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+        var req = TestHelpers.CreateHttpRequestData(context, body, _companyHeaders);
 
         var result = await _functions.ParseTradeInImage(req);
 
@@ -750,9 +750,9 @@ public class TradeInFunctionsTests
     {
         SetupAnthropicKey("test-api-key");
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var body = new { imageBase64 = "ZmFrZQ==" };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+        var req = TestHelpers.CreateHttpRequestData(context, body, _companyHeaders);
 
         var result = await _functions.ParseTradeInImage(req);
 
@@ -765,7 +765,8 @@ public class TradeInFunctionsTests
     {
         SetupAnthropicKey("test-api-key");
 
-        var req = TestHelpers.CreateHttpRequestDataWithRawBody("not-json", _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestDataWithRawBody("not-json", _companyHeaders, context);
 
         var result = await _functions.ParseTradeInImage(req);
 
@@ -778,9 +779,9 @@ public class TradeInFunctionsTests
     {
         SetupAnthropicKey(null);
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var body = new { imageBase64 = "ZmFrZQ==", mimeType = "image/jpeg" };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+        var req = TestHelpers.CreateHttpRequestData(context, body, _companyHeaders);
 
         var result = await _functions.ParseTradeInImage(req);
 
@@ -798,9 +799,9 @@ public class TradeInFunctionsTests
         });
         SetupHttpClient(handler);
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var body = new { imageBase64 = "ZmFrZQ==", mimeType = "image/jpeg" };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+        var req = TestHelpers.CreateHttpRequestData(context, body, _companyHeaders);
 
         var result = await _functions.ParseTradeInImage(req);
 
@@ -817,9 +818,9 @@ public class TradeInFunctionsTests
         });
         SetupHttpClient(handler);
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var body = new { imageBase64 = "ZmFrZQ==", mimeType = "image/jpeg" };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+        var req = TestHelpers.CreateHttpRequestData(context, body, _companyHeaders);
 
         var result = await _functions.ParseTradeInImage(req);
 

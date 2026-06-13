@@ -197,7 +197,7 @@ public class BillingFunctionsTests
     {
         // Arrange
         var headers = new Dictionary<string, string> { { "X-Company-Id", "999" } };
-        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers, context: TestHelpers.CreateMockFunctionContextWithJwt(999));
         _companyRepositoryMock.Setup(r => r.GetByIdAsync(999)).ReturnsAsync((Company?)null);
 
         // Act
@@ -224,7 +224,7 @@ public class BillingFunctionsTests
             SubscriptionTier = "Trial"
         };
         var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
-        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers, context: TestHelpers.CreateMockFunctionContextWithJwt(companyId));
 
         _companyRepositoryMock.Setup(r => r.GetByIdAsync(companyId)).ReturnsAsync(company);
         _paymentRepositoryMock.Setup(p => p.GetByCompanyIdAsync(companyId))
@@ -259,7 +259,7 @@ public class BillingFunctionsTests
             SubscriptionTier = "Trial"
         };
         var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
-        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers, context: TestHelpers.CreateMockFunctionContextWithJwt(companyId));
 
         _companyRepositoryMock.Setup(r => r.GetByIdAsync(companyId)).ReturnsAsync(company);
         _paymentRepositoryMock.Setup(p => p.GetByCompanyIdAsync(companyId))
@@ -292,7 +292,7 @@ public class BillingFunctionsTests
             SubscriptionTier = "Trial"
         };
         var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
-        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers, context: TestHelpers.CreateMockFunctionContextWithJwt(companyId));
 
         _companyRepositoryMock.Setup(r => r.GetByIdAsync(companyId)).ReturnsAsync(company);
         _paymentRepositoryMock.Setup(p => p.GetByCompanyIdAsync(companyId))
@@ -326,7 +326,7 @@ public class BillingFunctionsTests
             SubscriptionTier = "Trial"
         };
         var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
-        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers, context: TestHelpers.CreateMockFunctionContextWithJwt(companyId));
 
         _companyRepositoryMock.Setup(r => r.GetByIdAsync(companyId)).ReturnsAsync(company);
         _paymentRepositoryMock.Setup(p => p.GetByCompanyIdAsync(companyId))
@@ -348,7 +348,7 @@ public class BillingFunctionsTests
     {
         var companyId = 1;
         var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
-        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers, context: TestHelpers.CreateMockFunctionContextWithJwt(companyId));
 
         var methods = new List<StorePaymentMethodResponse>
         {
@@ -388,7 +388,7 @@ public class BillingFunctionsTests
     {
         var companyId = 1;
         var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
-        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers, context: TestHelpers.CreateMockFunctionContextWithJwt(companyId));
 
         _paymentRepositoryMock.Setup(p => p.GetByCompanyIdAsync(companyId))
             .ReturnsAsync(Array.Empty<Models.PaymentMethod>());
@@ -410,7 +410,7 @@ public class BillingFunctionsTests
     {
         var companyId = 1;
         var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
-        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers, context: TestHelpers.CreateMockFunctionContextWithJwt(companyId));
         var stripeCustomerId = "cus_test123";
 
         _paymentRepositoryMock.Setup(p => p.GetByCompanyIdAsync(companyId))
@@ -466,7 +466,7 @@ public class BillingFunctionsTests
     {
         var companyId = 1;
         var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
-        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers, context: TestHelpers.CreateMockFunctionContextWithJwt(companyId));
         var stripeCustomerId = "cus_test123";
 
         _paymentRepositoryMock.Setup(p => p.GetByCompanyIdAsync(companyId))
@@ -499,7 +499,8 @@ public class BillingFunctionsTests
         var request = TestHelpers.CreateHttpRequestDataWithRawBody(
             "",
             new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } },
-            $"?limit=5&startingAfter={startingAfter}");
+            $"?limit=5&startingAfter={startingAfter}",
+            context: TestHelpers.CreateMockFunctionContextWithJwt(companyId));
 
         _paymentRepositoryMock.Setup(p => p.GetByCompanyIdAsync(companyId))
             .ReturnsAsync(new List<Models.PaymentMethod>
@@ -558,7 +559,7 @@ public class BillingFunctionsTests
     {
         var companyId = 1;
         var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
-        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers, context: TestHelpers.CreateMockFunctionContextWithJwt(companyId));
 
         _subscriptionRepositoryMock.Setup(r => r.GetByCompanyIdAsync(companyId))
             .ReturnsAsync((MyStore.Models.Subscription?)null);
@@ -575,7 +576,7 @@ public class BillingFunctionsTests
     {
         var companyId = 2;
         var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
-        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers, context: TestHelpers.CreateMockFunctionContextWithJwt(companyId));
 
         var periodStart = new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc);
         var periodEnd = new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -652,7 +653,7 @@ public class BillingFunctionsTests
     {
         var companyId = 3;
         var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
-        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers, context: TestHelpers.CreateMockFunctionContextWithJwt(companyId));
 
         var trialStart = new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc);
         var trialEnd = new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -731,7 +732,7 @@ public class BillingFunctionsTests
     {
         var companyId = 5;
         var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
-        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers, context: TestHelpers.CreateMockFunctionContextWithJwt(companyId));
 
         var localSub = new MyStore.Models.Subscription
         {
@@ -762,7 +763,7 @@ public class BillingFunctionsTests
     {
         var companyId = 14;
         var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
-        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers, context: TestHelpers.CreateMockFunctionContextWithJwt(companyId));
 
         var periodStart = new DateTime(2026, 5, 20, 0, 0, 0, DateTimeKind.Utc);
         var periodEnd = new DateTime(2026, 6, 20, 0, 0, 0, DateTimeKind.Utc);
@@ -851,7 +852,7 @@ public class BillingFunctionsTests
     {
         var companyId = 15;
         var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
-        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers, context: TestHelpers.CreateMockFunctionContextWithJwt(companyId));
 
         var periodStart = new DateTime(2026, 5, 20, 0, 0, 0, DateTimeKind.Utc);
         var periodEnd = new DateTime(2026, 6, 20, 0, 0, 0, DateTimeKind.Utc);
@@ -955,7 +956,7 @@ public class BillingFunctionsTests
     {
         var companyId = 16;
         var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
-        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers, context: TestHelpers.CreateMockFunctionContextWithJwt(companyId));
 
         var periodStart = new DateTime(2026, 5, 20, 0, 0, 0, DateTimeKind.Utc);
         var periodEnd = new DateTime(2026, 6, 20, 0, 0, 0, DateTimeKind.Utc);
@@ -1034,7 +1035,7 @@ public class BillingFunctionsTests
     {
         var companyId = 6;
         var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
-        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers, context: TestHelpers.CreateMockFunctionContextWithJwt(companyId));
 
         var periodStart = new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc);
         var periodEnd = new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -1099,7 +1100,7 @@ public class BillingFunctionsTests
     {
         var companyId = 4;
         var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
-        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers, context: TestHelpers.CreateMockFunctionContextWithJwt(companyId));
 
         var periodStart = new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Utc);
         var periodEnd = new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -1170,7 +1171,7 @@ public class BillingFunctionsTests
     {
         var companyId = 13;
         var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
-        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers, context: TestHelpers.CreateMockFunctionContextWithJwt(companyId));
 
         var periodStart = new DateTime(2026, 5, 20, 0, 14, 30, DateTimeKind.Utc);
         var periodEnd = new DateTime(2026, 6, 20, 0, 14, 30, DateTimeKind.Utc);
@@ -1247,7 +1248,7 @@ public class BillingFunctionsTests
     {
         var companyId = 7;
         var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
-        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers, context: TestHelpers.CreateMockFunctionContextWithJwt(companyId));
 
         var periodStart = new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc);
         var periodEnd = new DateTime(2026, 6, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -1319,7 +1320,7 @@ public class BillingFunctionsTests
     {
         var companyId = 9;
         var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
-        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers, context: TestHelpers.CreateMockFunctionContextWithJwt(companyId));
 
         var periodStart = new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc);
         var periodEnd = new DateTime(2026, 6, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -1399,7 +1400,7 @@ public class BillingFunctionsTests
     {
         var companyId = 8;
         var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
-        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers, context: TestHelpers.CreateMockFunctionContextWithJwt(companyId));
 
         var periodStart = new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc);
         var periodEnd = new DateTime(2026, 6, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -1474,7 +1475,7 @@ public class BillingFunctionsTests
     {
         var companyId = 9;
         var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
-        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers, context: TestHelpers.CreateMockFunctionContextWithJwt(companyId));
 
         var periodStart = new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc);
         var periodEnd = new DateTime(2026, 6, 1, 0, 0, 0, DateTimeKind.Utc);
