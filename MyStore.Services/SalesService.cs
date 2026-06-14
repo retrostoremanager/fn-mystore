@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using MyStore.Models;
 using MyStore.Repositories;
 
@@ -12,6 +13,7 @@ public class SalesService : ISalesService
     private readonly ICompanyRepository _companyRepository;
     private readonly ILoyaltyService? _loyaltyService;
     private readonly IPromotionService? _promotionService;
+    private readonly ILogger<SalesService>? _logger;
 
     public SalesService(
         ISalesRepository salesRepository,
@@ -20,7 +22,8 @@ public class SalesService : ISalesService
         IInventoryRepository inventoryRepository,
         ICompanyRepository companyRepository,
         ILoyaltyService? loyaltyService = null,
-        IPromotionService? promotionService = null)
+        IPromotionService? promotionService = null,
+        ILogger<SalesService>? logger = null)
     {
         _salesRepository = salesRepository;
         _customerRepository = customerRepository;
@@ -29,6 +32,7 @@ public class SalesService : ISalesService
         _companyRepository = companyRepository;
         _loyaltyService = loyaltyService;
         _promotionService = promotionService;
+        _logger = logger;
     }
 
     public async Task<ApiResponse<List<Sale>>> GetAllSalesAsync(int companyId)
@@ -238,7 +242,21 @@ public class SalesService : ISalesService
             await LoadRelatedDataAsync(new List<Sale> { created }, companyId);
 
             if (_loyaltyService is not null)
-                await _loyaltyService.EarnFromSaleAsync(request.CustomerId, companyId, sale.Total, created.Id);
+            {
+                try
+                {
+                    await _loyaltyService.EarnFromSaleAsync(request.CustomerId, companyId, sale.Total, created.Id);
+                }
+                catch (Exception loyaltyEx)
+                {
+                    _logger?.LogError(
+                        loyaltyEx,
+                        "Failed to award loyalty points for sale {SaleId} (customer {CustomerId}, company {CompanyId}); sale completion will not be rolled back",
+                        created.Id,
+                        request.CustomerId,
+                        companyId);
+                }
+            }
 
             return ApiResponse<Sale>.SuccessResponse(created, "Sale created successfully");
         }

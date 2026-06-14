@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using MyStore.Models;
 using MyStore.Repositories;
 
@@ -10,19 +11,22 @@ public class TradeInService : ITradeInService
     private readonly IGameRepository _gameRepository;
     private readonly ILocationRepository _locationRepository;
     private readonly ILoyaltyService? _loyaltyService;
+    private readonly ILogger<TradeInService>? _logger;
 
     public TradeInService(
         ITradeInRepository tradeInRepository,
         IInventoryRepository inventoryRepository,
         IGameRepository gameRepository,
         ILocationRepository locationRepository,
-        ILoyaltyService? loyaltyService = null)
+        ILoyaltyService? loyaltyService = null,
+        ILogger<TradeInService>? logger = null)
     {
         _tradeInRepository = tradeInRepository;
         _inventoryRepository = inventoryRepository;
         _gameRepository = gameRepository;
         _locationRepository = locationRepository;
         _loyaltyService = loyaltyService;
+        _logger = logger;
     }
 
     public async Task<ApiResponse<List<TradeIn>>> GetAllAsync(int companyId, string? status = null, DateTime? dateFrom = null, DateTime? dateTo = null)
@@ -203,7 +207,19 @@ public class TradeInService : ITradeInService
                     .Where(i => i.AcceptedValue > 0)
                     .Sum(i => i.AcceptedValue ?? 0);
 
-                await _loyaltyService.EarnFromTradeInAsync(tradeIn.CustomerId.Value, companyId, totalAccepted, id);
+                try
+                {
+                    await _loyaltyService.EarnFromTradeInAsync(tradeIn.CustomerId.Value, companyId, totalAccepted, id);
+                }
+                catch (Exception loyaltyEx)
+                {
+                    _logger?.LogError(
+                        loyaltyEx,
+                        "Failed to award loyalty points for trade-in {TradeInId} (customer {CustomerId}, company {CompanyId}); trade-in completion will not be rolled back",
+                        id,
+                        tradeIn.CustomerId.Value,
+                        companyId);
+                }
             }
 
             var result = await _tradeInRepository.GetByIdAsync(id, companyId);
