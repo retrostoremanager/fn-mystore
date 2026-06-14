@@ -81,6 +81,8 @@ public class ReceiptResponse
     public decimal TaxRate { get; set; }
     public decimal TaxAmount { get; set; }
     public decimal Total { get; set; }
+    public decimal TotalDiscount { get; set; }
+    public List<AppliedPromotion> AppliedPromotions { get; set; } = new();
     public string PaymentMethod { get; set; } = string.Empty;
     public string? EmployeeName { get; set; }
 }

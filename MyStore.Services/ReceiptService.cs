@@ -79,6 +79,15 @@ public class ReceiptService : IReceiptService
                 TaxRate = sale.TaxRate,
                 TaxAmount = sale.TaxAmount,
                 Total = sale.Total,
+                TotalDiscount = sale.DiscountTotal,
+                AppliedPromotions = sale.AppliedPromotions
+                    .Select(p => new AppliedPromotion
+                    {
+                        PromotionId = p.PromotionId,
+                        PromotionName = p.PromotionName,
+                        DiscountAmount = p.DiscountAmount,
+                    })
+                    .ToList(),
                 PaymentMethod = sale.PaymentMethod,
                 EmployeeName = employeeName
             };

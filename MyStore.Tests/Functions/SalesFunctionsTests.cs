@@ -1115,6 +1115,196 @@ public class SalesFunctionsTests
 
     #endregion
 
+    #region Promotion Breakdown Tests (Issue #322)
+
+    [Fact]
+    public async Task GetSaleById_NoPromotions_ResponseHasEmptyAppliedPromotionsAndZeroTotalDiscount()
+    {
+        var sale = new Sale
+        {
+            Id = 1,
+            CompanyId = CompanyId,
+            CustomerId = 10,
+            PaymentMethod = "Cash",
+            SaleDate = DateTime.UtcNow,
+            Subtotal = 50m,
+            Tax = 4m,
+            Total = 54m,
+            DiscountTotal = 0m,
+            AppliedPromotions = new List<AppliedPromotion>(),
+            Items = new List<SaleItem>
+            {
+                new SaleItem { Id = 1, SaleId = 1, InventoryItemId = 100, Quantity = 2, UnitPrice = 25m, TotalPrice = 50m }
+            }
+        };
+        var apiResponse = ApiResponse<Sale>.SuccessResponse(sale);
+
+        _salesServiceMock
+            .Setup(s => s.GetSaleByIdAsync(1, CompanyId))
+            .ReturnsAsync(apiResponse);
+
+        var context = new Mock<FunctionContext>();
+        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+
+        var result = await _functions.GetSaleById(httpRequest, 1);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        body.Should().Contain("\"appliedPromotions\"", because: "appliedPromotions must be present even when empty");
+        body.Should().Contain("\"discountTotal\"", because: "discountTotal (totalDiscount) must be present even when zero");
+
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<Sale>>(body,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        deserialized!.Data!.AppliedPromotions.Should().BeEmpty();
+        deserialized.Data.DiscountTotal.Should().Be(0m);
+    }
+
+    [Fact]
+    public async Task GetSaleById_OnePromotion_ResponseIncludesAppliedPromotionAndTotalDiscount()
+    {
+        var sale = new Sale
+        {
+            Id = 1,
+            CompanyId = CompanyId,
+            CustomerId = 10,
+            PaymentMethod = "Cash",
+            SaleDate = DateTime.UtcNow,
+            Subtotal = 45m,
+            Tax = 0m,
+            Total = 45m,
+            DiscountTotal = 5m,
+            AppliedPromotions = new List<AppliedPromotion>
+            {
+                new AppliedPromotion { PromotionId = 7, PromotionName = "10% Off", DiscountAmount = 5m }
+            },
+            Items = new List<SaleItem>
+            {
+                new SaleItem
+                {
+                    Id = 1, SaleId = 1, InventoryItemId = 100, Quantity = 2, UnitPrice = 25m,
+                    TotalPrice = 45m, DiscountAmount = 5m, PromotionId = 7, PromotionName = "10% Off"
+                }
+            }
+        };
+        var apiResponse = ApiResponse<Sale>.SuccessResponse(sale);
+
+        _salesServiceMock
+            .Setup(s => s.GetSaleByIdAsync(1, CompanyId))
+            .ReturnsAsync(apiResponse);
+
+        var context = new Mock<FunctionContext>();
+        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+
+        var result = await _functions.GetSaleById(httpRequest, 1);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<Sale>>(body,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Data!.DiscountTotal.Should().Be(5m);
+        deserialized.Data.AppliedPromotions.Should().HaveCount(1);
+        deserialized.Data.AppliedPromotions[0].PromotionId.Should().Be(7);
+        deserialized.Data.AppliedPromotions[0].PromotionName.Should().Be("10% Off");
+        deserialized.Data.AppliedPromotions[0].DiscountAmount.Should().Be(5m);
+    }
+
+    [Fact]
+    public async Task GetSaleById_MultiplePromotions_ResponseIncludesEachAndTotalDiscountEqualsSum()
+    {
+        var sale = new Sale
+        {
+            Id = 1,
+            CompanyId = CompanyId,
+            CustomerId = 10,
+            PaymentMethod = "Cash",
+            SaleDate = DateTime.UtcNow,
+            Subtotal = 80m,
+            Tax = 0m,
+            Total = 80m,
+            DiscountTotal = 20m,
+            AppliedPromotions = new List<AppliedPromotion>
+            {
+                new AppliedPromotion { PromotionId = 1, PromotionName = "Store Wide 10%", DiscountAmount = 10m },
+                new AppliedPromotion { PromotionId = 2, PromotionName = "Category Sale", DiscountAmount = 7m },
+                new AppliedPromotion { PromotionId = 3, PromotionName = "Buy 2 Get 1", DiscountAmount = 3m }
+            },
+            Items = new List<SaleItem>()
+        };
+        var apiResponse = ApiResponse<Sale>.SuccessResponse(sale);
+
+        _salesServiceMock
+            .Setup(s => s.GetSaleByIdAsync(1, CompanyId))
+            .ReturnsAsync(apiResponse);
+
+        var context = new Mock<FunctionContext>();
+        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+
+        var result = await _functions.GetSaleById(httpRequest, 1);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<Sale>>(body,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Data!.AppliedPromotions.Should().HaveCount(3);
+        deserialized.Data.AppliedPromotions.Sum(p => p.DiscountAmount)
+            .Should().Be(deserialized.Data.DiscountTotal,
+                because: "totalDiscount must equal the sum of per-promotion discounts");
+        deserialized.Data.AppliedPromotions.Select(p => p.PromotionName)
+            .Should().Contain(new[] { "Store Wide 10%", "Category Sale", "Buy 2 Get 1" });
+    }
+
+    [Fact]
+    public async Task GetAllSales_IncludesTotalDiscountPerSale()
+    {
+        var sales = new List<Sale>
+        {
+            new Sale
+            {
+                Id = 1, CompanyId = CompanyId, CustomerId = 10, PaymentMethod = "Cash",
+                SaleDate = DateTime.UtcNow, Subtotal = 50m, Total = 50m, DiscountTotal = 0m,
+                Items = new List<SaleItem>()
+            },
+            new Sale
+            {
+                Id = 2, CompanyId = CompanyId, CustomerId = 10, PaymentMethod = "Cash",
+                SaleDate = DateTime.UtcNow, Subtotal = 90m, Total = 90m, DiscountTotal = 15m,
+                AppliedPromotions = new List<AppliedPromotion>
+                {
+                    new AppliedPromotion { PromotionId = 5, PromotionName = "Holiday Sale", DiscountAmount = 15m }
+                },
+                Items = new List<SaleItem>()
+            }
+        };
+        var apiResponse = ApiResponse<List<Sale>>.SuccessResponse(sales);
+
+        _salesServiceMock
+            .Setup(s => s.GetAllSalesAsync(CompanyId))
+            .ReturnsAsync(apiResponse);
+
+        var context = new Mock<FunctionContext>();
+        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+
+        var result = await _functions.GetAllSales(httpRequest);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        body.Should().Contain("\"discountTotal\"", because: "every sale in the list must expose totalDiscount");
+
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<List<Sale>>>(body,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        deserialized!.Data.Should().HaveCount(2);
+        deserialized.Data![0].DiscountTotal.Should().Be(0m);
+        deserialized.Data[1].DiscountTotal.Should().Be(15m);
+    }
+
+    #endregion
+
     #region DeleteSale Tests
 
     [Fact]

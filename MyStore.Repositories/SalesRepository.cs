@@ -30,6 +30,8 @@ public class SalesRepository : ISalesRepository
                     COALESCE(discount_amount, 0) AS discount_amount,
                     promotion_id, promotion_name";
 
+    private const string SalePromotionSelectColumns = @"id, sale_id, promotion_id, promotion_name, discount_amount";
+
     public async Task<List<Sale>> GetAllAsync(int companyId)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
@@ -49,7 +51,13 @@ public class SalesRepository : ISalesRepository
         var itemRows = (await connection.QueryAsync<SaleItemRow>(itemsSql, new { p_sale_ids = saleIds })).ToList();
         var itemsBySale = itemRows.GroupBy(r => r.SaleId).ToDictionary(g => g.Key, g => g.ToList());
 
-        return rows.Select(row => MapSale(row, itemsBySale.GetValueOrDefault(row.Id) ?? new List<SaleItemRow>())).ToList();
+        var promotionsBySale = await LoadPromotionsAsync(connection, saleIds);
+
+        return rows.Select(row => MapSale(
+                row,
+                itemsBySale.GetValueOrDefault(row.Id) ?? new List<SaleItemRow>(),
+                promotionsBySale.GetValueOrDefault(row.Id)))
+            .ToList();
     }
 
     public async Task<Sale?> GetByIdAsync(int id, int companyId)
@@ -67,7 +75,12 @@ public class SalesRepository : ISalesRepository
         var itemsSql = $@"SELECT {SaleItemSelectColumns}
             FROM sale_item WHERE sale_id = @p_sale_id";
         var itemRows = (await connection.QueryAsync<SaleItemRow>(itemsSql, new { p_sale_id = id })).ToList();
-        return MapSale(row, itemRows);
+
+        var promotionsSql = $@"SELECT {SalePromotionSelectColumns}
+            FROM sale_promotion WHERE sale_id = @p_sale_id";
+        var promotionRows = (await connection.QueryAsync<SalePromotionRow>(promotionsSql, new { p_sale_id = id })).ToList();
+
+        return MapSale(row, itemRows, promotionRows);
     }
 
     public async Task<List<Sale>> GetByCustomerIdAsync(int customerId, int companyId)
@@ -169,6 +182,21 @@ public class SalesRepository : ISalesRepository
                 item.SaleId = saleId;
             }
 
+            const string insertPromotion = @"INSERT INTO sale_promotion (sale_id, promotion_id, promotion_name, discount_amount, created_date)
+                VALUES (@SaleId, @PromotionId, @PromotionName, @DiscountAmount, NOW())";
+
+            foreach (var promo in sale.AppliedPromotions)
+            {
+                if (promo.DiscountAmount <= 0m) continue;
+                await connection.ExecuteAsync(insertPromotion, new
+                {
+                    SaleId = saleId,
+                    promo.PromotionId,
+                    promo.PromotionName,
+                    promo.DiscountAmount,
+                }, tx);
+            }
+
             await tx.CommitAsync();
             return sale;
         }
@@ -186,6 +214,9 @@ public class SalesRepository : ISalesRepository
         await using var tx = await connection.BeginTransactionAsync();
         try
         {
+            await connection.ExecuteAsync(
+                "DELETE FROM sale_promotion WHERE sale_id = @p_id",
+                new { p_id = id }, tx);
             await connection.ExecuteAsync(
                 "DELETE FROM sale_item WHERE sale_id = @p_id",
                 new { p_id = id }, tx);
@@ -215,10 +246,31 @@ public class SalesRepository : ISalesRepository
         var itemRows = (await connection.QueryAsync<SaleItemRow>(itemsSql, new { p_sale_ids = saleIds })).ToList();
         var itemsBySale = itemRows.GroupBy(r => r.SaleId).ToDictionary(g => g.Key, g => g.ToList());
 
-        return rows.Select(row => MapSale(row, itemsBySale.GetValueOrDefault(row.Id) ?? new List<SaleItemRow>())).ToList();
+        var promotionsBySale = await LoadPromotionsAsync(connection, saleIds);
+
+        return rows.Select(row => MapSale(
+                row,
+                itemsBySale.GetValueOrDefault(row.Id) ?? new List<SaleItemRow>(),
+                promotionsBySale.GetValueOrDefault(row.Id)))
+            .ToList();
     }
 
-    private static Sale MapSale(SaleRow row, List<SaleItemRow> itemRows)
+    private static async Task<Dictionary<int, List<SalePromotionRow>>> LoadPromotionsAsync(
+        NpgsqlConnection connection, int[] saleIds)
+    {
+        if (saleIds.Length == 0)
+        {
+            return new Dictionary<int, List<SalePromotionRow>>();
+        }
+
+        var promotionsSql = $@"SELECT {SalePromotionSelectColumns}
+            FROM sale_promotion WHERE sale_id = ANY(@p_sale_ids)";
+        var promotionRows = (await connection.QueryAsync<SalePromotionRow>(
+            promotionsSql, new { p_sale_ids = saleIds })).ToList();
+        return promotionRows.GroupBy(r => r.SaleId).ToDictionary(g => g.Key, g => g.ToList());
+    }
+
+    private static Sale MapSale(SaleRow row, List<SaleItemRow> itemRows, List<SalePromotionRow>? promotionRows = null)
     {
         var sale = new Sale
         {
@@ -238,7 +290,6 @@ public class SalesRepository : ISalesRepository
             Notes = row.Notes,
         };
 
-        var appliedPromotions = new Dictionary<int, AppliedPromotion>();
         foreach (var ir in itemRows)
         {
             sale.Items.Add(new SaleItem
@@ -253,26 +304,46 @@ public class SalesRepository : ISalesRepository
                 PromotionId = ir.PromotionId,
                 PromotionName = ir.PromotionName,
             });
-
-            if (ir.PromotionId.HasValue && ir.DiscountAmount > 0m)
-            {
-                if (appliedPromotions.TryGetValue(ir.PromotionId.Value, out var existing))
-                {
-                    existing.DiscountAmount += ir.DiscountAmount;
-                }
-                else
-                {
-                    appliedPromotions[ir.PromotionId.Value] = new AppliedPromotion
-                    {
-                        PromotionId = ir.PromotionId.Value,
-                        PromotionName = ir.PromotionName ?? string.Empty,
-                        DiscountAmount = ir.DiscountAmount,
-                    };
-                }
-            }
         }
 
-        sale.AppliedPromotions = appliedPromotions.Values.ToList();
+        // Prefer the dedicated sale_promotion breakdown when available; fall back to
+        // aggregating sale_item rows for legacy sales recorded before issue #322.
+        if (promotionRows is { Count: > 0 })
+        {
+            sale.AppliedPromotions = promotionRows
+                .Select(p => new AppliedPromotion
+                {
+                    PromotionId = p.PromotionId,
+                    PromotionName = p.PromotionName,
+                    DiscountAmount = p.DiscountAmount,
+                })
+                .ToList();
+        }
+        else
+        {
+            var appliedPromotions = new Dictionary<int, AppliedPromotion>();
+            foreach (var ir in itemRows)
+            {
+                if (ir.PromotionId.HasValue && ir.DiscountAmount > 0m)
+                {
+                    if (appliedPromotions.TryGetValue(ir.PromotionId.Value, out var existing))
+                    {
+                        existing.DiscountAmount += ir.DiscountAmount;
+                    }
+                    else
+                    {
+                        appliedPromotions[ir.PromotionId.Value] = new AppliedPromotion
+                        {
+                            PromotionId = ir.PromotionId.Value,
+                            PromotionName = ir.PromotionName ?? string.Empty,
+                            DiscountAmount = ir.DiscountAmount,
+                        };
+                    }
+                }
+            }
+            sale.AppliedPromotions = appliedPromotions.Values.ToList();
+        }
+
         return sale;
     }
 
@@ -304,5 +375,14 @@ public class SalesRepository : ISalesRepository
         public decimal DiscountAmount { get; set; }
         public int? PromotionId { get; set; }
         public string? PromotionName { get; set; }
+    }
+
+    private sealed class SalePromotionRow
+    {
+        public int Id { get; set; }
+        public int SaleId { get; set; }
+        public int PromotionId { get; set; }
+        public string PromotionName { get; set; } = string.Empty;
+        public decimal DiscountAmount { get; set; }
     }
 }
