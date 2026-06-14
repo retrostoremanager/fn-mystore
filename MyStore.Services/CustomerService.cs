@@ -43,15 +43,11 @@ public class CustomerService : ICustomerService
     {
         try
         {
-            var customer = await _repository.GetByIdAsync(id);
+            // Repository filters by company_id, so a cross-tenant id returns null (not found).
+            var customer = await _repository.GetByIdAsync(id, companyId);
             if (customer == null)
             {
                 return ApiResponse<Customer>.ErrorResponse($"Customer with ID {id} not found");
-            }
-
-            if (customer.CompanyId != companyId)
-            {
-                throw new UnauthorizedAccessException("Cross-tenant access denied");
             }
 
             return ApiResponse<Customer>.SuccessResponse(customer);
@@ -197,8 +193,8 @@ public class CustomerService : ICustomerService
     {
         try
         {
-            var existing = await _repository.GetByIdAsync(id);
-            if (existing == null || existing.CompanyId != companyId)
+            var existing = await _repository.GetByIdAsync(id, companyId);
+            if (existing == null)
             {
                 return ApiResponse<Customer>.ErrorResponse($"Customer with ID {id} not found");
             }

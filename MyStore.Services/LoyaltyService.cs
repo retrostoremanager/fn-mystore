@@ -71,8 +71,8 @@ public class LoyaltyService : ILoyaltyService
     {
         try
         {
-            var customer = await _customerRepository.GetByIdAsync(customerId);
-            if (customer is null || customer.CompanyId != companyId)
+            var customer = await _customerRepository.GetByIdAsync(customerId, companyId);
+            if (customer is null)
                 return ApiResponse<LoyaltyBalanceResponse>.ErrorResponse("Customer not found");
 
             var balance = await _repository.GetBalanceAsync(companyId, customerId);
@@ -143,8 +143,8 @@ public class LoyaltyService : ILoyaltyService
             if (points <= 0)
                 return ApiResponse<RedeemPointsResponse>.ErrorResponse("Points to redeem must be greater than zero");
 
-            var customer = await _customerRepository.GetByIdAsync(customerId);
-            if (customer is null || customer.CompanyId != companyId)
+            var customer = await _customerRepository.GetByIdAsync(customerId, companyId);
+            if (customer is null)
                 return ApiResponse<RedeemPointsResponse>.ErrorResponse("Customer not found");
 
             var settings = await _repository.GetSettingsAsync(companyId);

@@ -79,7 +79,7 @@ public class LoyaltyServiceTests
     [Fact]
     public async Task GetBalanceAsync_ReturnsBalance()
     {
-        _customerRepositoryMock.Setup(r => r.GetByIdAsync(42)).ReturnsAsync(new Customer { Id = 42, CompanyId = 1 });
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(42, 1)).ReturnsAsync(new Customer { Id = 42, CompanyId = 1 });
         _repositoryMock.Setup(r => r.GetBalanceAsync(1, 42)).ReturnsAsync(150);
         _repositoryMock.Setup(r => r.GetTransactionsAsync(1, 42)).ReturnsAsync(new List<LoyaltyTransaction>());
 
@@ -93,7 +93,7 @@ public class LoyaltyServiceTests
     [Fact]
     public async Task GetBalanceAsync_CustomerNotFound_ReturnsError()
     {
-        _customerRepositoryMock.Setup(r => r.GetByIdAsync(99999)).ReturnsAsync((Customer?)null);
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(99999, 1)).ReturnsAsync((Customer?)null);
 
         var result = await _service.GetBalanceAsync(99999, 1);
 
@@ -105,7 +105,7 @@ public class LoyaltyServiceTests
     [Fact]
     public async Task GetBalanceAsync_CustomerBelongsToDifferentCompany_ReturnsError()
     {
-        _customerRepositoryMock.Setup(r => r.GetByIdAsync(42)).ReturnsAsync(new Customer { Id = 42, CompanyId = 99 });
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(42, 1)).ReturnsAsync((Customer?)null);
 
         var result = await _service.GetBalanceAsync(42, 1);
 
@@ -197,7 +197,7 @@ public class LoyaltyServiceTests
     [Fact]
     public async Task RedeemAsync_CustomerNotFound_ReturnsError()
     {
-        _customerRepositoryMock.Setup(r => r.GetByIdAsync(99999)).ReturnsAsync((Customer?)null);
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(99999, 1)).ReturnsAsync((Customer?)null);
 
         var result = await _service.RedeemAsync(99999, 1, 10);
 
@@ -211,7 +211,7 @@ public class LoyaltyServiceTests
     [Fact]
     public async Task RedeemAsync_CustomerBelongsToDifferentCompany_ReturnsError()
     {
-        _customerRepositoryMock.Setup(r => r.GetByIdAsync(5)).ReturnsAsync(new Customer { Id = 5, CompanyId = 99 });
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(5, 1)).ReturnsAsync((Customer?)null);
 
         var result = await _service.RedeemAsync(5, 1, 10);
 
@@ -226,7 +226,7 @@ public class LoyaltyServiceTests
     public async Task RedeemAsync_SufficientBalance_ReturnsCredit()
     {
         var settings = new LoyaltySettings { CompanyId = 1, IsEnabled = true, RedemptionRate = 100m };
-        _customerRepositoryMock.Setup(r => r.GetByIdAsync(5)).ReturnsAsync(new Customer { Id = 5, CompanyId = 1 });
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(5, 1)).ReturnsAsync(new Customer { Id = 5, CompanyId = 1 });
         _repositoryMock.Setup(r => r.GetSettingsAsync(1)).ReturnsAsync(settings);
         _repositoryMock.Setup(r => r.GetBalanceAsync(1, 5)).ReturnsAsync(500);
         _repositoryMock.Setup(r => r.AddTransactionAsync(It.IsAny<LoyaltyTransaction>()))
@@ -244,7 +244,7 @@ public class LoyaltyServiceTests
     public async Task RedeemAsync_InsufficientBalance_ReturnsError()
     {
         var settings = new LoyaltySettings { CompanyId = 1, IsEnabled = true, RedemptionRate = 100m };
-        _customerRepositoryMock.Setup(r => r.GetByIdAsync(5)).ReturnsAsync(new Customer { Id = 5, CompanyId = 1 });
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(5, 1)).ReturnsAsync(new Customer { Id = 5, CompanyId = 1 });
         _repositoryMock.Setup(r => r.GetSettingsAsync(1)).ReturnsAsync(settings);
         _repositoryMock.Setup(r => r.GetBalanceAsync(1, 5)).ReturnsAsync(100);
 
@@ -259,7 +259,7 @@ public class LoyaltyServiceTests
     public async Task RedeemAsync_LoyaltyDisabled_ReturnsError()
     {
         var settings = new LoyaltySettings { CompanyId = 1, IsEnabled = false };
-        _customerRepositoryMock.Setup(r => r.GetByIdAsync(5)).ReturnsAsync(new Customer { Id = 5, CompanyId = 1 });
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(5, 1)).ReturnsAsync(new Customer { Id = 5, CompanyId = 1 });
         _repositoryMock.Setup(r => r.GetSettingsAsync(1)).ReturnsAsync(settings);
 
         var result = await _service.RedeemAsync(5, 1, 100);
@@ -281,7 +281,7 @@ public class LoyaltyServiceTests
     public async Task RedeemAsync_InsertsNegativeTransaction()
     {
         var settings = new LoyaltySettings { CompanyId = 1, IsEnabled = true, RedemptionRate = 100m };
-        _customerRepositoryMock.Setup(r => r.GetByIdAsync(5)).ReturnsAsync(new Customer { Id = 5, CompanyId = 1 });
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(5, 1)).ReturnsAsync(new Customer { Id = 5, CompanyId = 1 });
         _repositoryMock.Setup(r => r.GetSettingsAsync(1)).ReturnsAsync(settings);
         _repositoryMock.Setup(r => r.GetBalanceAsync(1, 5)).ReturnsAsync(300);
         _repositoryMock.Setup(r => r.AddTransactionAsync(It.IsAny<LoyaltyTransaction>()))
@@ -326,7 +326,7 @@ public class LoyaltyServiceTests
     public async Task RedeemAsync_ZeroBalance_ReturnsErrorNotException()
     {
         var settings = new LoyaltySettings { CompanyId = 1, IsEnabled = true, RedemptionRate = 100m };
-        _customerRepositoryMock.Setup(r => r.GetByIdAsync(5)).ReturnsAsync(new Customer { Id = 5, CompanyId = 1 });
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(5, 1)).ReturnsAsync(new Customer { Id = 5, CompanyId = 1 });
         _repositoryMock.Setup(r => r.GetSettingsAsync(1)).ReturnsAsync(settings);
         _repositoryMock.Setup(r => r.GetBalanceAsync(1, 5)).ReturnsAsync(0);
 
@@ -346,7 +346,7 @@ public class LoyaltyServiceTests
             new LoyaltyTransaction { Id = 2, Points = 50, TransactionType = "earn_tradein" },
             new LoyaltyTransaction { Id = 3, Points = -30, TransactionType = "redeem" },
         };
-        _customerRepositoryMock.Setup(r => r.GetByIdAsync(42)).ReturnsAsync(new Customer { Id = 42, CompanyId = 1 });
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(42, 1)).ReturnsAsync(new Customer { Id = 42, CompanyId = 1 });
         _repositoryMock.Setup(r => r.GetBalanceAsync(1, 42)).ReturnsAsync(120);
         _repositoryMock.Setup(r => r.GetTransactionsAsync(1, 42)).ReturnsAsync(transactions);
 
@@ -362,7 +362,7 @@ public class LoyaltyServiceTests
     public async Task RedeemAsync_ExactBalance_ReturnsSuccessAndZeroNewBalance()
     {
         var settings = new LoyaltySettings { CompanyId = 1, IsEnabled = true, RedemptionRate = 100m };
-        _customerRepositoryMock.Setup(r => r.GetByIdAsync(5)).ReturnsAsync(new Customer { Id = 5, CompanyId = 1 });
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(5, 1)).ReturnsAsync(new Customer { Id = 5, CompanyId = 1 });
         _repositoryMock.Setup(r => r.GetSettingsAsync(1)).ReturnsAsync(settings);
         _repositoryMock.Setup(r => r.GetBalanceAsync(1, 5)).ReturnsAsync(100);
         _repositoryMock.Setup(r => r.AddTransactionAsync(It.IsAny<LoyaltyTransaction>()))

@@ -38,13 +38,13 @@ public class CustomerRepository : ICustomerRepository
         return rows.ToList();
     }
 
-    public async Task<Customer?> GetByIdAsync(int id)
+    public async Task<Customer?> GetByIdAsync(int id, int companyId)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         return await connection.QueryFirstOrDefaultAsync<Customer>(
             $@"SELECT {SelectColumnsWithPoints} FROM customer c
-               WHERE c.id = @p_id",
-            new { p_id = id });
+               WHERE c.id = @p_id AND c.company_id = @p_company_id",
+            new { p_id = id, p_company_id = companyId });
     }
 
     public async Task<Customer?> GetByEmailAsync(string email, int companyId)
@@ -110,7 +110,7 @@ public class CustomerRepository : ICustomerRepository
                 p_zip_code = customer.ZipCode,
             });
         if (rows == 0) return null;
-        return await GetByIdAsync(id);
+        return await GetByIdAsync(id, companyId);
     }
 
     public async Task<bool> DeleteAsync(int id, int companyId)
