@@ -15,6 +15,8 @@ public class Sale
     public decimal TaxRate { get; set; }
     public string? TaxLabel { get; set; }
     public decimal Total { get; set; }
+    public decimal DiscountTotal { get; set; }
+    public List<AppliedPromotion> AppliedPromotions { get; set; } = new();
     public string PaymentMethod { get; set; } = string.Empty;
     public DateTime SaleDate { get; set; }
     public string? Notes { get; set; }
@@ -29,6 +31,16 @@ public class SaleItem
     public int Quantity { get; set; }
     public decimal UnitPrice { get; set; }
     public decimal TotalPrice { get; set; }
+    public decimal DiscountAmount { get; set; }
+    public int? PromotionId { get; set; }
+    public string? PromotionName { get; set; }
+}
+
+public class AppliedPromotion
+{
+    public int PromotionId { get; set; }
+    public string PromotionName { get; set; } = string.Empty;
+    public decimal DiscountAmount { get; set; }
 }
 
 public class CreateSaleRequest
