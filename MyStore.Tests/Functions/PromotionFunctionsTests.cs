@@ -425,7 +425,7 @@ public class PromotionFunctionsTests
             StartDate = DateTime.UtcNow,
         };
 
-        var req = TestHelpers.CreateHttpRequestData(new Mock<FunctionContext>().Object, createRequest, _companyHeaders);
+        var req = TestHelpers.CreateHttpRequestData(TestHelpers.CreateMockFunctionContextWithJwt(CompanyId), createRequest, _companyHeaders);
 
         var result = await _functions.CreatePromotion(req);
 
@@ -448,7 +448,7 @@ public class PromotionFunctionsTests
             StartDate = DateTime.UtcNow,
         };
 
-        var req = TestHelpers.CreateHttpRequestData(new Mock<FunctionContext>().Object, createRequest, _companyHeaders);
+        var req = TestHelpers.CreateHttpRequestData(TestHelpers.CreateMockFunctionContextWithJwt(CompanyId), createRequest, _companyHeaders);
 
         var result = await _functions.CreatePromotion(req);
 
@@ -471,7 +471,7 @@ public class PromotionFunctionsTests
             StartDate = DateTime.UtcNow,
         };
 
-        var req = TestHelpers.CreateHttpRequestData(new Mock<FunctionContext>().Object, createRequest, _companyHeaders);
+        var req = TestHelpers.CreateHttpRequestData(TestHelpers.CreateMockFunctionContextWithJwt(CompanyId), createRequest, _companyHeaders);
 
         var result = await _functions.CreatePromotion(req);
 

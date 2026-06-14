@@ -1143,8 +1143,7 @@ public class SalesFunctionsTests
             .Setup(s => s.GetSaleByIdAsync(1, CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var httpRequest = TestHelpers.CreateHttpRequestData(TestHelpers.CreateMockFunctionContextWithJwt(CompanyId), null, CompanyHeaders);
 
         var result = await _functions.GetSaleById(httpRequest, 1);
 
@@ -1193,8 +1192,7 @@ public class SalesFunctionsTests
             .Setup(s => s.GetSaleByIdAsync(1, CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var httpRequest = TestHelpers.CreateHttpRequestData(TestHelpers.CreateMockFunctionContextWithJwt(CompanyId), null, CompanyHeaders);
 
         var result = await _functions.GetSaleById(httpRequest, 1);
 
@@ -1239,8 +1237,7 @@ public class SalesFunctionsTests
             .Setup(s => s.GetSaleByIdAsync(1, CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var httpRequest = TestHelpers.CreateHttpRequestData(TestHelpers.CreateMockFunctionContextWithJwt(CompanyId), null, CompanyHeaders);
 
         var result = await _functions.GetSaleById(httpRequest, 1);
 
@@ -1286,8 +1283,7 @@ public class SalesFunctionsTests
             .Setup(s => s.GetAllSalesAsync(CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var httpRequest = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var httpRequest = TestHelpers.CreateHttpRequestData(TestHelpers.CreateMockFunctionContextWithJwt(CompanyId), null, CompanyHeaders);
 
         var result = await _functions.GetAllSales(httpRequest);
 

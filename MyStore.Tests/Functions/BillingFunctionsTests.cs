@@ -773,7 +773,7 @@ public class BillingFunctionsTests
     {
         var companyId = 20;
         var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
-        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers, context: TestHelpers.CreateMockFunctionContextWithJwt(companyId));
 
         var localSub = new MyStore.Models.Subscription
         {
@@ -806,7 +806,7 @@ public class BillingFunctionsTests
     {
         var companyId = 21;
         var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
-        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers, context: TestHelpers.CreateMockFunctionContextWithJwt(companyId));
 
         var periodStart = new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc);
         var periodEnd = new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -881,7 +881,7 @@ public class BillingFunctionsTests
     {
         var companyId = 22;
         var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
-        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers, context: TestHelpers.CreateMockFunctionContextWithJwt(companyId));
 
         var localSub = new MyStore.Models.Subscription
         {
@@ -922,7 +922,7 @@ public class BillingFunctionsTests
     {
         var companyId = 23;
         var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
-        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers);
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers, context: TestHelpers.CreateMockFunctionContextWithJwt(companyId));
 
         var periodStart = new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc);
         var periodEnd = new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc);
