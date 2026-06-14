@@ -428,4 +428,49 @@ public class SalesServiceTests
             l => l.EarnFromSaleAsync(10, CompanyId, 100m, 42),
             Times.Once);
     }
+
+    [Fact]
+    public async Task CreateSaleAsync_LoyaltyServiceThrows_SaleCompletionIsNotRolledBack()
+    {
+        var request = new CreateSaleRequest
+        {
+            CustomerId = 10,
+            PaymentMethod = "Cash",
+            Items = new List<CreateSaleItemRequest>
+            {
+                new CreateSaleItemRequest { InventoryItemId = 100, Quantity = 1, UnitPrice = 30m }
+            }
+        };
+
+        var loyaltyServiceMock = new Mock<ILoyaltyService>();
+        loyaltyServiceMock
+            .Setup(l => l.EarnFromSaleAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<decimal>(), It.IsAny<int?>()))
+            .ThrowsAsync(new Exception("loyalty backend offline"));
+
+        var serviceWithLoyalty = new SalesService(
+            _salesRepositoryMock.Object,
+            _customerRepositoryMock.Object,
+            _userRepositoryMock.Object,
+            _inventoryRepositoryMock.Object,
+            _companyRepositoryMock.Object,
+            loyaltyServiceMock.Object);
+
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(new Customer { Id = 10, CompanyId = CompanyId });
+        _inventoryRepositoryMock.Setup(r => r.GetByIdAsync(100, CompanyId))
+            .ReturnsAsync(new InventoryItem { Id = 100, CompanyId = CompanyId, Name = "Game", Quantity = 5 });
+        _salesRepositoryMock.Setup(r => r.CreateAsync(It.IsAny<Sale>())).ReturnsAsync((Sale s) =>
+        {
+            s.Id = 77;
+            return s;
+        });
+
+        var result = await serviceWithLoyalty.CreateSaleAsync(request, CompanyId);
+
+        result.Success.Should().BeTrue();
+        result.Data.Should().NotBeNull();
+        result.Data!.Id.Should().Be(77);
+        loyaltyServiceMock.Verify(
+            l => l.EarnFromSaleAsync(10, CompanyId, 30m, 77),
+            Times.Once);
+    }
 }

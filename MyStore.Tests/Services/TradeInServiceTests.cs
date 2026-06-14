@@ -209,6 +209,34 @@ public class TradeInServiceTests
     }
 
     [Fact]
+    public async Task CompleteAsync_LoyaltyServiceThrows_TradeInCompletionIsNotRolledBack()
+    {
+        var items = new List<TradeInItem>
+        {
+            new() { Id = 1, TradeInId = 1, GameTitle = "Mario", Platform = "NES", Condition = "good", OfferedValue = 20m, AcceptedValue = 15m },
+        };
+        var draft = new TradeIn { Id = 1, CompanyId = 5, CustomerId = 10, Status = "draft", PaymentType = "cash", Items = items };
+        var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
+
+        _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
+        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, "cash", It.IsAny<DateTime>())).ReturnsAsync(completed);
+        _tradeInRepoMock.Setup(r => r.UpdateItemAsync(It.IsAny<TradeInItem>())).ReturnsAsync((TradeInItem i) => i);
+        _inventoryRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
+            .ReturnsAsync((InventoryItem inv) => { inv.Id = 99; return inv; });
+        _loyaltyMock
+            .Setup(l => l.EarnFromTradeInAsync(10, 5, 15m, 1))
+            .ThrowsAsync(new Exception("loyalty backend offline"));
+
+        var result = await _service.CompleteAsync(1, 5, "cash");
+
+        result.Success.Should().BeTrue();
+        result.Message.Should().Contain("completed successfully");
+        _loyaltyMock.Verify(l => l.EarnFromTradeInAsync(10, 5, 15m, 1), Times.Once);
+        _tradeInRepoMock.Verify(r => r.CompleteAsync(1, "cash", It.IsAny<DateTime>()), Times.Once);
+    }
+
+    [Fact]
     public async Task CompleteAsync_CashNoLoyaltyService_CompletesWithoutError()
     {
         var items = new List<TradeInItem>
