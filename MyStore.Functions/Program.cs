@@ -71,7 +71,6 @@ var host = new HostBuilder()
         services.AddScoped<IConsignmentRepository, ConsignmentRepository>();
         
         // Register services
-        services.AddHttpClient<IIgdbService, IgdbService>();
         services.AddScoped<IGameService, GameService>();
         services.AddScoped<IInventoryService, InventoryService>();
         services.AddScoped<ICustomerService, CustomerService>();
