@@ -424,7 +424,7 @@ public class BillingFunctionsTests
         {
             Id = "in_test1",
             Number = "INV-0001",
-            Total = 2999,
+            AmountDue = 2999,
             Currency = "usd",
             Status = "paid",
             Created = created,
@@ -459,6 +459,8 @@ public class BillingFunctionsTests
         inv.GetProperty("amount").GetDecimal().Should().Be(29.99m);
         inv.GetProperty("currency").GetString().Should().Be("usd");
         inv.GetProperty("status").GetString().Should().Be("paid");
+        inv.GetProperty("date").GetDateTime().Should().Be(created);
+        inv.GetProperty("pdfUrl").GetString().Should().Be("https://pay.stripe.com/invoice/test/pdf");
     }
 
     [Fact]

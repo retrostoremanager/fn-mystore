@@ -29,11 +29,11 @@ public class InvoiceSummary
     public decimal Amount { get; set; }
     public string Currency { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
-    public DateTime Created { get; set; }
+    public DateTime Date { get; set; }
     public DateTime PeriodStart { get; set; }
     public DateTime PeriodEnd { get; set; }
     public string? HostedInvoiceUrl { get; set; }
-    public string? InvoicePdf { get; set; }
+    public string? PdfUrl { get; set; }
 }
 
 /// <summary>

@@ -435,14 +435,14 @@ public class BillingFunctions
             {
                 Id = inv.Id,
                 Number = inv.Number,
-                Amount = inv.Total / 100m,
+                Amount = inv.AmountDue / 100m,
                 Currency = inv.Currency,
                 Status = inv.Status,
-                Created = inv.Created,
+                Date = inv.Created,
                 PeriodStart = inv.PeriodStart,
                 PeriodEnd = inv.PeriodEnd,
                 HostedInvoiceUrl = inv.HostedInvoiceUrl,
-                InvoicePdf = inv.InvoicePdf,
+                PdfUrl = inv.InvoicePdf,
             }).ToList();
 
             var result = new InvoiceListResponse
