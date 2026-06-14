@@ -22,7 +22,7 @@ public class LoyaltyRepository : ILoyaltyRepository
 
     public async Task<LoyaltySettings?> GetSettingsAsync(int companyId)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         return await connection.QueryFirstOrDefaultAsync<LoyaltySettings>(
             @"SELECT id, company_id, points_per_dollar_spent, points_per_dollar_trade_in, redemption_rate, is_enabled
               FROM loyalty_settings
@@ -32,7 +32,7 @@ public class LoyaltyRepository : ILoyaltyRepository
 
     public async Task<LoyaltySettings> UpsertSettingsAsync(LoyaltySettings settings)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, settings.CompanyId);
         return await connection.QuerySingleAsync<LoyaltySettings>(
             @"INSERT INTO loyalty_settings (company_id, points_per_dollar_spent, points_per_dollar_trade_in, redemption_rate, is_enabled)
               VALUES (@p_company_id, @p_points_per_dollar_spent, @p_points_per_dollar_trade_in, @p_redemption_rate, @p_is_enabled)
@@ -54,7 +54,7 @@ public class LoyaltyRepository : ILoyaltyRepository
 
     public async Task<int> GetBalanceAsync(int companyId, int customerId)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         var result = await connection.QueryFirstOrDefaultAsync<int?>(
             @"SELECT COALESCE(SUM(points), 0)
               FROM loyalty_transaction
@@ -65,7 +65,7 @@ public class LoyaltyRepository : ILoyaltyRepository
 
     public async Task<LoyaltyTransaction> AddTransactionAsync(LoyaltyTransaction transaction)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, transaction.CompanyId);
         return await connection.QuerySingleAsync<LoyaltyTransaction>(
             @"INSERT INTO loyalty_transaction (company_id, customer_id, points, transaction_type, reference_id, notes, created_at)
               VALUES (@p_company_id, @p_customer_id, @p_points, @p_transaction_type, @p_reference_id, @p_notes, NOW())
@@ -83,7 +83,7 @@ public class LoyaltyRepository : ILoyaltyRepository
 
     public async Task<List<LoyaltyTransaction>> GetTransactionsAsync(int companyId, int customerId)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         var rows = await connection.QueryAsync<LoyaltyTransaction>(
             @"SELECT id, company_id, customer_id, points, transaction_type, reference_id, notes, created_at
               FROM loyalty_transaction

@@ -34,7 +34,7 @@ public class SalesRepository : ISalesRepository
 
     public async Task<List<Sale>> GetAllAsync(int companyId)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         var sql = $@"SELECT {SaleSelectColumns}
              FROM sale s
              WHERE s.company_id = @p_company_id
@@ -62,7 +62,7 @@ public class SalesRepository : ISalesRepository
 
     public async Task<Sale?> GetByIdAsync(int id, int companyId)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         var sql = $@"SELECT {SaleSelectColumns}
              FROM sale s
              WHERE s.id = @p_id AND s.company_id = @p_company_id";
@@ -85,7 +85,7 @@ public class SalesRepository : ISalesRepository
 
     public async Task<List<Sale>> GetByCustomerIdAsync(int customerId, int companyId)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         var sql = $@"SELECT {SaleSelectColumns}
              FROM sale s
              WHERE s.customer_id = @p_customer_id AND s.company_id = @p_company_id
@@ -96,7 +96,7 @@ public class SalesRepository : ISalesRepository
 
     public async Task<List<Sale>> GetByUserIdAsync(int userId, int companyId)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         var sql = $@"SELECT {SaleSelectColumns}
              FROM sale s
              WHERE s.user_id = @p_user_id AND s.company_id = @p_company_id
@@ -107,7 +107,7 @@ public class SalesRepository : ISalesRepository
 
     public async Task<List<Sale>> GetByDateRangeAsync(DateTime startDate, DateTime endDate, int companyId)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         var sql = $@"SELECT {SaleSelectColumns}
              FROM sale s
              WHERE s.company_id = @p_company_id
@@ -126,8 +126,7 @@ public class SalesRepository : ISalesRepository
     {
         var saleDate = sale.SaleDate == default ? DateTime.UtcNow : sale.SaleDate;
 
-        await using var connection = new NpgsqlConnection(_connectionString);
-        await connection.OpenAsync();
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, sale.CompanyId);
         await using var tx = await connection.BeginTransactionAsync();
 
         try
@@ -209,8 +208,7 @@ public class SalesRepository : ISalesRepository
 
     public async Task<bool> DeleteAsync(int id, int companyId)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
-        await connection.OpenAsync();
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         await using var tx = await connection.BeginTransactionAsync();
         try
         {

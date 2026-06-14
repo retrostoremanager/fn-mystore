@@ -22,7 +22,7 @@ public class LocationRepository : ILocationRepository
 
     public async Task<IEnumerable<Location>> GetByCompanyIdAsync(int companyId)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         return await connection.QueryAsync<Location>(
             "SELECT * FROM location_get_by_company_id(@p_company_id)",
             new { p_company_id = companyId });
@@ -36,7 +36,7 @@ public class LocationRepository : ILocationRepository
 
     public async Task<int> CreateAsync(Location location)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, location.CompanyId);
         return await connection.QuerySingleAsync<int>(
             "SELECT location_create(@p_company_id, @p_name, @p_address, @p_city, @p_state, @p_zip_code, @p_phone, @p_timezone, @p_is_primary)",
             new
@@ -55,7 +55,7 @@ public class LocationRepository : ILocationRepository
 
     public async Task<bool> UpdateAsync(Location location)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, location.CompanyId);
         var rowsAffected = await connection.QuerySingleAsync<int>(
             "SELECT location_update(@p_id, @p_company_id, @p_name, @p_address, @p_city, @p_state, @p_zip_code, @p_phone, @p_timezone, @p_is_primary)",
             new
@@ -76,7 +76,7 @@ public class LocationRepository : ILocationRepository
 
     public async Task<bool> DeleteAsync(int id, int companyId)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         var rowsAffected = await connection.QuerySingleAsync<int>(
             "SELECT location_delete(@p_id, @p_company_id)",
             new { p_id = id, p_company_id = companyId });
