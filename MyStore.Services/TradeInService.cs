@@ -201,7 +201,7 @@ public class TradeInService : ITradeInService
             if (completed is null)
                 return ApiResponse<TradeIn>.ErrorResponse($"Failed to complete trade-in with ID {id}");
 
-            if (paymentType == "cash" && tradeIn.CustomerId.HasValue && _loyaltyService is not null)
+            if (paymentType == "store_credit" && tradeIn.CustomerId.HasValue && _loyaltyService is not null)
             {
                 var totalAccepted = tradeIn.Items
                     .Where(i => i.AcceptedValue > 0)

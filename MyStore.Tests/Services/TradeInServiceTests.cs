@@ -183,17 +183,17 @@ public class TradeInServiceTests
     }
 
     [Fact]
-    public async Task CompleteAsync_CashWithCustomer_CallsLoyaltyService()
+    public async Task CompleteAsync_StoreCreditWithCustomer_CallsLoyaltyService()
     {
         var items = new List<TradeInItem>
         {
             new() { Id = 1, TradeInId = 1, GameTitle = "Mario", Platform = "NES", Condition = "good", OfferedValue = 20m, AcceptedValue = 15m },
         };
-        var draft = new TradeIn { Id = 1, CompanyId = 5, CustomerId = 10, Status = "draft", PaymentType = "cash", Items = items };
+        var draft = new TradeIn { Id = 1, CompanyId = 5, CustomerId = 10, Status = "draft", PaymentType = "store_credit", Items = items };
         var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, "cash", It.IsAny<DateTime>())).ReturnsAsync(completed);
+        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, "store_credit", It.IsAny<DateTime>())).ReturnsAsync(completed);
         _tradeInRepoMock.Setup(r => r.UpdateItemAsync(It.IsAny<TradeInItem>())).ReturnsAsync((TradeInItem i) => i);
         _inventoryRepoMock
             .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
@@ -202,7 +202,7 @@ public class TradeInServiceTests
             .Setup(l => l.EarnFromTradeInAsync(10, 5, 15m, 1))
             .Returns(Task.CompletedTask);
 
-        var result = await _service.CompleteAsync(1, 5, "cash");
+        var result = await _service.CompleteAsync(1, 5, "store_credit");
 
         result.Success.Should().BeTrue();
         _loyaltyMock.Verify(l => l.EarnFromTradeInAsync(10, 5, 15m, 1), Times.Once);
@@ -215,11 +215,11 @@ public class TradeInServiceTests
         {
             new() { Id = 1, TradeInId = 1, GameTitle = "Mario", Platform = "NES", Condition = "good", OfferedValue = 20m, AcceptedValue = 15m },
         };
-        var draft = new TradeIn { Id = 1, CompanyId = 5, CustomerId = 10, Status = "draft", PaymentType = "cash", Items = items };
+        var draft = new TradeIn { Id = 1, CompanyId = 5, CustomerId = 10, Status = "draft", PaymentType = "store_credit", Items = items };
         var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, "cash", It.IsAny<DateTime>())).ReturnsAsync(completed);
+        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, "store_credit", It.IsAny<DateTime>())).ReturnsAsync(completed);
         _tradeInRepoMock.Setup(r => r.UpdateItemAsync(It.IsAny<TradeInItem>())).ReturnsAsync((TradeInItem i) => i);
         _inventoryRepoMock
             .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
@@ -228,32 +228,32 @@ public class TradeInServiceTests
             .Setup(l => l.EarnFromTradeInAsync(10, 5, 15m, 1))
             .ThrowsAsync(new Exception("loyalty backend offline"));
 
-        var result = await _service.CompleteAsync(1, 5, "cash");
+        var result = await _service.CompleteAsync(1, 5, "store_credit");
 
         result.Success.Should().BeTrue();
         result.Message.Should().Contain("completed successfully");
         _loyaltyMock.Verify(l => l.EarnFromTradeInAsync(10, 5, 15m, 1), Times.Once);
-        _tradeInRepoMock.Verify(r => r.CompleteAsync(1, "cash", It.IsAny<DateTime>()), Times.Once);
+        _tradeInRepoMock.Verify(r => r.CompleteAsync(1, "store_credit", It.IsAny<DateTime>()), Times.Once);
     }
 
     [Fact]
-    public async Task CompleteAsync_CashNoLoyaltyService_CompletesWithoutError()
+    public async Task CompleteAsync_StoreCreditNoLoyaltyService_CompletesWithoutError()
     {
         var items = new List<TradeInItem>
         {
             new() { Id = 1, TradeInId = 1, GameTitle = "Mario", Platform = "NES", Condition = "good", OfferedValue = 20m, AcceptedValue = 15m },
         };
-        var draft = new TradeIn { Id = 1, CompanyId = 5, CustomerId = 10, Status = "draft", PaymentType = "cash", Items = items };
+        var draft = new TradeIn { Id = 1, CompanyId = 5, CustomerId = 10, Status = "draft", PaymentType = "store_credit", Items = items };
         var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, "cash", It.IsAny<DateTime>())).ReturnsAsync(completed);
+        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, "store_credit", It.IsAny<DateTime>())).ReturnsAsync(completed);
         _tradeInRepoMock.Setup(r => r.UpdateItemAsync(It.IsAny<TradeInItem>())).ReturnsAsync((TradeInItem i) => i);
         _inventoryRepoMock
             .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
             .ReturnsAsync((InventoryItem inv) => { inv.Id = 99; return inv; });
 
-        var result = await _serviceNoLoyalty.CompleteAsync(1, 5, "cash");
+        var result = await _serviceNoLoyalty.CompleteAsync(1, 5, "store_credit");
 
         result.Success.Should().BeTrue();
     }
@@ -445,13 +445,62 @@ public class TradeInServiceTests
     }
 
     [Fact]
-    public async Task CompleteAsync_StoreCreditPayment_DoesNotCallLoyaltyService()
+    public async Task CompleteAsync_CashPayment_DoesNotCallLoyaltyService()
     {
         var items = new List<TradeInItem>
         {
             new() { Id = 1, TradeInId = 1, GameTitle = "Mario", Platform = "NES", Condition = "good", OfferedValue = 20m, AcceptedValue = 15m },
         };
+        var draft = new TradeIn { Id = 1, CompanyId = 5, CustomerId = 10, Status = "draft", PaymentType = "cash", Items = items };
+        var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
+
+        _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
+        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, "cash", It.IsAny<DateTime>())).ReturnsAsync(completed);
+        _tradeInRepoMock.Setup(r => r.UpdateItemAsync(It.IsAny<TradeInItem>())).ReturnsAsync((TradeInItem i) => i);
+        _inventoryRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
+            .ReturnsAsync((InventoryItem inv) => { inv.Id = 99; return inv; });
+
+        var result = await _service.CompleteAsync(1, 5, "cash");
+
+        result.Success.Should().BeTrue();
+        _loyaltyMock.Verify(l => l.EarnFromTradeInAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<decimal>(), It.IsAny<int?>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_StoreCreditAmountEqualsTotalAcceptedValue()
+    {
+        var items = new List<TradeInItem>
+        {
+            new() { Id = 1, TradeInId = 1, GameTitle = "Mario", Platform = "NES", Condition = "good", OfferedValue = 20m, AcceptedValue = 15m },
+            new() { Id = 2, TradeInId = 1, GameTitle = "Zelda", Platform = "NES", Condition = "fair", OfferedValue = 10m, AcceptedValue = 7m },
+        };
         var draft = new TradeIn { Id = 1, CompanyId = 5, CustomerId = 10, Status = "draft", Items = items };
+        var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
+
+        _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
+        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, "store_credit", It.IsAny<DateTime>())).ReturnsAsync(completed);
+        _tradeInRepoMock.Setup(r => r.UpdateItemAsync(It.IsAny<TradeInItem>())).ReturnsAsync((TradeInItem i) => i);
+        _inventoryRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
+            .ReturnsAsync((InventoryItem inv) => { inv.Id = 99; return inv; });
+        _loyaltyMock
+            .Setup(l => l.EarnFromTradeInAsync(10, 5, 22m, 1))
+            .Returns(Task.CompletedTask);
+
+        await _service.CompleteAsync(1, 5, "store_credit");
+
+        _loyaltyMock.Verify(l => l.EarnFromTradeInAsync(10, 5, 22m, 1), Times.Once);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_StoreCreditAnonymousCustomer_DoesNotCallLoyaltyService()
+    {
+        var items = new List<TradeInItem>
+        {
+            new() { Id = 1, TradeInId = 1, GameTitle = "Mario", Platform = "NES", Condition = "good", OfferedValue = 20m, AcceptedValue = 15m },
+        };
+        var draft = new TradeIn { Id = 1, CompanyId = 5, CustomerId = null, Status = "draft", PaymentType = "store_credit", Items = items };
         var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
@@ -465,32 +514,6 @@ public class TradeInServiceTests
 
         result.Success.Should().BeTrue();
         _loyaltyMock.Verify(l => l.EarnFromTradeInAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<decimal>(), It.IsAny<int?>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task CompleteAsync_CashAmountEqualsTotalAcceptedValue()
-    {
-        var items = new List<TradeInItem>
-        {
-            new() { Id = 1, TradeInId = 1, GameTitle = "Mario", Platform = "NES", Condition = "good", OfferedValue = 20m, AcceptedValue = 15m },
-            new() { Id = 2, TradeInId = 1, GameTitle = "Zelda", Platform = "NES", Condition = "fair", OfferedValue = 10m, AcceptedValue = 7m },
-        };
-        var draft = new TradeIn { Id = 1, CompanyId = 5, CustomerId = 10, Status = "draft", Items = items };
-        var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
-
-        _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, "cash", It.IsAny<DateTime>())).ReturnsAsync(completed);
-        _tradeInRepoMock.Setup(r => r.UpdateItemAsync(It.IsAny<TradeInItem>())).ReturnsAsync((TradeInItem i) => i);
-        _inventoryRepoMock
-            .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
-            .ReturnsAsync((InventoryItem inv) => { inv.Id = 99; return inv; });
-        _loyaltyMock
-            .Setup(l => l.EarnFromTradeInAsync(10, 5, 22m, 1))
-            .Returns(Task.CompletedTask);
-
-        await _service.CompleteAsync(1, 5, "cash");
-
-        _loyaltyMock.Verify(l => l.EarnFromTradeInAsync(10, 5, 22m, 1), Times.Once);
     }
 
     [Fact]
