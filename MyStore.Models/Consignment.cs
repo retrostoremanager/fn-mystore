@@ -10,6 +10,7 @@ public class ConsignmentItem
     public decimal? SalePrice { get; set; }
     public decimal SplitPercent { get; set; }
     public string Status { get; set; } = string.Empty;
+    public int? InventoryItemId { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 }
