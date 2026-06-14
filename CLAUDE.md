@@ -37,7 +37,7 @@ Do not Glob or LS. Every file is listed here.
 - `Services/LogoStorageService.cs` — Azure Blob logo storage
 
 ### MyStore.Services/
-Interfaces: `ICompanyService`, `ICustomerService`, `IEmailService`, `IGameService`, `IIgdbService`, `IInventoryService`, `IPaymentService`, `IPermissionService`, `ISalesService`, `ISubscriptionChangeService`, `ISubscriptionService`, `ITrialConversionService`, `ITrialSuspensionService`, `IUserService`
+Interfaces: `ICompanyService`, `ICustomerService`, `IEmailService`, `IGameService`, `IInventoryService`, `IPaymentService`, `IPermissionService`, `ISalesService`, `ISubscriptionChangeService`, `ISubscriptionService`, `ITrialConversionService`, `ITrialSuspensionService`, `IUserService`
 
 Implementations: matching `*Service.cs` files for each interface above, plus:
 - `StripeOptions.cs` — Stripe config (SecretKey, WebhookSecret, PriceId*)
