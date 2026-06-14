@@ -400,4 +400,49 @@ public class ConsignmentServiceTests
         result.Success.Should().BeTrue();
         _salesRepositoryMock.Verify(s => s.CreateAsync(It.Is<Sale>(sale => sale.Items.Count == 0)), Times.Once);
     }
+
+    [Fact]
+    public async Task MarkSoldAsync_QaScenario_ActiveItemTriggersSaleAndInventoryDecrement()
+    {
+        var existing = new ConsignmentItem
+        {
+            Id = 9,
+            CompanyId = 13,
+            CustomerId = 53,
+            Status = "active",
+            SplitPercent = 60m,
+            Description = "PR188 QA",
+            InventoryItemId = 70,
+        };
+        var updated = new ConsignmentItem
+        {
+            Id = 9,
+            CompanyId = 13,
+            CustomerId = 53,
+            Status = "sold",
+            SplitPercent = 60m,
+            SalePrice = 50m,
+            Description = "PR188 QA",
+            InventoryItemId = 70,
+        };
+
+        _repositoryMock.Setup(r => r.GetByIdAsync(9, 13)).ReturnsAsync(existing);
+        _repositoryMock.Setup(r => r.MarkSoldAsync(9, 50m, 13)).ReturnsAsync(updated);
+
+        var result = await _service.MarkSoldAsync(9, 50m, 13);
+
+        result.Success.Should().BeTrue();
+        result.Message.Should().NotContain("Only active items");
+        _salesRepositoryMock.Verify(
+            s => s.CreateAsync(It.Is<Sale>(sale =>
+                sale.CompanyId == 13
+                && sale.CustomerId == 53
+                && sale.PaymentMethod == "consignment"
+                && sale.Total == 50m
+                && sale.Items.Count == 1
+                && sale.Items[0].InventoryItemId == 70
+                && sale.Items[0].Quantity == 1)),
+            Times.Once);
+        _inventoryRepositoryMock.Verify(i => i.UpdateQuantityAsync(70, -1, 13), Times.Once);
+    }
 }
