@@ -611,6 +611,54 @@ public class SalesServiceTests
     }
 
     [Fact]
+    public async Task CreateSaleAsync_StackingPromotionsExceedLineTotal_AppliedPromotionsSumEqualsDiscountTotal()
+    {
+        var request = new CreateSaleRequest
+        {
+            CustomerId = 10,
+            PaymentMethod = "Cash",
+            Items = new List<CreateSaleItemRequest>
+            {
+                new CreateSaleItemRequest { InventoryItemId = 70, Quantity = 2, UnitPrice = 50m }
+            }
+        };
+
+        var promotionServiceMock = new Mock<IPromotionService>();
+        promotionServiceMock
+            .Setup(p => p.ApplyPromotionsAsync(It.IsAny<IEnumerable<CartItem>>(), CompanyId))
+            .ReturnsAsync(new List<LineDiscount>
+            {
+                new LineDiscount { ItemId = 70, DiscountAmount = 62m, PromotionId = 21, PromotionName = "Store-wide 62% off" },
+                new LineDiscount { ItemId = 70, DiscountAmount = 100m, PromotionId = 29, PromotionName = "QA Bad BXGY" }
+            });
+
+        var service = new SalesService(
+            _salesRepositoryMock.Object,
+            _customerRepositoryMock.Object,
+            _userRepositoryMock.Object,
+            _inventoryRepositoryMock.Object,
+            _companyRepositoryMock.Object,
+            loyaltyService: null,
+            promotionService: promotionServiceMock.Object);
+
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(new Customer { Id = 10, CompanyId = CompanyId });
+        _inventoryRepositoryMock.Setup(r => r.GetByIdAsync(70, CompanyId))
+            .ReturnsAsync(new InventoryItem { Id = 70, CompanyId = CompanyId, Name = "Game", Quantity = 5 });
+        _salesRepositoryMock.Setup(r => r.CreateAsync(It.IsAny<Sale>())).ReturnsAsync((Sale s) => { s.Id = 80; return s; });
+
+        var result = await service.CreateSaleAsync(request, CompanyId);
+
+        result.Success.Should().BeTrue();
+        result.Data!.Subtotal.Should().Be(0m);
+        result.Data.DiscountTotal.Should().Be(100m);
+        result.Data.Items[0].DiscountAmount.Should().Be(100m);
+        result.Data.Items[0].TotalPrice.Should().Be(0m);
+        result.Data.AppliedPromotions.Should().HaveCount(2);
+        result.Data.AppliedPromotions.Sum(p => p.DiscountAmount).Should().Be(result.Data.DiscountTotal);
+        result.Data.AppliedPromotions.Sum(p => p.DiscountAmount).Should().Be(result.Data.Items.Sum(i => i.DiscountAmount));
+    }
+
+    [Fact]
     public async Task CreateSaleAsync_LoyaltyServiceThrows_SaleCompletionIsNotRolledBack()
     {
         var request = new CreateSaleRequest
