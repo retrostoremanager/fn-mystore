@@ -460,7 +460,7 @@ public class ConsignmentFunctionsTests
         };
 
         _serviceMock
-            .Setup(s => s.MarkSoldAsync(1, 100m, CompanyId))
+            .Setup(s => s.MarkSoldAsync(1, 100m, CompanyId, It.IsAny<string?>()))
             .ReturnsAsync(ApiResponse<MarkSoldResponse>.SuccessResponse(markSoldResponse));
 
         var context = new Mock<FunctionContext>();
@@ -483,7 +483,7 @@ public class ConsignmentFunctionsTests
     public async Task MarkConsignmentItemSold_NotActiveStatus_Returns409Conflict()
     {
         _serviceMock
-            .Setup(s => s.MarkSoldAsync(1, 100m, CompanyId))
+            .Setup(s => s.MarkSoldAsync(1, 100m, CompanyId, It.IsAny<string?>()))
             .ReturnsAsync(ApiResponse<MarkSoldResponse>.ErrorResponse(
                 "Cannot mark item as sold: current status is 'sold'. Only active items can be marked as sold."));
 
@@ -511,7 +511,7 @@ public class ConsignmentFunctionsTests
         var result = await _functions.MarkConsignmentItemSold(req, 1);
 
         result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        _serviceMock.Verify(s => s.MarkSoldAsync(It.IsAny<int>(), It.IsAny<decimal>(), It.IsAny<int>()), Times.Never);
+        _serviceMock.Verify(s => s.MarkSoldAsync(It.IsAny<int>(), It.IsAny<decimal>(), It.IsAny<int>(), It.IsAny<string?>()), Times.Never);
     }
 
     [Fact]
@@ -524,7 +524,7 @@ public class ConsignmentFunctionsTests
         var result = await _functions.MarkConsignmentItemSold(req, 1);
 
         result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-        _serviceMock.Verify(s => s.MarkSoldAsync(It.IsAny<int>(), It.IsAny<decimal>(), It.IsAny<int>()), Times.Never);
+        _serviceMock.Verify(s => s.MarkSoldAsync(It.IsAny<int>(), It.IsAny<decimal>(), It.IsAny<int>(), It.IsAny<string?>()), Times.Never);
     }
 
     #endregion
@@ -679,7 +679,7 @@ public class ConsignmentFunctionsTests
         };
 
         _serviceMock
-            .Setup(s => s.MarkSoldAsync(1, 100m, CompanyId))
+            .Setup(s => s.MarkSoldAsync(1, 100m, CompanyId, It.IsAny<string?>()))
             .ReturnsAsync(ApiResponse<MarkSoldResponse>.SuccessResponse(markSoldResponse));
 
         var context = new Mock<FunctionContext>();
@@ -710,7 +710,7 @@ public class ConsignmentFunctionsTests
         };
 
         _serviceMock
-            .Setup(s => s.MarkSoldAsync(1, 100m, CompanyId))
+            .Setup(s => s.MarkSoldAsync(1, 100m, CompanyId, It.IsAny<string?>()))
             .ReturnsAsync(ApiResponse<MarkSoldResponse>.SuccessResponse(markSoldResponse));
 
         var context = new Mock<FunctionContext>();

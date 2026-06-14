@@ -402,6 +402,185 @@ public class ConsignmentServiceTests
     }
 
     [Fact]
+    public async Task MarkSoldAsync_AlreadySold_DoesNotCreateDuplicateSale()
+    {
+        var existing = new ConsignmentItem { Id = 1, CompanyId = 1, Status = "sold", SplitPercent = 60m };
+        _repositoryMock.Setup(r => r.GetByIdAsync(1, 1)).ReturnsAsync(existing);
+
+        var result = await _service.MarkSoldAsync(1, 100m, 1);
+
+        result.Success.Should().BeFalse();
+        _salesRepositoryMock.Verify(s => s.CreateAsync(It.IsAny<Sale>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task MarkSoldAsync_TaxEnabled_AppliesTaxToSale()
+    {
+        var existing = new ConsignmentItem { Id = 1, CompanyId = 1, CustomerId = 5, Status = "active", SplitPercent = 60m };
+        var updated = new ConsignmentItem { Id = 1, CompanyId = 1, CustomerId = 5, Status = "sold", SplitPercent = 60m, SalePrice = 100m };
+
+        _repositoryMock.Setup(r => r.GetByIdAsync(1, 1)).ReturnsAsync(existing);
+        _repositoryMock.Setup(r => r.MarkSoldAsync(1, 100m, 1)).ReturnsAsync(updated);
+
+        var companyRepoMock = new Mock<ICompanyRepository>();
+        companyRepoMock
+            .Setup(c => c.GetTaxSettingsAsync(1))
+            .ReturnsAsync(new TaxSettingsResponse { TaxEnabled = true, TaxRate = 0.10m, TaxLabel = "Sales Tax" });
+
+        Sale? capturedSale = null;
+        var salesRepoMock = new Mock<ISalesRepository>();
+        salesRepoMock
+            .Setup(s => s.CreateAsync(It.IsAny<Sale>()))
+            .Callback<Sale>(s => capturedSale = s)
+            .ReturnsAsync((Sale s) => { s.Id = 555; return s; });
+
+        var service = new ConsignmentService(
+            _repositoryMock.Object,
+            salesRepoMock.Object,
+            _inventoryRepositoryMock.Object,
+            companyRepoMock.Object);
+
+        var result = await service.MarkSoldAsync(1, 100m, 1);
+
+        result.Success.Should().BeTrue();
+        capturedSale.Should().NotBeNull();
+        capturedSale!.Subtotal.Should().Be(100m);
+        capturedSale.Tax.Should().Be(10m);
+        capturedSale.TaxAmount.Should().Be(10m);
+        capturedSale.TaxRate.Should().Be(0.10m);
+        capturedSale.TaxLabel.Should().Be("Sales Tax");
+        capturedSale.Total.Should().Be(110m);
+    }
+
+    [Fact]
+    public async Task MarkSoldAsync_TaxDisabled_NoTaxOnSale()
+    {
+        var existing = new ConsignmentItem { Id = 1, CompanyId = 1, CustomerId = 5, Status = "active", SplitPercent = 60m };
+        var updated = new ConsignmentItem { Id = 1, CompanyId = 1, CustomerId = 5, Status = "sold", SplitPercent = 60m, SalePrice = 100m };
+
+        _repositoryMock.Setup(r => r.GetByIdAsync(1, 1)).ReturnsAsync(existing);
+        _repositoryMock.Setup(r => r.MarkSoldAsync(1, 100m, 1)).ReturnsAsync(updated);
+
+        var companyRepoMock = new Mock<ICompanyRepository>();
+        companyRepoMock
+            .Setup(c => c.GetTaxSettingsAsync(1))
+            .ReturnsAsync(new TaxSettingsResponse { TaxEnabled = false, TaxRate = 0.10m });
+
+        Sale? capturedSale = null;
+        var salesRepoMock = new Mock<ISalesRepository>();
+        salesRepoMock
+            .Setup(s => s.CreateAsync(It.IsAny<Sale>()))
+            .Callback<Sale>(s => capturedSale = s)
+            .ReturnsAsync((Sale s) => { s.Id = 555; return s; });
+
+        var service = new ConsignmentService(
+            _repositoryMock.Object,
+            salesRepoMock.Object,
+            _inventoryRepositoryMock.Object,
+            companyRepoMock.Object);
+
+        var result = await service.MarkSoldAsync(1, 100m, 1);
+
+        result.Success.Should().BeTrue();
+        capturedSale.Should().NotBeNull();
+        capturedSale!.Tax.Should().Be(0m);
+        capturedSale.Total.Should().Be(100m);
+    }
+
+    [Fact]
+    public async Task MarkSoldAsync_CustomerLinked_CallsLoyaltyEarnFromSale()
+    {
+        var existing = new ConsignmentItem { Id = 1, CompanyId = 1, CustomerId = 42, Status = "active", SplitPercent = 60m };
+        var updated = new ConsignmentItem { Id = 1, CompanyId = 1, CustomerId = 42, Status = "sold", SplitPercent = 60m, SalePrice = 100m };
+
+        _repositoryMock.Setup(r => r.GetByIdAsync(1, 1)).ReturnsAsync(existing);
+        _repositoryMock.Setup(r => r.MarkSoldAsync(1, 100m, 1)).ReturnsAsync(updated);
+
+        var loyaltyMock = new Mock<ILoyaltyService>();
+        loyaltyMock
+            .Setup(l => l.EarnFromSaleAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<decimal>(), It.IsAny<int?>()))
+            .Returns(Task.CompletedTask);
+
+        var salesRepoMock = new Mock<ISalesRepository>();
+        salesRepoMock
+            .Setup(s => s.CreateAsync(It.IsAny<Sale>()))
+            .ReturnsAsync((Sale s) => { s.Id = 777; return s; });
+
+        var service = new ConsignmentService(
+            _repositoryMock.Object,
+            salesRepoMock.Object,
+            _inventoryRepositoryMock.Object,
+            companyRepository: null,
+            loyaltyService: loyaltyMock.Object);
+
+        var result = await service.MarkSoldAsync(1, 100m, 1);
+
+        result.Success.Should().BeTrue();
+        loyaltyMock.Verify(l => l.EarnFromSaleAsync(42, 1, 100m, 777), Times.Once);
+    }
+
+    [Fact]
+    public async Task MarkSoldAsync_NoCustomer_DoesNotCallLoyalty()
+    {
+        var existing = new ConsignmentItem { Id = 1, CompanyId = 1, CustomerId = 0, Status = "active", SplitPercent = 60m };
+        var updated = new ConsignmentItem { Id = 1, CompanyId = 1, CustomerId = 0, Status = "sold", SplitPercent = 60m, SalePrice = 100m };
+
+        _repositoryMock.Setup(r => r.GetByIdAsync(1, 1)).ReturnsAsync(existing);
+        _repositoryMock.Setup(r => r.MarkSoldAsync(1, 100m, 1)).ReturnsAsync(updated);
+
+        var loyaltyMock = new Mock<ILoyaltyService>();
+        var service = new ConsignmentService(
+            _repositoryMock.Object,
+            _salesRepositoryMock.Object,
+            _inventoryRepositoryMock.Object,
+            companyRepository: null,
+            loyaltyService: loyaltyMock.Object);
+
+        var result = await service.MarkSoldAsync(1, 100m, 1);
+
+        result.Success.Should().BeTrue();
+        loyaltyMock.Verify(
+            l => l.EarnFromSaleAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<decimal>(), It.IsAny<int?>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task MarkSoldAsync_WithUserEmail_LooksUpEmployeeAndRecordsOnSale()
+    {
+        var existing = new ConsignmentItem { Id = 1, CompanyId = 1, CustomerId = 5, Status = "active", SplitPercent = 50m };
+        var updated = new ConsignmentItem { Id = 1, CompanyId = 1, CustomerId = 5, Status = "sold", SplitPercent = 50m, SalePrice = 80m };
+
+        _repositoryMock.Setup(r => r.GetByIdAsync(1, 1)).ReturnsAsync(existing);
+        _repositoryMock.Setup(r => r.MarkSoldAsync(1, 80m, 1)).ReturnsAsync(updated);
+
+        var userRepoMock = new Mock<IUserRepository>();
+        userRepoMock
+            .Setup(u => u.GetByEmailAsync("clerk@store.com", 1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new User { Id = 33, Email = "clerk@store.com", CompanyId = 1 });
+
+        Sale? capturedSale = null;
+        var salesRepoMock = new Mock<ISalesRepository>();
+        salesRepoMock
+            .Setup(s => s.CreateAsync(It.IsAny<Sale>()))
+            .Callback<Sale>(s => capturedSale = s)
+            .ReturnsAsync((Sale s) => { s.Id = 888; return s; });
+
+        var service = new ConsignmentService(
+            _repositoryMock.Object,
+            salesRepoMock.Object,
+            _inventoryRepositoryMock.Object,
+            companyRepository: null,
+            loyaltyService: null,
+            userRepository: userRepoMock.Object);
+
+        var result = await service.MarkSoldAsync(1, 80m, 1, "clerk@store.com");
+
+        result.Success.Should().BeTrue();
+        capturedSale.Should().NotBeNull();
+        capturedSale!.UserId.Should().Be(33);
+    }
+
+    [Fact]
     public async Task MarkSoldAsync_QaScenario_ActiveItemTriggersSaleAndInventoryDecrement()
     {
         var existing = new ConsignmentItem
