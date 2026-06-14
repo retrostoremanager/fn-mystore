@@ -228,8 +228,9 @@ public class ConsignmentFunctions
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
         }
 
+        var userEmail = CompanyHelper.GetEmailFromRequest(req, req.FunctionContext);
         _logger.LogInformation("Marking consignment item {Id} as sold for company {CompanyId}", id, companyId);
-        var response = await _consignmentService.MarkSoldAsync(id, request.SalePrice, companyId);
+        var response = await _consignmentService.MarkSoldAsync(id, request.SalePrice, companyId, userEmail);
         if (!response.Success)
         {
             var statusCode = IsStatusConflict(response.Message) ? HttpStatusCode.Conflict : HttpStatusCode.NotFound;

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using MyStore.Models;
 using MyStore.Repositories;
 
@@ -8,15 +9,27 @@ public class ConsignmentService : IConsignmentService
     private readonly IConsignmentRepository _repository;
     private readonly ISalesRepository? _salesRepository;
     private readonly IInventoryRepository? _inventoryRepository;
+    private readonly ICompanyRepository? _companyRepository;
+    private readonly ILoyaltyService? _loyaltyService;
+    private readonly IUserRepository? _userRepository;
+    private readonly ILogger<ConsignmentService>? _logger;
 
     public ConsignmentService(
         IConsignmentRepository repository,
         ISalesRepository? salesRepository = null,
-        IInventoryRepository? inventoryRepository = null)
+        IInventoryRepository? inventoryRepository = null,
+        ICompanyRepository? companyRepository = null,
+        ILoyaltyService? loyaltyService = null,
+        IUserRepository? userRepository = null,
+        ILogger<ConsignmentService>? logger = null)
     {
         _repository = repository;
         _salesRepository = salesRepository;
         _inventoryRepository = inventoryRepository;
+        _companyRepository = companyRepository;
+        _loyaltyService = loyaltyService;
+        _userRepository = userRepository;
+        _logger = logger;
     }
 
     public async Task<ApiResponse<List<ConsignmentItem>>> GetAllAsync(int companyId, string? status = null)
@@ -104,7 +117,7 @@ public class ConsignmentService : IConsignmentService
         }
     }
 
-    public async Task<ApiResponse<MarkSoldResponse>> MarkSoldAsync(int id, decimal salePrice, int companyId)
+    public async Task<ApiResponse<MarkSoldResponse>> MarkSoldAsync(int id, decimal salePrice, int companyId, string? userEmail = null)
     {
         try
         {
@@ -129,16 +142,56 @@ public class ConsignmentService : IConsignmentService
             var payoutAmount = Math.Round(salePrice * updated.SplitPercent / 100m, 2, MidpointRounding.AwayFromZero);
             var storeAmount = Math.Round(salePrice - payoutAmount, 2, MidpointRounding.AwayFromZero);
 
+            Sale? createdSale = null;
             if (_salesRepository is not null)
             {
+                decimal taxRate = 0m;
+                decimal taxAmount = 0m;
+                string? taxLabel = null;
+
+                if (_companyRepository is not null)
+                {
+                    var taxSettings = await _companyRepository.GetTaxSettingsAsync(companyId);
+                    if (taxSettings is { TaxEnabled: true })
+                    {
+                        taxRate = taxSettings.TaxRate;
+                        taxLabel = taxSettings.TaxLabel;
+                        taxAmount = Math.Round(salePrice * taxRate, 2, MidpointRounding.AwayFromZero);
+                    }
+                }
+
+                int? employeeUserId = null;
+                if (!string.IsNullOrWhiteSpace(userEmail) && _userRepository is not null)
+                {
+                    try
+                    {
+                        var user = await _userRepository.GetByEmailAsync(userEmail, companyId);
+                        if (user is not null)
+                        {
+                            employeeUserId = user.Id;
+                        }
+                    }
+                    catch (Exception userLookupEx)
+                    {
+                        _logger?.LogWarning(
+                            userLookupEx,
+                            "Failed to resolve employee user from email for consignment {ConsignmentId} in company {CompanyId}; sale will be recorded without employee",
+                            updated.Id,
+                            companyId);
+                    }
+                }
+
                 var sale = new Sale
                 {
                     CompanyId = companyId,
                     CustomerId = updated.CustomerId,
+                    UserId = employeeUserId,
                     Subtotal = salePrice,
-                    Tax = 0m,
-                    TaxAmount = 0m,
-                    Total = salePrice,
+                    Tax = taxAmount,
+                    TaxAmount = taxAmount,
+                    TaxRate = taxRate,
+                    TaxLabel = taxLabel,
+                    Total = salePrice + taxAmount,
                     PaymentMethod = "consignment",
                     SaleDate = DateTime.UtcNow,
                     Notes = $"Consignment item #{updated.Id}: {updated.Description}",
@@ -155,12 +208,29 @@ public class ConsignmentService : IConsignmentService
                     });
                 }
 
-                await _salesRepository.CreateAsync(sale);
+                createdSale = await _salesRepository.CreateAsync(sale);
             }
 
             if (_inventoryRepository is not null && updated.InventoryItemId.HasValue)
             {
                 await _inventoryRepository.UpdateQuantityAsync(updated.InventoryItemId.Value, -1, companyId);
+            }
+
+            if (_loyaltyService is not null && createdSale is not null && updated.CustomerId > 0)
+            {
+                try
+                {
+                    await _loyaltyService.EarnFromSaleAsync(updated.CustomerId, companyId, createdSale.Total, createdSale.Id);
+                }
+                catch (Exception loyaltyEx)
+                {
+                    _logger?.LogError(
+                        loyaltyEx,
+                        "Failed to award loyalty points for consignment sale {SaleId} (customer {CustomerId}, company {CompanyId}); consignment completion will not be rolled back",
+                        createdSale.Id,
+                        updated.CustomerId,
+                        companyId);
+                }
             }
 
             var response = new MarkSoldResponse
