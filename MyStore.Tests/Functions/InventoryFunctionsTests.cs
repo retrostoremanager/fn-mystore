@@ -86,8 +86,8 @@ public class InventoryFunctionsTests
             .Setup(s => s.GetAllInventoryAsync(CompanyId, null))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.GetAllInventory(req);
 
@@ -112,9 +112,9 @@ public class InventoryFunctionsTests
             .Setup(s => s.GetAllInventoryAsync(CompanyId, 5))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var query = new NameValueCollection { ["locationId"] = "5" };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders, query);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders, query);
 
         var result = await _functions.GetAllInventory(req);
 
@@ -132,9 +132,9 @@ public class InventoryFunctionsTests
             .Setup(s => s.SearchInventoryAsync("mario", CompanyId, null))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var query = new NameValueCollection { ["q"] = "mario" };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders, query);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders, query);
 
         var result = await _functions.GetAllInventory(req);
 
@@ -153,9 +153,9 @@ public class InventoryFunctionsTests
             .Setup(s => s.SearchInventoryAsync("zelda", CompanyId, 3))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var query = new NameValueCollection { ["q"] = "zelda", ["locationId"] = "3" };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders, query);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders, query);
 
         var result = await _functions.GetAllInventory(req);
 
@@ -183,8 +183,8 @@ public class InventoryFunctionsTests
             .Setup(s => s.GetAllInventoryAsync(CompanyId, null))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.GetAllInventory(req);
 
@@ -207,8 +207,8 @@ public class InventoryFunctionsTests
             .Setup(s => s.GetAllInventoryAsync(CompanyId, null))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.GetAllInventory(req);
 
@@ -230,8 +230,8 @@ public class InventoryFunctionsTests
             .Setup(s => s.GetInventoryByIdAsync(1, CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.GetInventoryById(req, 1);
 
@@ -255,8 +255,8 @@ public class InventoryFunctionsTests
             .Setup(s => s.GetInventoryByIdAsync(999, CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.GetInventoryById(req, 999);
 
@@ -278,8 +278,8 @@ public class InventoryFunctionsTests
             .Setup(s => s.GetInventoryByIdAsync(1, CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.GetInventoryById(req, 1);
 
@@ -312,8 +312,8 @@ public class InventoryFunctionsTests
             .Setup(s => s.GetInventoryByIdAsync(1, CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         await _functions.GetInventoryById(req, 1);
 
@@ -339,8 +339,8 @@ public class InventoryFunctionsTests
             .Setup(s => s.GetLocationsForItemAsync(1, CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.GetInventoryItemLocations(req, 1);
 
@@ -374,8 +374,8 @@ public class InventoryFunctionsTests
             .Setup(s => s.GetLocationsForItemAsync(999, CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.GetInventoryItemLocations(req, 999);
 
@@ -396,8 +396,8 @@ public class InventoryFunctionsTests
             .Setup(s => s.GetLocationsForItemAsync(5, CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         await _functions.GetInventoryItemLocations(req, 5);
 
@@ -419,8 +419,8 @@ public class InventoryFunctionsTests
             .Setup(s => s.CreateInventoryItemAsync(It.IsAny<CreateInventoryItemRequest>(), CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, request, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, request, CompanyHeaders);
 
         var result = await _functions.CreateInventoryItem(req);
 
@@ -444,8 +444,8 @@ public class InventoryFunctionsTests
             .Setup(s => s.CreateInventoryItemAsync(It.IsAny<CreateInventoryItemRequest>(), CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, request, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, request, CompanyHeaders);
 
         var result = await _functions.CreateInventoryItem(req);
 
@@ -462,8 +462,8 @@ public class InventoryFunctionsTests
     [Fact]
     public async Task CreateInventoryItem_InvalidRequestBody_ThrowsJsonException()
     {
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, "invalid json", CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, "invalid json", CompanyHeaders);
 
         var act = async () => await _functions.CreateInventoryItem(req);
 
@@ -473,8 +473,8 @@ public class InventoryFunctionsTests
     [Fact]
     public async Task CreateInventoryItem_NullRequestBody_ThrowsJsonException()
     {
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, (object?)null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, (object?)null, CompanyHeaders);
 
         var act = async () => await _functions.CreateInventoryItem(req);
 
@@ -504,8 +504,8 @@ public class InventoryFunctionsTests
             .Setup(s => s.CreateInventoryItemAsync(It.IsAny<CreateInventoryItemRequest>(), CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, request, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, request, CompanyHeaders);
 
         await _functions.CreateInventoryItem(req);
 
@@ -529,8 +529,8 @@ public class InventoryFunctionsTests
             .Setup(s => s.UpdateInventoryItemAsync(1, It.IsAny<UpdateInventoryItemRequest>(), CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, request, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, request, CompanyHeaders);
 
         var result = await _functions.UpdateInventoryItem(req, 1);
 
@@ -553,8 +553,8 @@ public class InventoryFunctionsTests
             .Setup(s => s.UpdateInventoryItemAsync(999, It.IsAny<UpdateInventoryItemRequest>(), CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, request, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, request, CompanyHeaders);
 
         var result = await _functions.UpdateInventoryItem(req, 999);
 
@@ -570,8 +570,8 @@ public class InventoryFunctionsTests
     [Fact]
     public async Task UpdateInventoryItem_InvalidRequestBody_ThrowsJsonException()
     {
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, "invalid json", CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, "invalid json", CompanyHeaders);
 
         var act = async () => await _functions.UpdateInventoryItem(req, 1);
 
@@ -601,8 +601,8 @@ public class InventoryFunctionsTests
             .Setup(s => s.UpdateInventoryItemAsync(1, It.IsAny<UpdateInventoryItemRequest>(), CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, request, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, request, CompanyHeaders);
 
         await _functions.UpdateInventoryItem(req, 1);
 
@@ -623,8 +623,8 @@ public class InventoryFunctionsTests
             .Setup(s => s.DeleteInventoryItemAsync(1, CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.DeleteInventoryItem(req, 1);
 
@@ -646,8 +646,8 @@ public class InventoryFunctionsTests
             .Setup(s => s.DeleteInventoryItemAsync(999, CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.DeleteInventoryItem(req, 999);
 
@@ -680,8 +680,8 @@ public class InventoryFunctionsTests
             .Setup(s => s.DeleteInventoryItemAsync(1, CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         await _functions.DeleteInventoryItem(req, 1);
 
@@ -706,9 +706,9 @@ public class InventoryFunctionsTests
             .Setup(s => s.SearchInventoryAsync("NES", CompanyId, null))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var query = new NameValueCollection { ["q"] = "NES" };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders, query);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders, query);
 
         var result = await _functions.GetAllInventory(req);
 
@@ -731,9 +731,9 @@ public class InventoryFunctionsTests
             .Setup(s => s.SearchInventoryAsync("Accessory", CompanyId, null))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var query = new NameValueCollection { ["q"] = "Accessory" };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders, query);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders, query);
 
         await _functions.GetAllInventory(req);
 
@@ -749,9 +749,9 @@ public class InventoryFunctionsTests
             .Setup(s => s.GetAllInventoryAsync(CompanyId, null))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var query = new NameValueCollection { ["q"] = "" };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders, query);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders, query);
 
         await _functions.GetAllInventory(req);
 
@@ -768,9 +768,9 @@ public class InventoryFunctionsTests
             .Setup(s => s.GetAllInventoryAsync(CompanyId, null))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var query = new NameValueCollection { ["q"] = "   " };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders, query);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders, query);
 
         await _functions.GetAllInventory(req);
 
@@ -787,9 +787,9 @@ public class InventoryFunctionsTests
             .Setup(s => s.SearchInventoryAsync("Game", CompanyId, 7))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var query = new NameValueCollection { ["q"] = "Game", ["locationId"] = "7" };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders, query);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders, query);
 
         await _functions.GetAllInventory(req);
 
@@ -809,8 +809,8 @@ public class InventoryFunctionsTests
             .Setup(s => s.GetAllInventoryAsync(CompanyId, null))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.GetAllInventory(req);
 
@@ -831,8 +831,8 @@ public class InventoryFunctionsTests
             .Setup(s => s.CreateInventoryItemAsync(It.IsAny<CreateInventoryItemRequest>(), CompanyId))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, CreateValidCreateRequest(), CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, CreateValidCreateRequest(), CompanyHeaders);
 
         var result = await _functions.CreateInventoryItem(req);
 

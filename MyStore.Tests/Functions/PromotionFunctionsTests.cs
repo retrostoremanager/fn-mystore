@@ -63,7 +63,8 @@ public class PromotionFunctionsTests
             .Setup(s => s.GetAllAsync(CompanyId))
             .ReturnsAsync(ApiResponse<List<Promotion>>.SuccessResponse(promotions));
 
-        var req = TestHelpers.CreateHttpRequestData(new Mock<FunctionContext>().Object, null, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, _companyHeaders);
 
         var result = await _functions.GetAllPromotions(req);
 
@@ -97,7 +98,8 @@ public class PromotionFunctionsTests
             .Setup(s => s.GetActivePromotionsAsync(CompanyId))
             .ReturnsAsync(ApiResponse<List<Promotion>>.SuccessResponse(promotions));
 
-        var req = TestHelpers.CreateHttpRequestData(new Mock<FunctionContext>().Object, null, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, _companyHeaders);
 
         var result = await _functions.GetActivePromotions(req);
 
@@ -140,7 +142,8 @@ public class PromotionFunctionsTests
             .Setup(s => s.CreateAsync(It.IsAny<CreatePromotionRequest>(), CompanyId))
             .ReturnsAsync(ApiResponse<Promotion>.SuccessResponse(promotion));
 
-        var req = TestHelpers.CreateHttpRequestData(new Mock<FunctionContext>().Object, createRequest, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, createRequest, _companyHeaders);
 
         var result = await _functions.CreatePromotion(req);
 
@@ -163,7 +166,8 @@ public class PromotionFunctionsTests
             StartDate = DateTime.UtcNow
         };
 
-        var req = TestHelpers.CreateHttpRequestData(new Mock<FunctionContext>().Object, createRequest, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, createRequest, _companyHeaders);
 
         var result = await _functions.CreatePromotion(req);
 
@@ -191,7 +195,8 @@ public class PromotionFunctionsTests
             StartDate = DateTime.UtcNow
         };
 
-        var req = TestHelpers.CreateHttpRequestData(new Mock<FunctionContext>().Object, createRequest, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, createRequest, _companyHeaders);
 
         var result = await _functions.CreatePromotion(req);
 
@@ -209,7 +214,8 @@ public class PromotionFunctionsTests
             StartDate = DateTime.UtcNow
         };
 
-        var req = TestHelpers.CreateHttpRequestData(new Mock<FunctionContext>().Object, createRequest, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, createRequest, _companyHeaders);
 
         var result = await _functions.CreatePromotion(req);
 
@@ -227,7 +233,8 @@ public class PromotionFunctionsTests
             StartDate = default
         };
 
-        var req = TestHelpers.CreateHttpRequestData(new Mock<FunctionContext>().Object, createRequest, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, createRequest, _companyHeaders);
 
         var result = await _functions.CreatePromotion(req);
 
@@ -241,7 +248,8 @@ public class PromotionFunctionsTests
     [Fact]
     public async Task CreatePromotion_NullJsonBody_Returns400()
     {
-        var req = TestHelpers.CreateHttpRequestDataWithRawBody("null", _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestDataWithRawBody("null", _companyHeaders, context);
 
         var result = await _functions.CreatePromotion(req);
 
@@ -266,7 +274,8 @@ public class PromotionFunctionsTests
             .Setup(s => s.UpdateAsync(1, It.IsAny<UpdatePromotionRequest>(), CompanyId))
             .ReturnsAsync(ApiResponse<Promotion>.SuccessResponse(updated));
 
-        var req = TestHelpers.CreateHttpRequestData(new Mock<FunctionContext>().Object, updateRequest, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, updateRequest, _companyHeaders);
 
         var result = await _functions.UpdatePromotion(req, 1);
 
@@ -286,7 +295,8 @@ public class PromotionFunctionsTests
             .Setup(s => s.UpdateAsync(99, It.IsAny<UpdatePromotionRequest>(), CompanyId))
             .ReturnsAsync(ApiResponse<Promotion>.ErrorResponse("Promotion not found"));
 
-        var req = TestHelpers.CreateHttpRequestData(new Mock<FunctionContext>().Object, updateRequest, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, updateRequest, _companyHeaders);
 
         var result = await _functions.UpdatePromotion(req, 99);
 
@@ -296,7 +306,8 @@ public class PromotionFunctionsTests
     [Fact]
     public async Task UpdatePromotion_NullJsonBody_Returns400()
     {
-        var req = TestHelpers.CreateHttpRequestDataWithRawBody("null", _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestDataWithRawBody("null", _companyHeaders, context);
 
         var result = await _functions.UpdatePromotion(req, 1);
 
@@ -328,7 +339,8 @@ public class PromotionFunctionsTests
             .Setup(s => s.DeleteAsync(1, CompanyId))
             .ReturnsAsync(ApiResponse<bool>.SuccessResponse(true));
 
-        var req = TestHelpers.CreateHttpRequestData(new Mock<FunctionContext>().Object, null, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, _companyHeaders);
 
         var result = await _functions.DeletePromotion(req, 1);
 
@@ -342,7 +354,8 @@ public class PromotionFunctionsTests
             .Setup(s => s.DeleteAsync(99, CompanyId))
             .ReturnsAsync(ApiResponse<bool>.ErrorResponse("Promotion not found"));
 
-        var req = TestHelpers.CreateHttpRequestData(new Mock<FunctionContext>().Object, null, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, _companyHeaders);
 
         var result = await _functions.DeletePromotion(req, 99);
 
@@ -370,7 +383,8 @@ public class PromotionFunctionsTests
             .Setup(s => s.GetAllAsync(CompanyId))
             .ReturnsAsync(ApiResponse<List<Promotion>>.SuccessResponse(new List<Promotion>()));
 
-        var req = TestHelpers.CreateHttpRequestData(new Mock<FunctionContext>().Object, null, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, _companyHeaders);
 
         var result = await _functions.GetAllPromotions(req);
 
@@ -384,7 +398,8 @@ public class PromotionFunctionsTests
             .Setup(s => s.GetAllAsync(CompanyId))
             .ReturnsAsync(ApiResponse<List<Promotion>>.SuccessResponse(new List<Promotion>()));
 
-        var req = TestHelpers.CreateHttpRequestData(new Mock<FunctionContext>().Object, null, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, _companyHeaders);
 
         var result = await _functions.GetAllPromotions(req);
 

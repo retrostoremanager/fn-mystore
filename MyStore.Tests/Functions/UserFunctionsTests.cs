@@ -60,8 +60,8 @@ public class UserFunctionsTests
             .Setup(s => s.GetAllUsersAsync(1))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var request = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(1);
+        var request = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.GetAllUsers(request);
 
@@ -108,8 +108,8 @@ public class UserFunctionsTests
             .Setup(s => s.GetUserByIdAsync(42, 1))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var request = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(1);
+        var request = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.GetUserById(request, 42);
 
@@ -133,8 +133,8 @@ public class UserFunctionsTests
             .Setup(s => s.GetUserByIdAsync(999, 1))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var request = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(1);
+        var request = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.GetUserById(request, 999);
 
@@ -190,8 +190,8 @@ public class UserFunctionsTests
             .Setup(s => s.CreateUserAsync(It.IsAny<CreateUserRequest>(), 1))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var request = TestHelpers.CreateHttpRequestData(context.Object, createRequest, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(1);
+        var request = TestHelpers.CreateHttpRequestData(context, createRequest, CompanyHeaders);
 
         var result = await _functions.CreateUser(request);
 
@@ -209,9 +209,9 @@ public class UserFunctionsTests
     [Fact]
     public async Task CreateUser_InvalidRequestBody_Returns400BadRequest()
     {
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(1);
         var request = TestHelpers.CreateHttpRequestDataWithRawBody("null",
-            new Dictionary<string, string> { { "X-Company-Id", "1" } });
+            new Dictionary<string, string> { { "X-Company-Id", "1" } }, context);
 
         var result = await _functions.CreateUser(request);
 
@@ -243,8 +243,8 @@ public class UserFunctionsTests
             .Setup(s => s.CreateUserAsync(It.IsAny<CreateUserRequest>(), 1))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var request = TestHelpers.CreateHttpRequestData(context.Object, createRequest, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(1);
+        var request = TestHelpers.CreateHttpRequestData(context, createRequest, CompanyHeaders);
 
         var result = await _functions.CreateUser(request);
 
@@ -289,8 +289,8 @@ public class UserFunctionsTests
             .Setup(s => s.ResendInviteAsync(5, 1))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var request = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(1);
+        var request = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.ResendInvite(request, 5);
 
@@ -313,8 +313,8 @@ public class UserFunctionsTests
             .Setup(s => s.ResendInviteAsync(999, 1))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var request = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(1);
+        var request = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.ResendInvite(request, 999);
 
@@ -362,8 +362,8 @@ public class UserFunctionsTests
             .Setup(s => s.UpdateUserAsync(3, It.IsAny<UpdateUserRequest>(), 1))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var request = TestHelpers.CreateHttpRequestData(context.Object, updateRequest, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(1);
+        var request = TestHelpers.CreateHttpRequestData(context, updateRequest, CompanyHeaders);
 
         var result = await _functions.UpdateUser(request, 3);
 
@@ -380,9 +380,9 @@ public class UserFunctionsTests
     [Fact]
     public async Task UpdateUser_InvalidRequestBody_Returns400BadRequest()
     {
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(1);
         var request = TestHelpers.CreateHttpRequestDataWithRawBody("null",
-            new Dictionary<string, string> { { "X-Company-Id", "1" } });
+            new Dictionary<string, string> { { "X-Company-Id", "1" } }, context);
 
         var result = await _functions.UpdateUser(request, 1);
 
@@ -423,8 +423,8 @@ public class UserFunctionsTests
             .Setup(s => s.DeleteUserAsync(7, 1))
             .ReturnsAsync(apiResponse);
 
-        var context = new Mock<FunctionContext>();
-        var request = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(1);
+        var request = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.DeleteUser(request, 7);
 
@@ -464,8 +464,8 @@ public class UserFunctionsTests
             .ReturnsAsync(apiResponse);
 
         var query = new NameValueCollection { { "q", "jane" } };
-        var context = new Mock<FunctionContext>();
-        var request = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders, query);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(1);
+        var request = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders, query);
 
         var result = await _functions.SearchUsers(request);
 
@@ -495,8 +495,8 @@ public class UserFunctionsTests
     [Fact]
     public async Task SearchUsers_MissingQueryParam_Returns400BadRequest()
     {
-        var context = new Mock<FunctionContext>();
-        var request = TestHelpers.CreateHttpRequestData(context.Object, null, CompanyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(1);
+        var request = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders);
 
         var result = await _functions.SearchUsers(request);
 

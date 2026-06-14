@@ -7,34 +7,17 @@ namespace MyStore.Functions.Helpers;
 
 public static class CompanyHelper
 {
-    private const string CompanyIdHeader = "X-Company-Id";
-    private const string CompanyIdQueryParam = "companyId";
-    private const string UserEmailHeader = "X-User-Email";
-
     /// <summary>
-    /// Extracts the company ID from the HTTP request.
-    /// Checks JWT claims first (from auth middleware), then headers (X-Company-Id), then query parameters (companyId).
+    /// Extracts the company ID for the current tenant from the validated JWT (set by
+    /// JwtAuthenticationMiddleware). The client-supplied X-Company-Id header and companyId
+    /// query parameter are intentionally NOT trusted: trusting them allowed any authenticated
+    /// user to operate on another company's data by spoofing the header (cross-tenant IDOR).
     /// </summary>
     /// <param name="request">The HTTP request data</param>
-    /// <returns>The company ID if found, otherwise null</returns>
+    /// <returns>The company ID if the JWT carries one, otherwise null</returns>
     public static int? GetCompanyId(HttpRequestData request)
     {
-        var companyId = GetCompanyIdFromJwt(request);
-        if (companyId.HasValue)
-            return companyId;
-
-        if (request.Headers.TryGetValues(CompanyIdHeader, out var headerValues))
-        {
-            var headerValue = headerValues.FirstOrDefault();
-            if (!string.IsNullOrEmpty(headerValue) && int.TryParse(headerValue, out var headerCompanyId))
-                return headerCompanyId;
-        }
-
-        var queryValue = request.Query[CompanyIdQueryParam];
-        if (!string.IsNullOrEmpty(queryValue) && int.TryParse(queryValue, out var queryCompanyId))
-            return queryCompanyId;
-
-        return null;
+        return GetCompanyIdFromJwt(request);
     }
 
     /// <summary>
@@ -50,22 +33,23 @@ public static class CompanyHelper
     }
 
     /// <summary>
-    /// Extracts the company ID from the HTTP request and throws an exception if not found.
+    /// Extracts the company ID for the current tenant from the validated JWT and throws when
+    /// it is absent. This is the single source of truth for tenant scoping on authenticated
+    /// endpoints. The company ID is taken ONLY from the JWT (set by JwtAuthenticationMiddleware),
+    /// never from the client-supplied X-Company-Id header, so a caller cannot reach another
+    /// company's data by spoofing the header.
     /// </summary>
     /// <param name="request">The HTTP request data</param>
     /// <returns>The company ID</returns>
-    /// <exception cref="UnauthorizedAccessException">Thrown when company ID is not provided</exception>
+    /// <exception cref="UnauthorizedAccessException">Thrown when the JWT does not carry a company ID</exception>
     public static int GetCompanyIdRequired(HttpRequestData request)
     {
-        if (request.Headers.TryGetValues(CompanyIdHeader, out var headerValues))
-        {
-            var headerValue = headerValues.FirstOrDefault();
-            if (!string.IsNullOrEmpty(headerValue) && int.TryParse(headerValue, out var headerCompanyId))
-                return headerCompanyId;
-        }
+        var companyId = GetCompanyIdFromJwt(request);
+        if (companyId.HasValue)
+            return companyId.Value;
 
         throw new UnauthorizedAccessException(
-            "Company ID is required. Provide the X-Company-Id header.");
+            "Company ID is required and must be derived from the authenticated token.");
     }
 
     /// <summary>
@@ -79,22 +63,14 @@ public static class CompanyHelper
     }
 
     /// <summary>
-    /// Gets the user email from context (JWT claims) or X-User-Email header.
-    /// The header is a fallback when the frontend has email from login but JWT claim extraction fails.
-    /// Only used when the request is already authenticated (JWT validated by middleware).
+    /// Gets the authenticated user's email from the validated JWT (set by JwtAuthenticationMiddleware).
+    /// The client-supplied X-User-Email header is intentionally NOT trusted: it let a caller assert
+    /// another user's identity (e.g. to read a higher-privileged user's permission set). Identity comes
+    /// only from the token.
     /// </summary>
     public static string? GetEmailFromRequest(HttpRequestData request, FunctionContext? context)
     {
-        var email = GetEmailFromContext(context) ?? GetEmailFromJwt(request);
-        if (!string.IsNullOrEmpty(email))
-            return email;
-        if (request.Headers.TryGetValues(UserEmailHeader, out var values))
-        {
-            var value = values.FirstOrDefault();
-            if (!string.IsNullOrEmpty(value) && value.Contains('@', StringComparison.Ordinal))
-                return value.Trim();
-        }
-        return null;
+        return GetEmailFromContext(context) ?? GetEmailFromJwt(request);
     }
 
     /// <summary>

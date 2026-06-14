@@ -57,8 +57,8 @@ public class LoyaltyFunctionsTests
             .Setup(s => s.GetSettingsAsync(CompanyId))
             .ReturnsAsync(ApiResponse<LoyaltySettings>.SuccessResponse(settings));
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, _companyHeaders);
 
         var result = await _functions.GetLoyaltySettings(req);
 
@@ -95,8 +95,8 @@ public class LoyaltyFunctionsTests
             .Setup(s => s.UpdateSettingsAsync(It.IsAny<LoyaltySettings>(), CompanyId))
             .ReturnsAsync(ApiResponse<LoyaltySettings>.SuccessResponse(settings, "Loyalty settings updated successfully"));
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, settings, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, settings, _companyHeaders);
 
         var result = await _functions.UpdateLoyaltySettings(req);
 
@@ -119,8 +119,8 @@ public class LoyaltyFunctionsTests
             RedemptionRate = 100m,
         };
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, settings, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, settings, _companyHeaders);
 
         var result = await _functions.UpdateLoyaltySettings(req);
 
@@ -145,8 +145,8 @@ public class LoyaltyFunctionsTests
             RedemptionRate = 100m,
         };
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, settings, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, settings, _companyHeaders);
 
         var result = await _functions.UpdateLoyaltySettings(req);
 
@@ -171,8 +171,8 @@ public class LoyaltyFunctionsTests
             RedemptionRate = 0m,
         };
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, settings, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, settings, _companyHeaders);
 
         var result = await _functions.UpdateLoyaltySettings(req);
 
@@ -200,8 +200,8 @@ public class LoyaltyFunctionsTests
             .Setup(s => s.UpdateSettingsAsync(It.IsAny<LoyaltySettings>(), CompanyId))
             .ReturnsAsync(ApiResponse<LoyaltySettings>.SuccessResponse(settings));
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, settings, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, settings, _companyHeaders);
 
         var result = await _functions.UpdateLoyaltySettings(req);
 
@@ -255,8 +255,8 @@ public class LoyaltyFunctionsTests
             .Setup(s => s.GetBalanceAsync(CustomerId, CompanyId))
             .ReturnsAsync(ApiResponse<LoyaltyBalanceResponse>.SuccessResponse(balanceResponse));
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, _companyHeaders);
 
         var result = await _functions.GetCustomerLoyaltyBalance(req, CustomerId);
 
@@ -277,8 +277,8 @@ public class LoyaltyFunctionsTests
             .Setup(s => s.GetBalanceAsync(99, CompanyId))
             .ReturnsAsync(ApiResponse<LoyaltyBalanceResponse>.ErrorResponse("Customer not found"));
 
-        var context = new Mock<FunctionContext>();
-        var req = TestHelpers.CreateHttpRequestData(context.Object, null, _companyHeaders);
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, _companyHeaders);
 
         var result = await _functions.GetCustomerLoyaltyBalance(req, 99);
 
@@ -319,9 +319,9 @@ public class LoyaltyFunctionsTests
             .Setup(s => s.RedeemAsync(CustomerId, CompanyId, 100))
             .ReturnsAsync(ApiResponse<RedeemPointsResponse>.SuccessResponse(redeemResponse, "Redeemed 100 points for $1.00 store credit"));
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var body = new RedeemPointsRequest { PointsToRedeem = 100 };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+        var req = TestHelpers.CreateHttpRequestData(context, body, _companyHeaders);
 
         var result = await _functions.RedeemLoyaltyPoints(req, CustomerId);
 
@@ -342,9 +342,9 @@ public class LoyaltyFunctionsTests
             .Setup(s => s.RedeemAsync(99999, CompanyId, 10))
             .ReturnsAsync(ApiResponse<RedeemPointsResponse>.ErrorResponse("Customer not found"));
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var body = new RedeemPointsRequest { PointsToRedeem = 10 };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+        var req = TestHelpers.CreateHttpRequestData(context, body, _companyHeaders);
 
         var result = await _functions.RedeemLoyaltyPoints(req, 99999);
 
@@ -364,9 +364,9 @@ public class LoyaltyFunctionsTests
             .Setup(s => s.RedeemAsync(CustomerId, CompanyId, 500))
             .ReturnsAsync(ApiResponse<RedeemPointsResponse>.ErrorResponse("Insufficient loyalty points. Available: 150, Requested: 500"));
 
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var body = new RedeemPointsRequest { PointsToRedeem = 500 };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+        var req = TestHelpers.CreateHttpRequestData(context, body, _companyHeaders);
 
         var result = await _functions.RedeemLoyaltyPoints(req, CustomerId);
 
@@ -382,9 +382,9 @@ public class LoyaltyFunctionsTests
     [Fact]
     public async Task RedeemLoyaltyPoints_ZeroPoints_Returns400WithoutCallingService()
     {
-        var context = new Mock<FunctionContext>();
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
         var body = new RedeemPointsRequest { PointsToRedeem = 0 };
-        var req = TestHelpers.CreateHttpRequestData(context.Object, body, _companyHeaders);
+        var req = TestHelpers.CreateHttpRequestData(context, body, _companyHeaders);
 
         var result = await _functions.RedeemLoyaltyPoints(req, CustomerId);
 
