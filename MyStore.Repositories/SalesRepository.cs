@@ -20,13 +20,20 @@ public class SalesRepository : ISalesRepository
             ?? throw new InvalidOperationException("Connection string environment variable is not set");
     }
 
+    private const string SaleSelectColumns = @"s.id, s.company_id, s.customer_id, s.user_id,
+                    s.subtotal, s.tax, s.total_amount AS total,
+                    s.subtotal_amount, s.tax_amount,
+                    COALESCE(s.discount_total, 0) AS discount_total,
+                    s.payment_method, s.sale_date, s.notes";
+
+    private const string SaleItemSelectColumns = @"id, sale_id, inventory_item_id, quantity, unit_price, total_price,
+                    COALESCE(discount_amount, 0) AS discount_amount,
+                    promotion_id, promotion_name";
+
     public async Task<List<Sale>> GetAllAsync(int companyId)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
-        const string sql = @"SELECT s.id, s.company_id, s.customer_id, s.user_id,
-                    s.subtotal, s.tax, s.total_amount AS total,
-                    s.subtotal_amount, s.tax_amount,
-                    s.payment_method, s.sale_date, s.notes
+        var sql = $@"SELECT {SaleSelectColumns}
              FROM sale s
              WHERE s.company_id = @p_company_id
              ORDER BY s.sale_date DESC";
@@ -37,7 +44,7 @@ public class SalesRepository : ISalesRepository
         }
 
         var saleIds = rows.Select(r => r.Id).ToArray();
-        const string itemsSql = @"SELECT id, sale_id, inventory_item_id, quantity, unit_price, total_price
+        var itemsSql = $@"SELECT {SaleItemSelectColumns}
             FROM sale_item WHERE sale_id = ANY(@p_sale_ids)";
         var itemRows = (await connection.QueryAsync<SaleItemRow>(itemsSql, new { p_sale_ids = saleIds })).ToList();
         var itemsBySale = itemRows.GroupBy(r => r.SaleId).ToDictionary(g => g.Key, g => g.ToList());
@@ -48,10 +55,7 @@ public class SalesRepository : ISalesRepository
     public async Task<Sale?> GetByIdAsync(int id, int companyId)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
-        const string sql = @"SELECT s.id, s.company_id, s.customer_id, s.user_id,
-                    s.subtotal, s.tax, s.total_amount AS total,
-                    s.subtotal_amount, s.tax_amount,
-                    s.payment_method, s.sale_date, s.notes
+        var sql = $@"SELECT {SaleSelectColumns}
              FROM sale s
              WHERE s.id = @p_id AND s.company_id = @p_company_id";
         var row = await connection.QuerySingleOrDefaultAsync<SaleRow>(sql, new { p_id = id, p_company_id = companyId });
@@ -60,7 +64,7 @@ public class SalesRepository : ISalesRepository
             return null;
         }
 
-        const string itemsSql = @"SELECT id, sale_id, inventory_item_id, quantity, unit_price, total_price
+        var itemsSql = $@"SELECT {SaleItemSelectColumns}
             FROM sale_item WHERE sale_id = @p_sale_id";
         var itemRows = (await connection.QueryAsync<SaleItemRow>(itemsSql, new { p_sale_id = id })).ToList();
         return MapSale(row, itemRows);
@@ -69,10 +73,7 @@ public class SalesRepository : ISalesRepository
     public async Task<List<Sale>> GetByCustomerIdAsync(int customerId, int companyId)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
-        const string sql = @"SELECT s.id, s.company_id, s.customer_id, s.user_id,
-                    s.subtotal, s.tax, s.total_amount AS total,
-                    s.subtotal_amount, s.tax_amount,
-                    s.payment_method, s.sale_date, s.notes
+        var sql = $@"SELECT {SaleSelectColumns}
              FROM sale s
              WHERE s.customer_id = @p_customer_id AND s.company_id = @p_company_id
              ORDER BY s.sale_date DESC";
@@ -83,10 +84,7 @@ public class SalesRepository : ISalesRepository
     public async Task<List<Sale>> GetByUserIdAsync(int userId, int companyId)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
-        const string sql = @"SELECT s.id, s.company_id, s.customer_id, s.user_id,
-                    s.subtotal, s.tax, s.total_amount AS total,
-                    s.subtotal_amount, s.tax_amount,
-                    s.payment_method, s.sale_date, s.notes
+        var sql = $@"SELECT {SaleSelectColumns}
              FROM sale s
              WHERE s.user_id = @p_user_id AND s.company_id = @p_company_id
              ORDER BY s.sale_date DESC";
@@ -97,10 +95,7 @@ public class SalesRepository : ISalesRepository
     public async Task<List<Sale>> GetByDateRangeAsync(DateTime startDate, DateTime endDate, int companyId)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
-        const string sql = @"SELECT s.id, s.company_id, s.customer_id, s.user_id,
-                    s.subtotal, s.tax, s.total_amount AS total,
-                    s.subtotal_amount, s.tax_amount,
-                    s.payment_method, s.sale_date, s.notes
+        var sql = $@"SELECT {SaleSelectColumns}
              FROM sale s
              WHERE s.company_id = @p_company_id
                AND s.sale_date >= @p_start AND s.sale_date <= @p_end
@@ -125,8 +120,10 @@ public class SalesRepository : ISalesRepository
         try
         {
             const string insertSale = @"INSERT INTO sale (company_id, customer_id, user_id,
-                    subtotal, tax, total_amount, subtotal_amount, tax_amount, payment_method, sale_date, notes, created_date)
-                VALUES (@CompanyId, @CustomerId, @UserId, @Subtotal, @Tax, @Total, @SubtotalAmount, @TaxAmount, @PaymentMethod, @SaleDate, @Notes, NOW())
+                    subtotal, tax, total_amount, subtotal_amount, tax_amount, discount_total,
+                    payment_method, sale_date, notes, created_date)
+                VALUES (@CompanyId, @CustomerId, @UserId, @Subtotal, @Tax, @Total, @SubtotalAmount, @TaxAmount, @DiscountTotal,
+                    @PaymentMethod, @SaleDate, @Notes, NOW())
                 RETURNING id";
 
             var saleId = await connection.ExecuteScalarAsync<int>(insertSale, new
@@ -139,6 +136,7 @@ public class SalesRepository : ISalesRepository
                 sale.Total,
                 SubtotalAmount = sale.Subtotal,
                 TaxAmount = sale.TaxAmount,
+                sale.DiscountTotal,
                 sale.PaymentMethod,
                 SaleDate = saleDate,
                 sale.Notes,
@@ -147,8 +145,10 @@ public class SalesRepository : ISalesRepository
             sale.Id = saleId;
             sale.SaleDate = saleDate;
 
-            const string insertItem = @"INSERT INTO sale_item (sale_id, inventory_item_id, quantity, unit_price, subtotal, total_price, created_date)
-                VALUES (@SaleId, @InventoryItemId, @Quantity, @UnitPrice, @Subtotal, @TotalPrice, NOW())
+            const string insertItem = @"INSERT INTO sale_item (sale_id, inventory_item_id, quantity, unit_price, subtotal, total_price,
+                    discount_amount, promotion_id, promotion_name, created_date)
+                VALUES (@SaleId, @InventoryItemId, @Quantity, @UnitPrice, @Subtotal, @TotalPrice,
+                    @DiscountAmount, @PromotionId, @PromotionName, NOW())
                 RETURNING id";
 
             foreach (var item in sale.Items)
@@ -161,6 +161,9 @@ public class SalesRepository : ISalesRepository
                     item.UnitPrice,
                     Subtotal = item.Quantity * item.UnitPrice,
                     item.TotalPrice,
+                    item.DiscountAmount,
+                    item.PromotionId,
+                    item.PromotionName,
                 }, tx);
                 item.Id = itemId;
                 item.SaleId = saleId;
@@ -207,7 +210,7 @@ public class SalesRepository : ISalesRepository
         }
 
         var saleIds = rows.Select(r => r.Id).ToArray();
-        const string itemsSql = @"SELECT id, sale_id, inventory_item_id, quantity, unit_price, total_price
+        var itemsSql = $@"SELECT {SaleItemSelectColumns}
             FROM sale_item WHERE sale_id = ANY(@p_sale_ids)";
         var itemRows = (await connection.QueryAsync<SaleItemRow>(itemsSql, new { p_sale_ids = saleIds })).ToList();
         var itemsBySale = itemRows.GroupBy(r => r.SaleId).ToDictionary(g => g.Key, g => g.ToList());
@@ -229,11 +232,13 @@ public class SalesRepository : ISalesRepository
             TaxRate = 0m,
             TaxLabel = null,
             Total = row.Total,
+            DiscountTotal = row.DiscountTotal,
             PaymentMethod = row.PaymentMethod,
             SaleDate = row.SaleDate,
             Notes = row.Notes,
         };
 
+        var appliedPromotions = new Dictionary<int, AppliedPromotion>();
         foreach (var ir in itemRows)
         {
             sale.Items.Add(new SaleItem
@@ -244,9 +249,30 @@ public class SalesRepository : ISalesRepository
                 Quantity = ir.Quantity,
                 UnitPrice = ir.UnitPrice,
                 TotalPrice = ir.TotalPrice,
+                DiscountAmount = ir.DiscountAmount,
+                PromotionId = ir.PromotionId,
+                PromotionName = ir.PromotionName,
             });
+
+            if (ir.PromotionId.HasValue && ir.DiscountAmount > 0m)
+            {
+                if (appliedPromotions.TryGetValue(ir.PromotionId.Value, out var existing))
+                {
+                    existing.DiscountAmount += ir.DiscountAmount;
+                }
+                else
+                {
+                    appliedPromotions[ir.PromotionId.Value] = new AppliedPromotion
+                    {
+                        PromotionId = ir.PromotionId.Value,
+                        PromotionName = ir.PromotionName ?? string.Empty,
+                        DiscountAmount = ir.DiscountAmount,
+                    };
+                }
+            }
         }
 
+        sale.AppliedPromotions = appliedPromotions.Values.ToList();
         return sale;
     }
 
@@ -261,6 +287,7 @@ public class SalesRepository : ISalesRepository
         public decimal Total { get; set; }
         public decimal? SubtotalAmount { get; set; }
         public decimal? TaxAmount { get; set; }
+        public decimal DiscountTotal { get; set; }
         public string PaymentMethod { get; set; } = string.Empty;
         public DateTime SaleDate { get; set; }
         public string? Notes { get; set; }
@@ -274,5 +301,8 @@ public class SalesRepository : ISalesRepository
         public int Quantity { get; set; }
         public decimal UnitPrice { get; set; }
         public decimal TotalPrice { get; set; }
+        public decimal DiscountAmount { get; set; }
+        public int? PromotionId { get; set; }
+        public string? PromotionName { get; set; }
     }
 }

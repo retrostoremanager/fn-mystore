@@ -51,6 +51,8 @@ public class LineDiscount
 {
     public int ItemId { get; set; }
     public decimal DiscountAmount { get; set; }
+    public int PromotionId { get; set; }
+    public string PromotionName { get; set; } = string.Empty;
 }
 
 public class CartItem

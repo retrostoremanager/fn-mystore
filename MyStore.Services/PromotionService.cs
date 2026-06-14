@@ -185,6 +185,7 @@ public class PromotionService : IPromotionService
         var activePromotions = await _repository.GetActiveAsync(companyId, DateTime.UtcNow);
         var items = cartItems.ToList();
         var discounts = new Dictionary<int, decimal>();
+        var primaryPromotion = new Dictionary<int, (int Id, string Name, decimal Amount)>();
 
         foreach (var item in items)
         {
@@ -194,6 +195,7 @@ public class PromotionService : IPromotionService
         foreach (var promotion in activePromotions)
         {
             var matchingItems = GetMatchingItems(items, promotion);
+            var contributions = new Dictionary<int, decimal>();
 
             if (promotion.Type == "percentage" && promotion.DiscountPercent.HasValue)
             {
@@ -201,18 +203,41 @@ public class PromotionService : IPromotionService
                 {
                     var lineTotal = item.Quantity * item.UnitPrice;
                     var discount = Math.Round(lineTotal * promotion.DiscountPercent.Value / 100m, 2, MidpointRounding.AwayFromZero);
-                    discounts[item.InventoryItemId] += discount;
+                    contributions[item.InventoryItemId] = contributions.GetValueOrDefault(item.InventoryItemId) + discount;
                 }
             }
             else if (promotion.Type == "bxgy" && promotion.BuyQuantity.HasValue && promotion.GetQuantity.HasValue)
             {
-                ApplyBxgyDiscount(matchingItems, promotion.BuyQuantity.Value, promotion.GetQuantity.Value, discounts);
+                foreach (var item in matchingItems)
+                {
+                    contributions.TryAdd(item.InventoryItemId, 0m);
+                }
+                ApplyBxgyDiscount(matchingItems, promotion.BuyQuantity.Value, promotion.GetQuantity.Value, contributions);
+            }
+
+            foreach (var kv in contributions.Where(kv => kv.Value > 0m))
+            {
+                discounts[kv.Key] += kv.Value;
+                if (!primaryPromotion.TryGetValue(kv.Key, out var current) || kv.Value > current.Amount)
+                {
+                    primaryPromotion[kv.Key] = (promotion.Id, promotion.Name, kv.Value);
+                }
             }
         }
 
         return discounts
             .Where(kv => kv.Value > 0)
-            .Select(kv => new LineDiscount { ItemId = kv.Key, DiscountAmount = kv.Value });
+            .Select(kv =>
+            {
+                primaryPromotion.TryGetValue(kv.Key, out var promo);
+                return new LineDiscount
+                {
+                    ItemId = kv.Key,
+                    DiscountAmount = kv.Value,
+                    PromotionId = promo.Id,
+                    PromotionName = promo.Name ?? string.Empty,
+                };
+            });
     }
 
     private static string? ValidatePromotionFields(

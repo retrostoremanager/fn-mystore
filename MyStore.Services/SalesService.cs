@@ -184,35 +184,70 @@ public class SalesService : ISalesService
 
             // Apply promotions before computing totals
             var discountMap = new Dictionary<int, decimal>();
+            var itemPromotionMap = new Dictionary<int, (int Id, string Name)>();
+            var appliedPromotionsMap = new Dictionary<int, AppliedPromotion>();
             if (_promotionService is not null)
             {
                 var lineDiscounts = await _promotionService.ApplyPromotionsAsync(cartItems, companyId);
                 foreach (var ld in lineDiscounts)
                 {
-                    discountMap[ld.ItemId] = ld.DiscountAmount;
+                    if (ld.DiscountAmount <= 0m) continue;
+
+                    discountMap[ld.ItemId] = discountMap.GetValueOrDefault(ld.ItemId) + ld.DiscountAmount;
+                    if (!itemPromotionMap.ContainsKey(ld.ItemId))
+                    {
+                        itemPromotionMap[ld.ItemId] = (ld.PromotionId, ld.PromotionName);
+                    }
+
+                    if (appliedPromotionsMap.TryGetValue(ld.PromotionId, out var existing))
+                    {
+                        existing.DiscountAmount += ld.DiscountAmount;
+                    }
+                    else
+                    {
+                        appliedPromotionsMap[ld.PromotionId] = new AppliedPromotion
+                        {
+                            PromotionId = ld.PromotionId,
+                            PromotionName = ld.PromotionName,
+                            DiscountAmount = ld.DiscountAmount,
+                        };
+                    }
                 }
             }
 
+            decimal discountTotal = 0m;
             foreach (var itemRequest in request.Items)
             {
                 var lineTotal = itemRequest.Quantity * itemRequest.UnitPrice;
                 var discount = discountMap.TryGetValue(itemRequest.InventoryItemId, out var d) ? d : 0m;
-                var discountedTotal = Math.Max(0m, lineTotal - discount);
+                var appliedDiscount = Math.Min(discount, lineTotal);
+                var discountedTotal = lineTotal - appliedDiscount;
 
                 var saleItem = new SaleItem
                 {
                     InventoryItemId = itemRequest.InventoryItemId,
                     Quantity = itemRequest.Quantity,
                     UnitPrice = itemRequest.UnitPrice,
-                    TotalPrice = discountedTotal
+                    TotalPrice = discountedTotal,
+                    DiscountAmount = appliedDiscount,
                 };
+
+                if (appliedDiscount > 0m && itemPromotionMap.TryGetValue(itemRequest.InventoryItemId, out var promo))
+                {
+                    saleItem.PromotionId = promo.Id;
+                    saleItem.PromotionName = promo.Name;
+                }
 
                 sale.Items.Add(saleItem);
                 subtotal += saleItem.TotalPrice;
+                discountTotal += appliedDiscount;
 
                 // Update inventory quantity
                 await _inventoryRepository.UpdateQuantityAsync(itemRequest.InventoryItemId, -itemRequest.Quantity, companyId);
             }
+
+            sale.DiscountTotal = discountTotal;
+            sale.AppliedPromotions = appliedPromotionsMap.Values.ToList();
 
             decimal taxAmount;
             decimal taxRate;
