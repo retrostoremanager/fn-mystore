@@ -171,11 +171,11 @@ public class ConsignmentFunctions
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
         }
 
-        var allowedStatuses = new[] { "pending", "sold", "returned", "cancelled" };
+        var allowedStatuses = new[] { "active", "sold", "returned" };
         if (!allowedStatuses.Contains(item.Status, StringComparer.OrdinalIgnoreCase))
         {
             var errorResponse = ApiResponse<ConsignmentItem>.ErrorResponse(
-                "Invalid status value. Allowed values: pending, sold, returned, cancelled");
+                "Invalid status value. Allowed values: active, sold, returned");
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
         }
 

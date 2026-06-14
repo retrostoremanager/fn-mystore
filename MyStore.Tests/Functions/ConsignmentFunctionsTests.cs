@@ -37,7 +37,7 @@ public class ConsignmentFunctionsTests
         _functions = new ConsignmentFunctions(_serviceMock.Object, _loggerFactoryMock.Object);
     }
 
-    private static ConsignmentItem CreateItem(int id = 1, string status = "pending", decimal splitPercent = 60m) =>
+    private static ConsignmentItem CreateItem(int id = 1, string status = "active", decimal splitPercent = 60m) =>
         new ConsignmentItem
         {
             Id = id,
@@ -389,10 +389,9 @@ public class ConsignmentFunctionsTests
     }
 
     [Theory]
-    [InlineData("pending")]
+    [InlineData("active")]
     [InlineData("sold")]
     [InlineData("returned")]
-    [InlineData("cancelled")]
     public async Task UpdateConsignmentItem_ValidStatus_CallsService(string status)
     {
         var item = CreateItem();
