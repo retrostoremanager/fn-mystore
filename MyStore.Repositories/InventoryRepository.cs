@@ -22,7 +22,7 @@ public class InventoryRepository : IInventoryRepository
 
     public async Task<List<InventoryItem>> GetAllAsync(int companyId, int? locationId = null)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         var sql = @"SELECT ii.id, ii.company_id, ii.location_id, ii.quantity, ii.price as sell_price, ii.cost as buy_price,
                      ii.condition, ii.game_id, ii.notes, ii.created_date as added_date, ii.last_modified_date,
                      COALESCE(g.title, '') as name, COALESCE(g.genre, '') as category,
@@ -42,7 +42,7 @@ public class InventoryRepository : IInventoryRepository
 
     public async Task<InventoryItem?> GetByIdAsync(int id, int companyId)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         var row = await connection.QueryFirstOrDefaultAsync<InventoryItemRow>(
             @"SELECT ii.id, ii.company_id, ii.location_id, ii.quantity, ii.price as sell_price, ii.cost as buy_price,
                      ii.condition, ii.game_id, ii.notes, ii.created_date as added_date, ii.last_modified_date,
@@ -60,7 +60,7 @@ public class InventoryRepository : IInventoryRepository
 
     public async Task<InventoryItem?> FindByCompanyGameConditionAsync(int companyId, string gameId, string condition)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         var row = await connection.QueryFirstOrDefaultAsync<InventoryItemRow>(
             @"SELECT ii.id, ii.company_id, ii.location_id, ii.quantity, ii.price as sell_price, ii.cost as buy_price,
                      ii.condition, ii.game_id, ii.notes, ii.created_date as added_date, ii.last_modified_date,
@@ -81,7 +81,7 @@ public class InventoryRepository : IInventoryRepository
 
     public async Task<InventoryItem> CreateAsync(InventoryItem item)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, item.CompanyId);
         var id = await connection.QuerySingleAsync<int>(
             @"INSERT INTO game_inventory (company_id, location_id, quantity, price, cost, condition, game_id, notes, created_date, last_modified_date)
               VALUES (@p_company_id, @p_location_id, @p_quantity, @p_sell_price, @p_buy_price, @p_condition,
@@ -106,7 +106,7 @@ public class InventoryRepository : IInventoryRepository
 
     public async Task<InventoryItem?> UpdateAsync(int id, InventoryItem item, int companyId)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         var rowsAffected = await connection.ExecuteAsync(
             @"UPDATE game_inventory SET
                 location_id = @p_location_id,
@@ -136,7 +136,7 @@ public class InventoryRepository : IInventoryRepository
 
     public async Task<bool> DeleteAsync(int id, int companyId)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         var rowsAffected = await connection.ExecuteAsync(
             "DELETE FROM game_inventory WHERE id = @p_id AND company_id = @p_company_id",
             new { p_id = id, p_company_id = companyId });
@@ -145,7 +145,7 @@ public class InventoryRepository : IInventoryRepository
 
     public async Task<List<InventoryItem>> SearchAsync(string searchTerm, int companyId, int? locationId = null)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         var term = $"%{searchTerm.ToLowerInvariant()}%";
         var rows = await connection.QueryAsync<InventoryItemRow>(
             @"SELECT ii.id, ii.company_id, ii.location_id, ii.quantity, ii.price as sell_price, ii.cost as buy_price,
@@ -168,7 +168,7 @@ public class InventoryRepository : IInventoryRepository
 
     public async Task<bool> UpdateQuantityAsync(int id, int quantityChange, int companyId)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         var rowsAffected = await connection.ExecuteAsync(
             @"UPDATE game_inventory SET quantity = GREATEST(0, quantity + @p_change), last_modified_date = NOW()
               WHERE id = @p_id AND company_id = @p_company_id",
@@ -178,7 +178,7 @@ public class InventoryRepository : IInventoryRepository
 
     public async Task<int> GetCountByLocationIdAsync(int locationId, int companyId)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         return await connection.ExecuteScalarAsync<int>(
             "SELECT COUNT(*) FROM game_inventory WHERE location_id = @p_location_id AND company_id = @p_company_id",
             new { p_location_id = locationId, p_company_id = companyId });
@@ -186,7 +186,7 @@ public class InventoryRepository : IInventoryRepository
 
     public async Task<int> DeleteByLocationIdAsync(int locationId, int companyId)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         return await connection.ExecuteAsync(
             "DELETE FROM game_inventory WHERE location_id = @p_location_id AND company_id = @p_company_id",
             new { p_location_id = locationId, p_company_id = companyId });
@@ -194,7 +194,7 @@ public class InventoryRepository : IInventoryRepository
 
     public async Task<int> ReassignToLocationAsync(int fromLocationId, int toLocationId, int companyId)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         return await connection.ExecuteAsync(
             @"UPDATE game_inventory SET location_id = @p_to_id, last_modified_date = NOW()
               WHERE location_id = @p_from_id AND company_id = @p_company_id",
@@ -240,7 +240,7 @@ public class InventoryRepository : IInventoryRepository
 
     public async Task<List<ItemLocationInfo>> GetLocationsForItemAsync(int id, int companyId)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         var item = await GetByIdAsync(id, companyId);
         if (item == null) return new List<ItemLocationInfo>();
 

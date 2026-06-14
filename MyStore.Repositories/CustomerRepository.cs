@@ -29,7 +29,7 @@ public class CustomerRepository : ICustomerRepository
 
     public async Task<List<Customer>> GetAllAsync(int companyId)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         var rows = await connection.QueryAsync<Customer>(
             $@"SELECT {SelectColumnsWithPoints} FROM customer c
                WHERE c.company_id = @p_company_id
@@ -40,7 +40,7 @@ public class CustomerRepository : ICustomerRepository
 
     public async Task<Customer?> GetByIdAsync(int id, int companyId)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         return await connection.QueryFirstOrDefaultAsync<Customer>(
             $@"SELECT {SelectColumnsWithPoints} FROM customer c
                WHERE c.id = @p_id AND c.company_id = @p_company_id",
@@ -49,7 +49,7 @@ public class CustomerRepository : ICustomerRepository
 
     public async Task<Customer?> GetByEmailAsync(string email, int companyId)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         return await connection.QueryFirstOrDefaultAsync<Customer>(
             $@"SELECT {SelectColumnsWithPoints} FROM customer c
                WHERE c.company_id = @p_company_id
@@ -60,7 +60,7 @@ public class CustomerRepository : ICustomerRepository
 
     public async Task<Customer> CreateAsync(Customer customer)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, customer.CompanyId);
         return await connection.QuerySingleAsync<Customer>(
             $@"INSERT INTO customer (
                 company_id, first_name, last_name, email, phone, address, city, state, zip_code, created_date, last_modified_date)
@@ -83,7 +83,7 @@ public class CustomerRepository : ICustomerRepository
 
     public async Task<Customer?> UpdateAsync(int id, Customer customer, int companyId)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         var rows = await connection.ExecuteAsync(
             @"UPDATE customer SET
                 first_name = @p_first_name,
@@ -115,7 +115,7 @@ public class CustomerRepository : ICustomerRepository
 
     public async Task<bool> DeleteAsync(int id, int companyId)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         var rows = await connection.ExecuteAsync(
             "DELETE FROM customer WHERE id = @p_id AND company_id = @p_company_id",
             new { p_id = id, p_company_id = companyId });
@@ -128,7 +128,7 @@ public class CustomerRepository : ICustomerRepository
             return await GetAllAsync(companyId);
 
         var needle = searchTerm.Trim().ToLowerInvariant();
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         var rows = await connection.QueryAsync<Customer>(
             $@"SELECT {SelectColumnsWithPoints} FROM customer c
                WHERE c.company_id = @p_company_id

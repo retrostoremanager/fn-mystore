@@ -25,7 +25,7 @@ public class ConsignmentRepository : IConsignmentRepository
 
     public async Task<List<ConsignmentItem>> GetAllAsync(int companyId, string? status = null)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         IEnumerable<ConsignmentItem> rows;
         if (status is null)
         {
@@ -49,7 +49,7 @@ public class ConsignmentRepository : IConsignmentRepository
 
     public async Task<ConsignmentItem?> GetByIdAsync(int id, int companyId)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         return await connection.QueryFirstOrDefaultAsync<ConsignmentItem>(
             $@"SELECT {ItemSelectColumns} FROM consignment_item
                WHERE id = @p_id AND company_id = @p_company_id",
@@ -58,7 +58,7 @@ public class ConsignmentRepository : IConsignmentRepository
 
     public async Task<ConsignmentItem> CreateAsync(ConsignmentItem item)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, item.CompanyId);
         return await connection.QuerySingleAsync<ConsignmentItem>(
             $@"INSERT INTO consignment_item (
                 company_id, customer_id, description, asking_price, split_percent, status, inventory_item_id, created_at)
@@ -79,7 +79,7 @@ public class ConsignmentRepository : IConsignmentRepository
 
     public async Task<ConsignmentItem?> UpdateAsync(ConsignmentItem item)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, item.CompanyId);
         var rows = await connection.ExecuteAsync(
             @"UPDATE consignment_item SET
                 customer_id = @p_customer_id,
@@ -107,7 +107,7 @@ public class ConsignmentRepository : IConsignmentRepository
 
     public async Task<ConsignmentItem?> MarkSoldAsync(int id, decimal salePrice, int companyId)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         var rows = await connection.ExecuteAsync(
             @"UPDATE consignment_item SET
                 sale_price = @p_sale_price,
@@ -121,7 +121,7 @@ public class ConsignmentRepository : IConsignmentRepository
 
     public async Task<List<ConsignmentPayout>> GetPayoutsAsync(int itemId, int companyId)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         var rows = await connection.QueryAsync<ConsignmentPayout>(
             $@"SELECT p.id, p.consignment_item_id, p.amount, p.paid_at, p.notes
                FROM consignment_payout p
@@ -134,6 +134,9 @@ public class ConsignmentRepository : IConsignmentRepository
 
     public async Task<ConsignmentPayout> CreatePayoutAsync(ConsignmentPayout payout)
     {
+        // consignment_payout has no company_id (child of consignment_item) and no RLS policy,
+        // so no tenant GUC is needed here. If RLS is ever added to consignment_payout, thread
+        // companyId in and open via TenantConnection.OpenAsync.
         await using var connection = new NpgsqlConnection(_connectionString);
         return await connection.QuerySingleAsync<ConsignmentPayout>(
             @"INSERT INTO consignment_payout (consignment_item_id, amount, paid_at, notes)

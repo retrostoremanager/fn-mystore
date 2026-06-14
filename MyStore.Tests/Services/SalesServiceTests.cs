@@ -456,7 +456,7 @@ public class SalesServiceTests
             loyaltyService: null,
             promotionService: promotionServiceMock.Object);
 
-        _customerRepositoryMock.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(new Customer { Id = 10, CompanyId = CompanyId });
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(10, CompanyId)).ReturnsAsync(new Customer { Id = 10, CompanyId = CompanyId });
         _inventoryRepositoryMock.Setup(r => r.GetByIdAsync(100, CompanyId))
             .ReturnsAsync(new InventoryItem { Id = 100, CompanyId = CompanyId, Name = "Game", Quantity = 5 });
         _salesRepositoryMock.Setup(r => r.CreateAsync(It.IsAny<Sale>())).ReturnsAsync((Sale s) => { s.Id = 1; return s; });
@@ -487,7 +487,7 @@ public class SalesServiceTests
             }
         };
 
-        _customerRepositoryMock.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(new Customer { Id = 10, CompanyId = CompanyId });
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(10, CompanyId)).ReturnsAsync(new Customer { Id = 10, CompanyId = CompanyId });
         _inventoryRepositoryMock.Setup(r => r.GetByIdAsync(100, CompanyId))
             .ReturnsAsync(new InventoryItem { Id = 100, CompanyId = CompanyId, Name = "Game", Quantity = 5 });
         _salesRepositoryMock.Setup(r => r.CreateAsync(It.IsAny<Sale>())).ReturnsAsync((Sale s) => { s.Id = 1; return s; });
@@ -530,7 +530,7 @@ public class SalesServiceTests
             loyaltyService: null,
             promotionService: promotionServiceMock.Object);
 
-        _customerRepositoryMock.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(new Customer { Id = 10, CompanyId = CompanyId });
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(10, CompanyId)).ReturnsAsync(new Customer { Id = 10, CompanyId = CompanyId });
         _inventoryRepositoryMock.Setup(r => r.GetByIdAsync(100, CompanyId))
             .ReturnsAsync(new InventoryItem { Id = 100, CompanyId = CompanyId, Name = "Game", Quantity = 5 });
         _salesRepositoryMock.Setup(r => r.CreateAsync(It.IsAny<Sale>())).ReturnsAsync((Sale s) => { s.Id = 1; return s; });
@@ -581,7 +581,7 @@ public class SalesServiceTests
             loyaltyService: null,
             promotionService: promotionServiceMock.Object);
 
-        _customerRepositoryMock.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(new Customer { Id = 10, CompanyId = CompanyId });
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(10, CompanyId)).ReturnsAsync(new Customer { Id = 10, CompanyId = CompanyId });
         _inventoryRepositoryMock.Setup(r => r.GetByIdAsync(100, CompanyId))
             .ReturnsAsync(new InventoryItem { Id = 100, CompanyId = CompanyId, Name = "Game", Quantity = 5 });
         _salesRepositoryMock.Setup(r => r.CreateAsync(It.IsAny<Sale>())).ReturnsAsync((Sale s) => { s.Id = 1; return s; });
@@ -641,7 +641,7 @@ public class SalesServiceTests
             loyaltyService: null,
             promotionService: promotionServiceMock.Object);
 
-        _customerRepositoryMock.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(new Customer { Id = 10, CompanyId = CompanyId });
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(10, CompanyId)).ReturnsAsync(new Customer { Id = 10, CompanyId = CompanyId });
         _inventoryRepositoryMock.Setup(r => r.GetByIdAsync(70, CompanyId))
             .ReturnsAsync(new InventoryItem { Id = 70, CompanyId = CompanyId, Name = "Game", Quantity = 5 });
         _salesRepositoryMock.Setup(r => r.CreateAsync(It.IsAny<Sale>())).ReturnsAsync((Sale s) => { s.Id = 80; return s; });
@@ -684,7 +684,7 @@ public class SalesServiceTests
             _companyRepositoryMock.Object,
             loyaltyServiceMock.Object);
 
-        _customerRepositoryMock.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(new Customer { Id = 10, CompanyId = CompanyId });
+        _customerRepositoryMock.Setup(r => r.GetByIdAsync(10, CompanyId)).ReturnsAsync(new Customer { Id = 10, CompanyId = CompanyId });
         _inventoryRepositoryMock.Setup(r => r.GetByIdAsync(100, CompanyId))
             .ReturnsAsync(new InventoryItem { Id = 100, CompanyId = CompanyId, Name = "Game", Quantity = 5 });
         _salesRepositoryMock.Setup(r => r.CreateAsync(It.IsAny<Sale>())).ReturnsAsync((Sale s) =>

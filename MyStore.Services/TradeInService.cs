@@ -197,7 +197,7 @@ public class TradeInService : ITradeInService
                 await _tradeInRepository.UpdateItemAsync(item);
             }
 
-            var completed = await _tradeInRepository.CompleteAsync(id, paymentType, DateTime.UtcNow);
+            var completed = await _tradeInRepository.CompleteAsync(id, companyId, paymentType, DateTime.UtcNow);
             if (completed is null)
                 return ApiResponse<TradeIn>.ErrorResponse($"Failed to complete trade-in with ID {id}");
 

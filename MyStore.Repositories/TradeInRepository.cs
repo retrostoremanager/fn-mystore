@@ -28,7 +28,7 @@ public class TradeInRepository : ITradeInRepository
 
     public async Task<List<TradeIn>> GetAllAsync(int companyId, string? status = null, DateTime? dateFrom = null, DateTime? dateTo = null)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
 
         var conditions = new List<string> { "t.company_id = @p_company_id" };
         if (status is not null) conditions.Add("t.status = @p_status");
@@ -74,7 +74,7 @@ public class TradeInRepository : ITradeInRepository
 
     public async Task<TradeIn?> GetByIdAsync(int id, int companyId)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
 
         var tCols = string.Join(", ", TradeInSelectColumns.Split(", ").Select(c => "t." + c.Trim()));
         var iCols = string.Join(", ", ItemSelectColumns.Split(", ").Select(c => "i." + c.Trim()));
@@ -106,7 +106,7 @@ public class TradeInRepository : ITradeInRepository
 
     public async Task<TradeIn> CreateAsync(TradeIn tradeIn)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, tradeIn.CompanyId);
         var created = await connection.QuerySingleAsync<TradeIn>(
             $@"INSERT INTO trade_in (
                 company_id, customer_id, status, total_offered_value, total_accepted_value,
@@ -132,7 +132,7 @@ public class TradeInRepository : ITradeInRepository
 
     public async Task<TradeIn?> UpdateAsync(TradeIn tradeIn)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, tradeIn.CompanyId);
         var rows = await connection.ExecuteAsync(
             @"UPDATE trade_in SET
                 customer_id = @p_customer_id,
@@ -159,6 +159,9 @@ public class TradeInRepository : ITradeInRepository
 
     public async Task<TradeInItem> AddItemAsync(TradeInItem item)
     {
+        // trade_in_item has no company_id (child of trade_in) and no RLS policy, so no tenant
+        // GUC is needed here. If RLS is ever added to trade_in_item, thread companyId in and
+        // open via TenantConnection.OpenAsync.
         await using var connection = new NpgsqlConnection(_connectionString);
         return await connection.QuerySingleAsync<TradeInItem>(
             $@"INSERT INTO trade_in_item (
@@ -180,6 +183,7 @@ public class TradeInRepository : ITradeInRepository
 
     public async Task<TradeInItem?> UpdateItemAsync(TradeInItem item)
     {
+        // child of trade_in (no company_id / no RLS) — see AddItemAsync note.
         await using var connection = new NpgsqlConnection(_connectionString);
         var rows = await connection.ExecuteAsync(
             @"UPDATE trade_in_item SET
@@ -209,12 +213,12 @@ public class TradeInRepository : ITradeInRepository
             new { p_id = item.Id });
     }
 
-    public async Task<TradeIn?> CompleteAsync(int id, string paymentType, DateTime completedAt)
+    public async Task<TradeIn?> CompleteAsync(int id, int companyId, string paymentType, DateTime completedAt)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         var tradeIn = await connection.QueryFirstOrDefaultAsync<TradeIn>(
-            $"SELECT {TradeInSelectColumns} FROM trade_in WHERE id = @p_id",
-            new { p_id = id });
+            $"SELECT {TradeInSelectColumns} FROM trade_in WHERE id = @p_id AND company_id = @p_company_id",
+            new { p_id = id, p_company_id = companyId });
         if (tradeIn is null) return null;
 
         var rows = await connection.ExecuteAsync(
@@ -227,9 +231,9 @@ public class TradeInRepository : ITradeInRepository
                     FROM trade_in_item
                     WHERE trade_in_id = @p_id AND accepted_value > 0
                 )
-              WHERE id = @p_id AND status = 'draft'",
-            new { p_id = id, p_payment_type = paymentType, p_completed_at = completedAt });
+              WHERE id = @p_id AND company_id = @p_company_id AND status = 'draft'",
+            new { p_id = id, p_company_id = companyId, p_payment_type = paymentType, p_completed_at = completedAt });
         if (rows == 0) return null;
-        return await GetByIdAsync(id, tradeIn.CompanyId);
+        return await GetByIdAsync(id, companyId);
     }
 }

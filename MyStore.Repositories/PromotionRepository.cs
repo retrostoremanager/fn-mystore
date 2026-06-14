@@ -25,7 +25,7 @@ public class PromotionRepository : IPromotionRepository
 
     public async Task<List<Promotion>> GetAllAsync(int companyId)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         var rows = await connection.QueryAsync<Promotion>(
             $@"SELECT {SelectColumns} FROM promotion
                WHERE company_id = @p_company_id
@@ -36,7 +36,7 @@ public class PromotionRepository : IPromotionRepository
 
     public async Task<Promotion?> GetByIdAsync(int id, int companyId)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         return await connection.QueryFirstOrDefaultAsync<Promotion>(
             $@"SELECT {SelectColumns} FROM promotion
                WHERE id = @p_id AND company_id = @p_company_id",
@@ -45,7 +45,7 @@ public class PromotionRepository : IPromotionRepository
 
     public async Task<Promotion> CreateAsync(Promotion promotion)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, promotion.CompanyId);
         return await connection.QuerySingleAsync<Promotion>(
             $@"INSERT INTO promotion (
                 company_id, name, type, discount_percent, buy_quantity, get_quantity,
@@ -73,7 +73,7 @@ public class PromotionRepository : IPromotionRepository
 
     public async Task<Promotion?> UpdateAsync(Promotion promotion)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, promotion.CompanyId);
         var rows = await connection.ExecuteAsync(
             @"UPDATE promotion SET
                 name = @p_name,
@@ -108,7 +108,7 @@ public class PromotionRepository : IPromotionRepository
 
     public async Task<bool> DeleteAsync(int id, int companyId)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         var rows = await connection.ExecuteAsync(
             @"DELETE FROM promotion WHERE id = @p_id AND company_id = @p_company_id",
             new { p_id = id, p_company_id = companyId });
@@ -117,7 +117,7 @@ public class PromotionRepository : IPromotionRepository
 
     public async Task<List<Promotion>> GetActiveAsync(int companyId, DateTime date)
     {
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         var rows = await connection.QueryAsync<Promotion>(
             $@"SELECT {SelectColumns} FROM promotion
                WHERE company_id = @p_company_id
