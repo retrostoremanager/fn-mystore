@@ -6,10 +6,17 @@ namespace MyStore.Services;
 public class ConsignmentService : IConsignmentService
 {
     private readonly IConsignmentRepository _repository;
+    private readonly ISalesRepository? _salesRepository;
+    private readonly IInventoryRepository? _inventoryRepository;
 
-    public ConsignmentService(IConsignmentRepository repository)
+    public ConsignmentService(
+        IConsignmentRepository repository,
+        ISalesRepository? salesRepository = null,
+        IInventoryRepository? inventoryRepository = null)
     {
         _repository = repository;
+        _salesRepository = salesRepository;
+        _inventoryRepository = inventoryRepository;
     }
 
     public async Task<ApiResponse<List<ConsignmentItem>>> GetAllAsync(int companyId, string? status = null)
@@ -121,6 +128,40 @@ public class ConsignmentService : IConsignmentService
 
             var payoutAmount = Math.Round(salePrice * updated.SplitPercent / 100m, 2, MidpointRounding.AwayFromZero);
             var storeAmount = Math.Round(salePrice - payoutAmount, 2, MidpointRounding.AwayFromZero);
+
+            if (_salesRepository is not null)
+            {
+                var sale = new Sale
+                {
+                    CompanyId = companyId,
+                    CustomerId = updated.CustomerId,
+                    Subtotal = salePrice,
+                    Tax = 0m,
+                    TaxAmount = 0m,
+                    Total = salePrice,
+                    PaymentMethod = "consignment",
+                    SaleDate = DateTime.UtcNow,
+                    Notes = $"Consignment item #{updated.Id}: {updated.Description}",
+                };
+
+                if (updated.InventoryItemId.HasValue)
+                {
+                    sale.Items.Add(new SaleItem
+                    {
+                        InventoryItemId = updated.InventoryItemId.Value,
+                        Quantity = 1,
+                        UnitPrice = salePrice,
+                        TotalPrice = salePrice,
+                    });
+                }
+
+                await _salesRepository.CreateAsync(sale);
+            }
+
+            if (_inventoryRepository is not null && updated.InventoryItemId.HasValue)
+            {
+                await _inventoryRepository.UpdateQuantityAsync(updated.InventoryItemId.Value, -1, companyId);
+            }
 
             var response = new MarkSoldResponse
             {
