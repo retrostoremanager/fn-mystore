@@ -185,7 +185,8 @@ public class SalesService : ISalesService
             // Apply promotions before computing totals
             var discountMap = new Dictionary<int, decimal>();
             var itemPromotionMap = new Dictionary<int, (int Id, string Name)>();
-            var appliedPromotionsMap = new Dictionary<int, AppliedPromotion>();
+            var itemPromotionContributions = new Dictionary<int, List<LineDiscount>>();
+            var promotionNames = new Dictionary<int, string>();
             if (_promotionService is not null)
             {
                 var lineDiscounts = await _promotionService.ApplyPromotionsAsync(cartItems, companyId);
@@ -199,23 +200,22 @@ public class SalesService : ISalesService
                         itemPromotionMap[ld.ItemId] = (ld.PromotionId, ld.PromotionName);
                     }
 
-                    if (appliedPromotionsMap.TryGetValue(ld.PromotionId, out var existing))
+                    if (!itemPromotionContributions.TryGetValue(ld.ItemId, out var contributions))
                     {
-                        existing.DiscountAmount += ld.DiscountAmount;
+                        contributions = new List<LineDiscount>();
+                        itemPromotionContributions[ld.ItemId] = contributions;
                     }
-                    else
+                    contributions.Add(ld);
+
+                    if (!promotionNames.ContainsKey(ld.PromotionId))
                     {
-                        appliedPromotionsMap[ld.PromotionId] = new AppliedPromotion
-                        {
-                            PromotionId = ld.PromotionId,
-                            PromotionName = ld.PromotionName,
-                            DiscountAmount = ld.DiscountAmount,
-                        };
+                        promotionNames[ld.PromotionId] = ld.PromotionName;
                     }
                 }
             }
 
             decimal discountTotal = 0m;
+            var appliedPromotionsMap = new Dictionary<int, decimal>();
             foreach (var itemRequest in request.Items)
             {
                 var lineTotal = itemRequest.Quantity * itemRequest.UnitPrice;
@@ -238,6 +238,42 @@ public class SalesService : ISalesService
                     saleItem.PromotionName = promo.Name;
                 }
 
+                // Scale per-promotion contributions to the capped applied discount so the
+                // sum across applied promotions equals discountTotal.
+                if (appliedDiscount > 0m &&
+                    itemPromotionContributions.TryGetValue(itemRequest.InventoryItemId, out var contributions))
+                {
+                    if (discount > 0m && appliedDiscount < discount)
+                    {
+                        var ratio = appliedDiscount / discount;
+                        decimal allocated = 0m;
+                        for (var i = 0; i < contributions.Count; i++)
+                        {
+                            var contrib = contributions[i];
+                            decimal scaled;
+                            if (i == contributions.Count - 1)
+                            {
+                                scaled = appliedDiscount - allocated;
+                            }
+                            else
+                            {
+                                scaled = Math.Round(contrib.DiscountAmount * ratio, 2, MidpointRounding.AwayFromZero);
+                                allocated += scaled;
+                            }
+                            appliedPromotionsMap[contrib.PromotionId] =
+                                appliedPromotionsMap.GetValueOrDefault(contrib.PromotionId) + scaled;
+                        }
+                    }
+                    else
+                    {
+                        foreach (var contrib in contributions)
+                        {
+                            appliedPromotionsMap[contrib.PromotionId] =
+                                appliedPromotionsMap.GetValueOrDefault(contrib.PromotionId) + contrib.DiscountAmount;
+                        }
+                    }
+                }
+
                 sale.Items.Add(saleItem);
                 subtotal += saleItem.TotalPrice;
                 discountTotal += appliedDiscount;
@@ -247,7 +283,14 @@ public class SalesService : ISalesService
             }
 
             sale.DiscountTotal = discountTotal;
-            sale.AppliedPromotions = appliedPromotionsMap.Values.ToList();
+            sale.AppliedPromotions = appliedPromotionsMap
+                .Select(kvp => new AppliedPromotion
+                {
+                    PromotionId = kvp.Key,
+                    PromotionName = promotionNames.TryGetValue(kvp.Key, out var name) ? name : string.Empty,
+                    DiscountAmount = kvp.Value,
+                })
+                .ToList();
 
             decimal taxAmount;
             decimal taxRate;
