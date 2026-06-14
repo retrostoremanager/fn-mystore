@@ -124,4 +124,19 @@ public class CompanyHelperTests
 
         result.Should().Be(7);
     }
+
+    [Fact]
+    public void GetEmailFromRequest_IgnoresXUserEmailHeader_WhenNoJwt()
+    {
+        // Security: identity must come from the JWT, never from a client-supplied X-User-Email header.
+        var context = new Mock<FunctionContext>();
+        var request = TestHelpers.CreateHttpRequestData(context.Object, null, new Dictionary<string, string>
+        {
+            ["X-User-Email"] = "attacker@evil.com"
+        });
+
+        var result = CompanyHelper.GetEmailFromRequest(request, context.Object);
+
+        result.Should().BeNull();
+    }
 }

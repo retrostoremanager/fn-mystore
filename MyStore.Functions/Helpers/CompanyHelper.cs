@@ -7,8 +7,6 @@ namespace MyStore.Functions.Helpers;
 
 public static class CompanyHelper
 {
-    private const string UserEmailHeader = "X-User-Email";
-
     /// <summary>
     /// Extracts the company ID for the current tenant from the validated JWT (set by
     /// JwtAuthenticationMiddleware). The client-supplied X-Company-Id header and companyId
@@ -65,22 +63,14 @@ public static class CompanyHelper
     }
 
     /// <summary>
-    /// Gets the user email from context (JWT claims) or X-User-Email header.
-    /// The header is a fallback when the frontend has email from login but JWT claim extraction fails.
-    /// Only used when the request is already authenticated (JWT validated by middleware).
+    /// Gets the authenticated user's email from the validated JWT (set by JwtAuthenticationMiddleware).
+    /// The client-supplied X-User-Email header is intentionally NOT trusted: it let a caller assert
+    /// another user's identity (e.g. to read a higher-privileged user's permission set). Identity comes
+    /// only from the token.
     /// </summary>
     public static string? GetEmailFromRequest(HttpRequestData request, FunctionContext? context)
     {
-        var email = GetEmailFromContext(context) ?? GetEmailFromJwt(request);
-        if (!string.IsNullOrEmpty(email))
-            return email;
-        if (request.Headers.TryGetValues(UserEmailHeader, out var values))
-        {
-            var value = values.FirstOrDefault();
-            if (!string.IsNullOrEmpty(value) && value.Contains('@', StringComparison.Ordinal))
-                return value.Trim();
-        }
-        return null;
+        return GetEmailFromContext(context) ?? GetEmailFromJwt(request);
     }
 
     /// <summary>
