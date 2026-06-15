@@ -300,6 +300,88 @@ public class SalesFunctionsTests
     }
 
     [Fact]
+    public async Task CreateSale_CustomerNotFound_Returns400WithNotFoundMessage()
+    {
+        var request = CreateValidSaleRequest();
+        var apiResponse = ApiResponse<Sale>.ErrorResponse("Customer not found");
+
+        _salesServiceMock
+            .Setup(s => s.CreateSaleAsync(It.IsAny<CreateSaleRequest>(), CompanyId))
+            .ReturnsAsync(apiResponse);
+
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, request, CompanyHeaders);
+
+        var result = await _functions.CreateSale(httpRequest);
+
+        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<Sale>>(body,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Success.Should().BeFalse();
+        deserialized.Message.Should().ContainEquivalentOf("Customer not found",
+            because: "the service signals a missing referenced customer via the error message");
+    }
+
+    [Fact]
+    public async Task CreateSale_NegativeUnitPrice_Returns400BadRequest()
+    {
+        var request = new CreateSaleRequest
+        {
+            CustomerId = 10,
+            PaymentMethod = "Cash",
+            Items = new List<CreateSaleItemRequest>
+            {
+                new CreateSaleItemRequest { InventoryItemId = 100, Quantity = 1, UnitPrice = -5m }
+            }
+        };
+
+        var apiResponse = ApiResponse<Sale>.ErrorResponse("Unit price must be greater than or equal to zero");
+
+        _salesServiceMock
+            .Setup(s => s.CreateSaleAsync(It.IsAny<CreateSaleRequest>(), CompanyId))
+            .ReturnsAsync(apiResponse);
+
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestData(context, request, CompanyHeaders);
+
+        var result = await _functions.CreateSale(httpRequest);
+
+        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<Sale>>(body,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Success.Should().BeFalse();
+        deserialized.Message.Should().ContainEquivalentOf("price",
+            because: "negative unit prices must be rejected by validation");
+    }
+
+    [Fact]
+    public async Task CreateSale_InvalidJsonBody_Returns400BadRequest()
+    {
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var httpRequest = TestHelpers.CreateHttpRequestDataWithRawBody(
+            "this is not valid json",
+            CompanyHeaders,
+            context: context);
+
+        var result = await _functions.CreateSale(httpRequest);
+
+        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<Sale>>(body,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Success.Should().BeFalse();
+        deserialized.Message.Should().Contain("Invalid request body");
+    }
+
+    [Fact]
     public async Task CreateSale_ServiceException_Returns500WithErrorBody()
     {
         var request = CreateValidSaleRequest();
