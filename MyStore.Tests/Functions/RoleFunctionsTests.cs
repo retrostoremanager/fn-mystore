@@ -426,6 +426,25 @@ public class RoleFunctionsTests
         result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
+    [Fact]
+    public async Task CreateRole_NullDeserializedBody_Returns400()
+    {
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = new MockHttpRequestData(context, CompanyHeaders, null);
+        req.SetBody(Encoding.UTF8.GetBytes("null"));
+
+        var result = await _functions.CreateRole(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var response = JsonSerializer.Deserialize<ApiResponse<Role>>(body,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        response!.Success.Should().BeFalse();
+        response.Message.Should().Contain("Name is required");
+    }
+
     #endregion
 
     #region UpdateRole
@@ -540,6 +559,28 @@ public class RoleFunctionsTests
         var result = await _functions.UpdateRole(req, 1);
 
         result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task UpdateRole_NullDeserializedBody_Returns400()
+    {
+        var existing = MakeRole(1);
+        _roleRepositoryMock.Setup(r => r.GetByIdAsync(1, CompanyId, default)).ReturnsAsync(existing);
+
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = new MockHttpRequestData(context, CompanyHeaders, null);
+        req.SetBody(Encoding.UTF8.GetBytes("null"));
+
+        var result = await _functions.UpdateRole(req, 1);
+
+        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var response = JsonSerializer.Deserialize<ApiResponse<Role>>(body,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        response!.Success.Should().BeFalse();
+        response.Message.Should().Contain("Invalid request body");
     }
 
     #endregion
