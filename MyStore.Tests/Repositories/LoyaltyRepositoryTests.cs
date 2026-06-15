@@ -31,6 +31,7 @@ namespace MyStore.Tests.Repositories;
 /// the constructor contract and the public surface described by
 /// <see cref="ILoyaltyRepository"/>.
 /// </summary>
+[Collection("ConnectionStringEnv")]
 public class LoyaltyRepositoryTests
 {
     public LoyaltyRepositoryTests()

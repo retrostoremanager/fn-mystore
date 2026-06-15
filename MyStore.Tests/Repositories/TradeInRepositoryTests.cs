@@ -27,6 +27,7 @@ namespace MyStore.Tests.Repositories;
 /// the constructor contract and the public surface described by
 /// <see cref="ITradeInRepository"/>.
 /// </summary>
+[Collection("ConnectionStringEnv")]
 public class TradeInRepositoryTests
 {
     public TradeInRepositoryTests()

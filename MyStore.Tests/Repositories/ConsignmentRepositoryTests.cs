@@ -30,6 +30,7 @@ namespace MyStore.Tests.Repositories;
 /// the constructor contract and the public surface described by
 /// <see cref="IConsignmentRepository"/>.
 /// </summary>
+[Collection("ConnectionStringEnv")]
 public class ConsignmentRepositoryTests
 {
     public ConsignmentRepositoryTests()
