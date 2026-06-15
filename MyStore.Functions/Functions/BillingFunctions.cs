@@ -490,7 +490,7 @@ public class BillingFunctions
             {
                 _logger.LogInformation("Company {CompanyId} has no stripe_subscription_id; returning status=none", companyId);
                 return await CreateHttpResponse(req, ApiResponse<SubscriptionDetailResponse>.SuccessResponse(
-                    new SubscriptionDetailResponse { Status = "none" }), HttpStatusCode.OK);
+                    BuildFreePlanResponse()), HttpStatusCode.OK);
             }
 
             Stripe.Subscription? stripeSub = null;
@@ -498,7 +498,7 @@ public class BillingFunctions
             {
                 stripeSub = await _stripeSubscriptionService.GetAsync(
                     localSub.StripeSubscriptionId,
-                    new SubscriptionGetOptions { Expand = new List<string> { "items.data.price.product" } });
+                    new SubscriptionGetOptions { Expand = new List<string> { "items.data.price.product", "latest_invoice" } });
             }
             catch (StripeException ex)
             {
@@ -675,11 +675,11 @@ public class BillingFunctions
             else
             {
                 // Stripe subscription not found and recovery failed.
-                // Per acceptance criteria, return graceful "none" response with all other fields null.
+                // Per acceptance criteria, return graceful Free-plan response with all other fields null.
                 _logger.LogInformation("No Stripe subscription resolvable for company {CompanyId} (sub {StripeSubscriptionId}); returning status=none",
                     companyId, localSub.StripeSubscriptionId);
                 return await CreateHttpResponse(req, ApiResponse<SubscriptionDetailResponse>.SuccessResponse(
-                    new SubscriptionDetailResponse { Status = "none" }), HttpStatusCode.OK);
+                    BuildFreePlanResponse()), HttpStatusCode.OK);
             }
 
             // planName fallback to local DB Companies table (per acceptance criteria) when Stripe-derived plan name is null.
@@ -738,8 +738,8 @@ public class BillingFunctions
 
             var responseData = new SubscriptionDetailResponse
             {
-                PlanName = planName,
-                Status = status,
+                PlanName = string.IsNullOrWhiteSpace(planName) ? "Free" : planName,
+                Status = NormalizeStatus(status),
                 CurrentPeriodStart = currentPeriodStart,
                 CurrentPeriodEnd = currentPeriodEnd,
                 TrialStart = trialStart,
@@ -764,6 +764,32 @@ public class BillingFunctions
                 "An error occurred while retrieving subscription status.");
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
         }
+    }
+
+    private static SubscriptionDetailResponse BuildFreePlanResponse() => new SubscriptionDetailResponse
+    {
+        PlanName = "Free",
+        Status = "none",
+        CurrentPeriodStart = null,
+        CurrentPeriodEnd = null,
+        TrialStart = null,
+        TrialEnd = null,
+        NextInvoiceAmount = null,
+        Currency = null,
+    };
+
+    private static string NormalizeStatus(string? status)
+    {
+        if (string.IsNullOrWhiteSpace(status)) return "unknown";
+        return status.ToLowerInvariant() switch
+        {
+            "active" => "active",
+            "trialing" => "trialing",
+            "past_due" => "past_due",
+            "canceled" => "canceled",
+            "none" => "none",
+            _ => "unknown"
+        };
     }
 
     private static async Task<HttpResponseData> CreateHttpResponse<T>(HttpRequestData req, ApiResponse<T> apiResponse, HttpStatusCode statusCode)
