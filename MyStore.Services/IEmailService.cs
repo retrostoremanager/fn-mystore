@@ -1,0 +1,73 @@
+namespace MyStore.Services;
+
+/// <summary>
+/// Service interface for sending emails, particularly verification emails for account registration.
+/// </summary>
+public interface IEmailService
+{
+    /// <summary>
+    /// Sends a verification email to the specified recipient with a verification token.
+    /// </summary>
+    /// <param name="toEmail">The email address of the recipient.</param>
+    /// <param name="verificationToken">The secure verification token to include in the email link.</param>
+    /// <param name="companyName">The name of the company/store for personalization.</param>
+    /// <returns>An EmailSendResult indicating success or failure of the email send operation.</returns>
+    Task<EmailSendResult> SendVerificationEmailAsync(string toEmail, string verificationToken, string companyName);
+
+    /// <summary>
+    /// Sends a password reset email to the specified recipient with a reset token.
+    /// </summary>
+    /// <param name="toEmail">The email address of the recipient.</param>
+    /// <param name="resetToken">The secure reset token to include in the email link.</param>
+    /// <returns>An EmailSendResult indicating success or failure of the email send operation.</returns>
+    Task<EmailSendResult> SendPasswordResetEmailAsync(string toEmail, string resetToken);
+
+    /// <summary>
+    /// Sends a trial expiration reminder email (7, 3, or 1 day before trial ends).
+    /// </summary>
+    /// <param name="toEmail">The email address of the recipient.</param>
+    /// <param name="daysRemaining">Days remaining in trial (7, 3, or 1).</param>
+    /// <returns>An EmailSendResult indicating success or failure of the email send operation.</returns>
+    Task<EmailSendResult> SendTrialExpirationEmailAsync(string toEmail, int daysRemaining);
+
+    /// <summary>
+    /// Sends an invite email to a new user (employee) with a link to set their password.
+    /// </summary>
+    /// <param name="toEmail">The email address of the recipient.</param>
+    /// <param name="inviteToken">The secure token for the set-password link.</param>
+    /// <param name="companyName">The name of the company for personalization.</param>
+    /// <param name="firstName">The user's first name for personalization.</param>
+    /// <returns>An EmailSendResult indicating success or failure of the email send operation.</returns>
+    Task<EmailSendResult> SendUserInviteEmailAsync(string toEmail, string inviteToken, string companyName, string firstName);
+
+    /// <summary>
+    /// Sends an invite for a store customer to set a password for the customer portal (same set-password flow as staff).
+    /// </summary>
+    Task<EmailSendResult> SendCustomerPortalInviteEmailAsync(string toEmail, string inviteToken, string companyName, string firstName);
+
+    /// <summary>
+    /// Sends an HTML-formatted sale receipt to the specified email address.
+    /// </summary>
+    Task<EmailSendResult> SendReceiptEmailAsync(string toEmail, MyStore.Models.ReceiptResponse receipt);
+}
+
+/// <summary>
+/// Result of an email send operation.
+/// </summary>
+public class EmailSendResult
+{
+    /// <summary>
+    /// Indicates whether the email was sent successfully.
+    /// </summary>
+    public bool Success { get; set; }
+    
+    /// <summary>
+    /// Error message if the email send failed.
+    /// </summary>
+    public string? ErrorMessage { get; set; }
+    
+    /// <summary>
+    /// Message ID from the email service (if available).
+    /// </summary>
+    public string? MessageId { get; set; }
+}
