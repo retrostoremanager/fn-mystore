@@ -77,6 +77,30 @@ public class CustomerFunctionsTests
     }
 
     [Fact]
+    public async Task GetAllCustomers_NoCustomersExist_Returns200WithEmptyList()
+    {
+        _customerServiceMock
+            .Setup(s => s.GetAllCustomersAsync(CompanyId))
+            .ReturnsAsync(ApiResponse<List<Customer>>.SuccessResponse(new List<Customer>(), "No customers"));
+
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, null, _companyHeaders);
+
+        var result = await _functions.GetAllCustomers(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<List<Customer>>>(
+            body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized.Should().NotBeNull();
+        deserialized!.Success.Should().BeTrue();
+        deserialized.Data.Should().NotBeNull();
+        deserialized.Data!.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task GetAllCustomers_ScopedToCompany_PassesCompanyIdToService()
     {
         _customerServiceMock
@@ -436,6 +460,29 @@ public class CustomerFunctionsTests
             body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
         deserialized!.Success.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateCustomer_InvalidPayload_Returns400BadRequest()
+    {
+        var request = new UpdateCustomerRequest { Email = "not-a-valid-email" };
+        var apiResponse = ApiResponse<Customer>.ErrorResponse("Invalid email format");
+
+        _customerServiceMock
+            .Setup(s => s.UpdateCustomerAsync(1, It.IsAny<UpdateCustomerRequest>(), CompanyId))
+            .ReturnsAsync(apiResponse);
+
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, request, _companyHeaders);
+
+        var result = await _functions.UpdateCustomer(req, 1);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<Customer>>(
+            body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Success.Should().BeFalse();
+        deserialized.Message.Should().Contain("Invalid email format");
     }
 
     [Fact]
