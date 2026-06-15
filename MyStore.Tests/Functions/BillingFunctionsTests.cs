@@ -384,6 +384,136 @@ public class BillingFunctionsTests
     }
 
     [Fact]
+    public async Task GetPaymentMethods_MultipleMethods_AllHavePopulatedBrandField()
+    {
+        // Regression for bugs #249, #251, #255, #257, #264, #265, #270:
+        // every returned payment method must surface a non-empty `brand` field.
+        var companyId = 1;
+        var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers, context: TestHelpers.CreateMockFunctionContextWithJwt(companyId));
+
+        var methods = new List<StorePaymentMethodResponse>
+        {
+            new StorePaymentMethodResponse { Id = 1, Brand = "visa", Last4 = "4242", ExpirationMonth = 12, ExpirationYear = 2030, IsDefault = true },
+            new StorePaymentMethodResponse { Id = 2, Brand = "mastercard", Last4 = "5555", ExpirationMonth = 6, ExpirationYear = 2031, IsDefault = false },
+            new StorePaymentMethodResponse { Id = 3, Brand = "amex", Last4 = "0005", ExpirationMonth = 1, ExpirationYear = 2032, IsDefault = false },
+        };
+
+        _paymentServiceMock
+            .Setup(s => s.GetPaymentMethodsAsync(companyId))
+            .ReturnsAsync(ApiResponse<IEnumerable<StorePaymentMethodResponse>>.SuccessResponse(methods));
+
+        var result = await _functions.GetPaymentMethods(request);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await TestHelpers.ReadResponseBody(result);
+        var parsed = JsonSerializer.Deserialize<JsonElement>(body);
+        parsed.GetProperty("success").GetBoolean().Should().BeTrue();
+        var data = parsed.GetProperty("data");
+        data.GetArrayLength().Should().Be(3);
+        foreach (var element in data.EnumerateArray())
+        {
+            element.TryGetProperty("brand", out var brand).Should().BeTrue("every payment method must include a brand field");
+            brand.ValueKind.Should().Be(JsonValueKind.String);
+            brand.GetString().Should().NotBeNullOrWhiteSpace();
+        }
+        data[0].GetProperty("brand").GetString().Should().Be("visa");
+        data[1].GetProperty("brand").GetString().Should().Be("mastercard");
+        data[2].GetProperty("brand").GetString().Should().Be("amex");
+    }
+
+    [Fact]
+    public async Task GetPaymentMethods_MissingCompanyId_Returns401()
+    {
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("");
+
+        var result = await _functions.GetPaymentMethods(request);
+
+        result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        _paymentServiceMock.Verify(s => s.GetPaymentMethodsAsync(It.IsAny<int>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetInvoices_PaginationLimitOnly_ForwardedToStripeWithoutStartingAfter()
+    {
+        var companyId = 1;
+        var stripeCustomerId = "cus_paginate_limit";
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody(
+            "",
+            new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } },
+            "?limit=25",
+            context: TestHelpers.CreateMockFunctionContextWithJwt(companyId));
+
+        _paymentRepositoryMock.Setup(p => p.GetByCompanyIdAsync(companyId))
+            .ReturnsAsync(new List<Models.PaymentMethod>
+            {
+                new Models.PaymentMethod { Id = 1, CompanyId = companyId, StripeCustomerId = stripeCustomerId }
+            });
+
+        InvoiceListOptions? capturedOptions = null;
+        _invoiceServiceMock
+            .Setup(s => s.ListAsync(It.IsAny<InvoiceListOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()))
+            .Callback<InvoiceListOptions, RequestOptions, CancellationToken>((opts, _, _) => capturedOptions = opts)
+            .ReturnsAsync(new StripeList<Invoice> { Data = new List<Invoice>(), HasMore = false });
+
+        var result = await _functions.GetInvoices(request);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        capturedOptions.Should().NotBeNull();
+        capturedOptions!.Limit.Should().Be(25);
+        capturedOptions.StartingAfter.Should().BeNull();
+        capturedOptions.Customer.Should().Be(stripeCustomerId);
+    }
+
+    [Fact]
+    public async Task GetInvoices_HasMoreTrue_ReflectedInResponse()
+    {
+        var companyId = 1;
+        var headers = new Dictionary<string, string> { { "X-Company-Id", companyId.ToString() } };
+        var request = TestHelpers.CreateHttpRequestDataWithRawBody("", headers, context: TestHelpers.CreateMockFunctionContextWithJwt(companyId));
+        var stripeCustomerId = "cus_hasmore";
+
+        _paymentRepositoryMock.Setup(p => p.GetByCompanyIdAsync(companyId))
+            .ReturnsAsync(new List<Models.PaymentMethod>
+            {
+                new Models.PaymentMethod { Id = 1, CompanyId = companyId, StripeCustomerId = stripeCustomerId }
+            });
+
+        var stripeList = new StripeList<Invoice>
+        {
+            Data = new List<Invoice>
+            {
+                new Invoice
+                {
+                    Id = "in_hasmore1",
+                    Number = "INV-0010",
+                    AmountDue = 1500,
+                    Currency = "usd",
+                    Status = "paid",
+                    Created = new DateTime(2025, 2, 1, 0, 0, 0, DateTimeKind.Utc),
+                    InvoicePdf = "https://pay.stripe.com/invoice/hm/pdf",
+                }
+            },
+            HasMore = true,
+        };
+
+        _invoiceServiceMock
+            .Setup(s => s.ListAsync(It.IsAny<InvoiceListOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(stripeList);
+
+        var result = await _functions.GetInvoices(request);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        var body = await TestHelpers.ReadResponseBody(result);
+        var parsed = JsonSerializer.Deserialize<JsonElement>(body);
+        var data = parsed.GetProperty("data");
+        data.GetProperty("hasMore").GetBoolean().Should().BeTrue();
+        var inv = data.GetProperty("invoices")[0];
+        inv.GetProperty("id").GetString().Should().Be("in_hasmore1");
+        inv.GetProperty("pdfUrl").GetString().Should().Be("https://pay.stripe.com/invoice/hm/pdf");
+    }
+
+    [Fact]
     public async Task GetInvoices_NoStripeCustomerId_Returns200WithEmptyList()
     {
         var companyId = 1;
