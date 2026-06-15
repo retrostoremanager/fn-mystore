@@ -268,6 +268,18 @@ public class CompanyProfileFunctionsTests
     }
 
     [Fact]
+    public async Task UpdateProfile_MalformedJson_Returns500()
+    {
+        var context = CreateAuthenticatedContext();
+        var req = TestHelpers.CreateHttpRequestDataWithRawBody("{ not valid json", CompanyIdHeaders(), context: context);
+
+        var result = await _functions.UpdateProfile(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.InternalServerError,
+            because: "malformed JSON throws a JsonException that should surface as a server error and not crash the function");
+    }
+
+    [Fact]
     public async Task UpdateProfile_ServiceException_Returns500()
     {
         _companyRepoMock
@@ -785,6 +797,40 @@ public class CompanyProfileFunctionsTests
         var result = await _functions.UploadLogo(req);
 
         result.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
+    }
+
+    [Fact]
+    public async Task UploadLogo_ValidUpload_PersistsLogoUrlToRepository()
+    {
+        var fileBytes = Encoding.UTF8.GetBytes("fake-png-content");
+        var uploadRequest = new LogoUploadRequest
+        {
+            File = Convert.ToBase64String(fileBytes),
+            FileName = "logo.png",
+            ContentType = "image/png"
+        };
+
+        const string expectedUrl = "https://blob.example.com/42/logo.png";
+        _fakeLogoStorage.UploadResult = expectedUrl;
+
+        CompanyProfileUpdateRequest? capturedUpdate = null;
+        _companyRepoMock
+            .Setup(r => r.UpdateProfileAsync(TestCompanyId, It.IsAny<CompanyProfileUpdateRequest>()))
+            .Callback<int, CompanyProfileUpdateRequest>((_, r) => capturedUpdate = r)
+            .Returns(Task.CompletedTask);
+        _companyRepoMock
+            .Setup(r => r.GetProfileAsync(TestCompanyId))
+            .ReturnsAsync(CreateTestProfile());
+
+        var context = CreateAuthenticatedContext();
+        var req = TestHelpers.CreateHttpRequestData(context, uploadRequest, CompanyIdHeaders());
+
+        var result = await _functions.UploadLogo(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        capturedUpdate.Should().NotBeNull();
+        capturedUpdate!.LogoUrl.Should().Be(expectedUrl,
+            because: "the blob URL returned by storage must be persisted to the company's profile so subsequent GETs return it");
     }
 
     [Fact]
