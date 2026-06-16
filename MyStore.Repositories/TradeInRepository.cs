@@ -236,4 +236,73 @@ public class TradeInRepository : ITradeInRepository
         if (rows == 0) return null;
         return await GetByIdAsync(id, companyId);
     }
+
+    public async Task<TradeIn?> CompleteAsync(
+        int id,
+        int companyId,
+        string paymentType,
+        DateTime completedAt,
+        IEnumerable<(int ItemId, int InventoryItemId)> acceptedItemLinks)
+    {
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
+        await using var transaction = await connection.BeginTransactionAsync();
+        try
+        {
+            var tradeIn = await connection.QueryFirstOrDefaultAsync<TradeIn>(
+                $"SELECT {TradeInSelectColumns} FROM trade_in WHERE id = @p_id AND company_id = @p_company_id",
+                new { p_id = id, p_company_id = companyId },
+                transaction);
+            if (tradeIn is null)
+            {
+                await transaction.RollbackAsync();
+                return null;
+            }
+
+            foreach (var link in acceptedItemLinks)
+            {
+                var linkRows = await connection.ExecuteAsync(
+                    @"UPDATE trade_in_item SET inventory_item_id = @p_inventory_item_id
+                      WHERE id = @p_id AND trade_in_id = @p_trade_in_id",
+                    new
+                    {
+                        p_id = link.ItemId,
+                        p_trade_in_id = id,
+                        p_inventory_item_id = link.InventoryItemId,
+                    },
+                    transaction);
+                if (linkRows == 0)
+                {
+                    await transaction.RollbackAsync();
+                    return null;
+                }
+            }
+
+            var rows = await connection.ExecuteAsync(
+                @"UPDATE trade_in SET
+                    status = 'completed',
+                    payment_type = @p_payment_type,
+                    completed_at = @p_completed_at,
+                    total_accepted_value = (
+                        SELECT COALESCE(SUM(accepted_value), 0)
+                        FROM trade_in_item
+                        WHERE trade_in_id = @p_id AND accepted_value > 0
+                    )
+                  WHERE id = @p_id AND company_id = @p_company_id AND status = 'draft'",
+                new { p_id = id, p_company_id = companyId, p_payment_type = paymentType, p_completed_at = completedAt },
+                transaction);
+            if (rows == 0)
+            {
+                await transaction.RollbackAsync();
+                return null;
+            }
+
+            await transaction.CommitAsync();
+            return await GetByIdAsync(id, companyId);
+        }
+        catch
+        {
+            try { await transaction.RollbackAsync(); } catch { }
+            throw;
+        }
+    }
 }

@@ -90,8 +90,7 @@ public class TradeInServiceTests
         var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "cash", It.IsAny<DateTime>())).ReturnsAsync(completed);
-        _tradeInRepoMock.Setup(r => r.UpdateItemAsync(It.IsAny<TradeInItem>())).ReturnsAsync((TradeInItem i) => i);
+        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>())).ReturnsAsync(completed);
         _inventoryRepoMock
             .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
             .ReturnsAsync((InventoryItem inv) => { inv.Id = 99; return inv; });
@@ -116,8 +115,7 @@ public class TradeInServiceTests
         Game? capturedGame = null;
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "store_credit", It.IsAny<DateTime>())).ReturnsAsync(completed);
-        _tradeInRepoMock.Setup(r => r.UpdateItemAsync(It.IsAny<TradeInItem>())).ReturnsAsync((TradeInItem i) => i);
+        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "store_credit", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>())).ReturnsAsync(completed);
         _gameRepoMock
             .Setup(r => r.UpsertAsync(It.IsAny<Game>()))
             .Callback<Game>(g => capturedGame = g)
@@ -164,9 +162,8 @@ public class TradeInServiceTests
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(firstDraft);
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(2, 5)).ReturnsAsync(secondDraft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "cash", It.IsAny<DateTime>())).ReturnsAsync(firstCompleted);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(2, 5, "cash", It.IsAny<DateTime>())).ReturnsAsync(secondCompleted);
-        _tradeInRepoMock.Setup(r => r.UpdateItemAsync(It.IsAny<TradeInItem>())).ReturnsAsync((TradeInItem i) => i);
+        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>())).ReturnsAsync(firstCompleted);
+        _tradeInRepoMock.Setup(r => r.CompleteAsync(2, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>())).ReturnsAsync(secondCompleted);
         _gameRepoMock
             .Setup(r => r.UpsertAsync(It.IsAny<Game>()))
             .Callback<Game>(g => capturedGameIds.Add(g.Id))
@@ -193,8 +190,7 @@ public class TradeInServiceTests
         var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "store_credit", It.IsAny<DateTime>())).ReturnsAsync(completed);
-        _tradeInRepoMock.Setup(r => r.UpdateItemAsync(It.IsAny<TradeInItem>())).ReturnsAsync((TradeInItem i) => i);
+        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "store_credit", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>())).ReturnsAsync(completed);
         _inventoryRepoMock
             .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
             .ReturnsAsync((InventoryItem inv) => { inv.Id = 99; return inv; });
@@ -219,8 +215,7 @@ public class TradeInServiceTests
         var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "store_credit", It.IsAny<DateTime>())).ReturnsAsync(completed);
-        _tradeInRepoMock.Setup(r => r.UpdateItemAsync(It.IsAny<TradeInItem>())).ReturnsAsync((TradeInItem i) => i);
+        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "store_credit", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>())).ReturnsAsync(completed);
         _inventoryRepoMock
             .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
             .ReturnsAsync((InventoryItem inv) => { inv.Id = 99; return inv; });
@@ -233,7 +228,7 @@ public class TradeInServiceTests
         result.Success.Should().BeTrue();
         result.Message.Should().Contain("completed successfully");
         _loyaltyMock.Verify(l => l.EarnFromTradeInAsync(10, 5, 15m, 1), Times.Once);
-        _tradeInRepoMock.Verify(r => r.CompleteAsync(1, 5, "store_credit", It.IsAny<DateTime>()), Times.Once);
+        _tradeInRepoMock.Verify(r => r.CompleteAsync(1, 5, "store_credit", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>()), Times.Once);
     }
 
     [Fact]
@@ -247,8 +242,7 @@ public class TradeInServiceTests
         var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "store_credit", It.IsAny<DateTime>())).ReturnsAsync(completed);
-        _tradeInRepoMock.Setup(r => r.UpdateItemAsync(It.IsAny<TradeInItem>())).ReturnsAsync((TradeInItem i) => i);
+        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "store_credit", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>())).ReturnsAsync(completed);
         _inventoryRepoMock
             .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
             .ReturnsAsync((InventoryItem inv) => { inv.Id = 99; return inv; });
@@ -455,8 +449,7 @@ public class TradeInServiceTests
         var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "cash", It.IsAny<DateTime>())).ReturnsAsync(completed);
-        _tradeInRepoMock.Setup(r => r.UpdateItemAsync(It.IsAny<TradeInItem>())).ReturnsAsync((TradeInItem i) => i);
+        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>())).ReturnsAsync(completed);
         _inventoryRepoMock
             .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
             .ReturnsAsync((InventoryItem inv) => { inv.Id = 99; return inv; });
@@ -479,8 +472,7 @@ public class TradeInServiceTests
         var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "store_credit", It.IsAny<DateTime>())).ReturnsAsync(completed);
-        _tradeInRepoMock.Setup(r => r.UpdateItemAsync(It.IsAny<TradeInItem>())).ReturnsAsync((TradeInItem i) => i);
+        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "store_credit", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>())).ReturnsAsync(completed);
         _inventoryRepoMock
             .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
             .ReturnsAsync((InventoryItem inv) => { inv.Id = 99; return inv; });
@@ -504,8 +496,7 @@ public class TradeInServiceTests
         var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "store_credit", It.IsAny<DateTime>())).ReturnsAsync(completed);
-        _tradeInRepoMock.Setup(r => r.UpdateItemAsync(It.IsAny<TradeInItem>())).ReturnsAsync((TradeInItem i) => i);
+        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "store_credit", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>())).ReturnsAsync(completed);
         _inventoryRepoMock
             .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
             .ReturnsAsync((InventoryItem inv) => { inv.Id = 99; return inv; });
@@ -528,7 +519,7 @@ public class TradeInServiceTests
         var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "cash", It.IsAny<DateTime>())).ReturnsAsync(completed);
+        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>())).ReturnsAsync(completed);
 
         var result = await _service.CompleteAsync(1, 5, "cash");
 
@@ -594,8 +585,7 @@ public class TradeInServiceTests
         InventoryItem? capturedInventory = null;
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "store_credit", It.IsAny<DateTime>())).ReturnsAsync(completed);
-        _tradeInRepoMock.Setup(r => r.UpdateItemAsync(It.IsAny<TradeInItem>())).ReturnsAsync((TradeInItem i) => i);
+        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "store_credit", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>())).ReturnsAsync(completed);
         _locationRepoMock
             .Setup(r => r.GetByCompanyIdAsync(5))
             .ReturnsAsync(new List<Location>
@@ -632,8 +622,7 @@ public class TradeInServiceTests
         InventoryItem? capturedInventory = null;
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "cash", It.IsAny<DateTime>())).ReturnsAsync(completed);
-        _tradeInRepoMock.Setup(r => r.UpdateItemAsync(It.IsAny<TradeInItem>())).ReturnsAsync((TradeInItem i) => i);
+        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>())).ReturnsAsync(completed);
         _locationRepoMock
             .Setup(r => r.GetByCompanyIdAsync(5))
             .ReturnsAsync(new List<Location>
@@ -663,14 +652,13 @@ public class TradeInServiceTests
         var draft = new TradeIn { Id = 1, CompanyId = 5, CustomerId = 53, Status = "draft", PaymentType = "store_credit", Items = items };
         var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
 
-        TradeInItem? capturedItemUpdate = null;
+        List<(int, int)>? capturedLinks = null;
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "store_credit", It.IsAny<DateTime>())).ReturnsAsync(completed);
         _tradeInRepoMock
-            .Setup(r => r.UpdateItemAsync(It.IsAny<TradeInItem>()))
-            .Callback<TradeInItem>(i => capturedItemUpdate = i)
-            .ReturnsAsync((TradeInItem i) => i);
+            .Setup(r => r.CompleteAsync(1, 5, "store_credit", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>()))
+            .Callback<int, int, string, DateTime, IEnumerable<(int, int)>>((_, _, _, _, links) => capturedLinks = links.ToList())
+            .ReturnsAsync(completed);
         _inventoryRepoMock
             .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
             .ReturnsAsync((InventoryItem inv) => { inv.Id = 4242; return inv; });
@@ -681,9 +669,8 @@ public class TradeInServiceTests
         var result = await _service.CompleteAsync(1, 5, "store_credit");
 
         result.Success.Should().BeTrue();
-        capturedItemUpdate.Should().NotBeNull();
-        capturedItemUpdate!.InventoryItemId.Should().Be(4242);
-        _tradeInRepoMock.Verify(r => r.UpdateItemAsync(It.Is<TradeInItem>(i => i.InventoryItemId == 4242)), Times.Once);
+        capturedLinks.Should().NotBeNull();
+        capturedLinks!.Should().ContainSingle(l => l.Item1 == 1 && l.Item2 == 4242);
     }
 
     [Fact]
@@ -707,8 +694,7 @@ public class TradeInServiceTests
 
         result.Success.Should().BeFalse();
         result.Message.Should().Contain("Failed to complete trade-in");
-        _tradeInRepoMock.Verify(r => r.CompleteAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<DateTime>()), Times.Never);
-        _tradeInRepoMock.Verify(r => r.UpdateItemAsync(It.IsAny<TradeInItem>()), Times.Never);
+        _tradeInRepoMock.Verify(r => r.CompleteAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>()), Times.Never);
     }
 
     [Fact]
@@ -731,9 +717,13 @@ public class TradeInServiceTests
             Game = new Game { Id = "tradein:abc", Title = "Mario Kart", Console = "N64" }
         };
 
+        List<(int, int)>? capturedLinks = null;
+
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "cash", It.IsAny<DateTime>())).ReturnsAsync(completed);
-        _tradeInRepoMock.Setup(r => r.UpdateItemAsync(It.IsAny<TradeInItem>())).ReturnsAsync((TradeInItem i) => i);
+        _tradeInRepoMock
+            .Setup(r => r.CompleteAsync(1, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>()))
+            .Callback<int, int, string, DateTime, IEnumerable<(int, int)>>((_, _, _, _, links) => capturedLinks = links.ToList())
+            .ReturnsAsync(completed);
         _inventoryRepoMock
             .Setup(r => r.FindByCompanyGameConditionAsync(5, It.IsAny<string>(), "good"))
             .ReturnsAsync(existing);
@@ -741,19 +731,13 @@ public class TradeInServiceTests
             .Setup(r => r.UpdateQuantityAsync(70, 1, 5))
             .ReturnsAsync(true);
 
-        TradeInItem? capturedItemUpdate = null;
-        _tradeInRepoMock
-            .Setup(r => r.UpdateItemAsync(It.IsAny<TradeInItem>()))
-            .Callback<TradeInItem>(i => capturedItemUpdate = i)
-            .ReturnsAsync((TradeInItem i) => i);
-
         var result = await _service.CompleteAsync(1, 5, "cash");
 
         result.Success.Should().BeTrue();
         _inventoryRepoMock.Verify(r => r.CreateAsync(It.IsAny<InventoryItem>()), Times.Never);
         _inventoryRepoMock.Verify(r => r.UpdateQuantityAsync(70, 1, 5), Times.Once);
-        capturedItemUpdate.Should().NotBeNull();
-        capturedItemUpdate!.InventoryItemId.Should().Be(70);
+        capturedLinks.Should().NotBeNull();
+        capturedLinks!.Should().ContainSingle(l => l.Item1 == 1 && l.Item2 == 70);
     }
 
     [Fact]
@@ -767,8 +751,7 @@ public class TradeInServiceTests
         var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "cash", It.IsAny<DateTime>())).ReturnsAsync(completed);
-        _tradeInRepoMock.Setup(r => r.UpdateItemAsync(It.IsAny<TradeInItem>())).ReturnsAsync((TradeInItem i) => i);
+        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>())).ReturnsAsync(completed);
         _inventoryRepoMock
             .Setup(r => r.FindByCompanyGameConditionAsync(5, It.IsAny<string>(), "good"))
             .ReturnsAsync((InventoryItem?)null);
@@ -794,7 +777,7 @@ public class TradeInServiceTests
         var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "cash", It.IsAny<DateTime>())).ReturnsAsync(completed);
+        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>())).ReturnsAsync(completed);
         _locationRepoMock.Setup(r => r.GetByCompanyIdAsync(5)).ReturnsAsync(new List<Location>());
 
         var result = await _service.CompleteAsync(1, 5, "cash");
@@ -802,5 +785,38 @@ public class TradeInServiceTests
         result.Success.Should().BeFalse();
         result.Message.Should().Contain("location");
         _inventoryRepoMock.Verify(r => r.CreateAsync(It.IsAny<InventoryItem>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_UsesTransactionalRepositoryOverloadAndPassesAllAcceptedLinks()
+    {
+        var items = new List<TradeInItem>
+        {
+            new() { Id = 11, TradeInId = 1, GameTitle = "Mario", Platform = "NES", Condition = "good", OfferedValue = 10m, AcceptedValue = 10m },
+            new() { Id = 12, TradeInId = 1, GameTitle = "Zelda", Platform = "NES", Condition = "fair", OfferedValue = 8m, AcceptedValue = 5m },
+            new() { Id = 13, TradeInId = 1, GameTitle = "Metroid", Platform = "NES", Condition = "poor", OfferedValue = 6m, AcceptedValue = 0m },
+        };
+        var draft = new TradeIn { Id = 1, CompanyId = 5, Status = "draft", PaymentType = "cash", Items = items };
+        var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
+
+        var nextId = 1000;
+        _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
+        _tradeInRepoMock
+            .Setup(r => r.CompleteAsync(1, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>()))
+            .ReturnsAsync(completed);
+        _inventoryRepoMock
+            .Setup(r => r.FindByCompanyGameConditionAsync(5, It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync((InventoryItem?)null);
+        _inventoryRepoMock
+            .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
+            .ReturnsAsync((InventoryItem inv) => { inv.Id = nextId++; return inv; });
+
+        var result = await _service.CompleteAsync(1, 5, "cash");
+
+        result.Success.Should().BeTrue();
+        _tradeInRepoMock.Verify(
+            r => r.CompleteAsync(1, 5, "cash", It.IsAny<DateTime>(), It.Is<IEnumerable<(int, int)>>(links => links.Count() == 2)),
+            Times.Once);
+        _tradeInRepoMock.Verify(r => r.UpdateItemAsync(It.IsAny<TradeInItem>()), Times.Never);
     }
 }

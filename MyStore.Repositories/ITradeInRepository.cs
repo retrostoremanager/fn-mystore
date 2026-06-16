@@ -11,4 +11,10 @@ public interface ITradeInRepository
     Task<TradeInItem> AddItemAsync(TradeInItem item);
     Task<TradeInItem?> UpdateItemAsync(TradeInItem item);
     Task<TradeIn?> CompleteAsync(int id, int companyId, string paymentType, DateTime completedAt);
+    Task<TradeIn?> CompleteAsync(
+        int id,
+        int companyId,
+        string paymentType,
+        DateTime completedAt,
+        IEnumerable<(int ItemId, int InventoryItemId)> acceptedItemLinks);
 }

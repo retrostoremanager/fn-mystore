@@ -160,6 +160,7 @@ public class TradeInService : ITradeInService
                 locationId = resolved.Id;
             }
 
+            var acceptedItemLinks = new List<(int ItemId, int InventoryItemId)>();
             foreach (var item in acceptedItems)
             {
                 var game = await EnsureGameForTradeInItemAsync(item);
@@ -194,10 +195,10 @@ public class TradeInService : ITradeInService
                 }
 
                 item.InventoryItemId = inventoryId;
-                await _tradeInRepository.UpdateItemAsync(item);
+                acceptedItemLinks.Add((item.Id, inventoryId));
             }
 
-            var completed = await _tradeInRepository.CompleteAsync(id, companyId, paymentType, DateTime.UtcNow);
+            var completed = await _tradeInRepository.CompleteAsync(id, companyId, paymentType, DateTime.UtcNow, acceptedItemLinks);
             if (completed is null)
                 return ApiResponse<TradeIn>.ErrorResponse($"Failed to complete trade-in with ID {id}");
 
