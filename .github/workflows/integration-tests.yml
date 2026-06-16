@@ -1,0 +1,71 @@
+name: Integration Tests (DB)
+
+# Runs the repository-layer DB integration tests against an ephemeral Postgres seeded from the
+# dbproj-mystore migrations. Scoped to a nightly schedule (+ manual dispatch) so the per-commit
+# agent validation stays fast and DB-free. Exercises the `development` branch.
+
+on:
+  schedule:
+    - cron: '30 8 * * *'   # 08:30 UTC nightly (~4:30am America/New_York)
+  workflow_dispatch:
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: mystore_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: mystore_test
+    steps:
+      - name: Checkout fn-mystore (development)
+        uses: actions/checkout@v4
+        with:
+          ref: development
+
+      - name: Checkout dbproj-mystore migrations
+        uses: actions/checkout@v4
+        with:
+          repository: retrostoremanager/dbproj-mystore
+          ref: development
+          token: ${{ secrets.GH_DISPATCH_TOKEN }}
+          path: dbproj
+
+      - name: Apply migrations to ephemeral Postgres
+        run: |
+          for f in $(ls dbproj/PostgreSQL/*.sql | sort -V); do
+            echo "::group::apply $(basename "$f")"
+            psql -v ON_ERROR_STOP=1 -f "$f"
+            echo "::endgroup::"
+          done
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore MyStore.sln
+
+      - name: Run DB integration tests
+        env:
+          RUN_DB_INTEGRATION_TESTS: '1'
+          MYSTORE_TEST_DB: 'Host=localhost;Port=5432;Database=mystore_test;Username=postgres;Password=postgres'
+        run: |
+          dotnet test MyStore.Tests/MyStore.Tests.csproj \
+            --filter "FullyQualifiedName~TradeInRepositoryTests" \
+            --logger "console;verbosity=normal"
