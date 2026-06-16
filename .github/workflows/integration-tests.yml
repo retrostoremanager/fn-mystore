@@ -49,14 +49,13 @@ jobs:
       - name: Apply migrations to ephemeral Postgres
         working-directory: dbproj/PostgreSQL
         run: |
-          # Mirror dbproj-mystore/.github/workflows/deploy-database.yml: apply the numbered
-          # migrations in order, skip the (stale) 000 aggregator, and do NOT use ON_ERROR_STOP.
-          # A fresh replay logs a few intermediate "function/object does not exist" notices for
-          # historical tweaks (e.g. 027) that later migrations resolve; psql continues and the
-          # resulting table schema is complete (which is what the repository tests exercise).
+          # Apply the numbered migrations in order (skip the stale 000 aggregator) with
+          # ON_ERROR_STOP, so a fresh from-scratch replay must succeed cleanly. This builds the
+          # test schema AND guards dbproj-mystore's fresh-replayability (a DR property) — if a
+          # future migration breaks a clean build, this job fails.
           for sql in $(ls [0-9][0-9][0-9]_*.sql 2>/dev/null | grep -v '^000_' | sort); do
             echo "::group::apply $sql"
-            psql -f "$sql"
+            psql -v ON_ERROR_STOP=1 -f "$sql"
             echo "::endgroup::"
           done
 
