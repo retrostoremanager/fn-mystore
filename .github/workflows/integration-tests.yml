@@ -47,9 +47,12 @@ jobs:
           path: dbproj
 
       - name: Apply migrations to ephemeral Postgres
+        working-directory: dbproj/PostgreSQL
         run: |
-          for f in $(ls dbproj/PostgreSQL/*.sql | sort -V); do
-            echo "::group::apply $(basename "$f")"
+          # 000_deploy_all.sql is an aggregator that \i-includes the others by relative path;
+          # skip it and apply the numbered migrations directly so paths/ordering don't depend on it.
+          for f in $(ls *.sql | sort -V | grep -v '000_deploy_all.sql'); do
+            echo "::group::apply $f"
             psql -v ON_ERROR_STOP=1 -f "$f"
             echo "::endgroup::"
           done
