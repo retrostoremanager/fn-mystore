@@ -35,13 +35,16 @@ internal static class IntegrationDb
         return conn;
     }
 
-    /// <summary>Insert a company and return its id.</summary>
-    public static Task<int> SeedCompanyAsync(NpgsqlConnection conn) =>
-        conn.ExecuteScalarAsync<int>(
-            @"INSERT INTO company (email, status, trial_start_date, trial_end_date, subscription_tier, created_date)
-              VALUES (@email, 'active', NOW(), NOW() + INTERVAL '14 days', 'trial', NOW())
+    /// <summary>Insert a company and return its id. slug is NOT NULL + UNIQUE (migration 035).</summary>
+    public static Task<int> SeedCompanyAsync(NpgsqlConnection conn)
+    {
+        var key = System.Guid.NewGuid().ToString("N");
+        return conn.ExecuteScalarAsync<int>(
+            @"INSERT INTO company (email, status, trial_start_date, trial_end_date, subscription_tier, created_date, slug)
+              VALUES (@email, 'active', NOW(), NOW() + INTERVAL '14 days', 'trial', NOW(), @slug)
               RETURNING id",
-            new { email = $"co-{System.Guid.NewGuid():N}@example.test" });
+            new { email = $"co-{key}@example.test", slug = $"co-{key}" });
+    }
 
     /// <summary>Insert a user for the company and return its id (used as trade_in.created_by).</summary>
     public static Task<int> SeedUserAsync(NpgsqlConnection conn, int companyId) =>
