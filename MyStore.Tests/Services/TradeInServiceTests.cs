@@ -79,7 +79,7 @@ public class TradeInServiceTests
     }
 
     [Fact]
-    public async Task CompleteAsync_CreatesInventoryItemForEachAcceptedItem()
+    public async Task CompleteAsync_RequestsUpsertForEachAcceptedItem()
     {
         var items = new List<TradeInItem>
         {
@@ -90,19 +90,21 @@ public class TradeInServiceTests
         var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>())).ReturnsAsync(completed);
-        _inventoryRepoMock
-            .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
-            .ReturnsAsync((InventoryItem inv) => { inv.Id = 99; return inv; });
+        _tradeInRepoMock
+            .Setup(r => r.CompleteWithInventoryUpsertAsync(1, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<InventoryUpsertRequest>>()))
+            .ReturnsAsync((completed, (IReadOnlyList<InventoryUpsertResult>)new List<InventoryUpsertResult> { new(1, 99) }));
 
         var result = await _service.CompleteAsync(1, 5, "cash");
 
         result.Success.Should().BeTrue();
-        _inventoryRepoMock.Verify(r => r.CreateAsync(It.IsAny<InventoryItem>()), Times.Once);
+        _tradeInRepoMock.Verify(
+            r => r.CompleteWithInventoryUpsertAsync(1, 5, "cash", It.IsAny<DateTime>(), It.Is<IEnumerable<InventoryUpsertRequest>>(reqs => reqs.Count() == 1)),
+            Times.Once);
+        _inventoryRepoMock.Verify(r => r.CreateAsync(It.IsAny<InventoryItem>()), Times.Never);
     }
 
     [Fact]
-    public async Task CompleteAsync_AcceptedItem_UpsertsGameAndSetsInventoryGameId()
+    public async Task CompleteAsync_AcceptedItem_UpsertsGameAndPassesGameIdToInventoryUpsert()
     {
         var items = new List<TradeInItem>
         {
@@ -111,19 +113,18 @@ public class TradeInServiceTests
         var draft = new TradeIn { Id = 1, CompanyId = 5, CustomerId = 53, Status = "draft", PaymentType = "store_credit", Items = items };
         var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
 
-        InventoryItem? capturedInventory = null;
+        List<InventoryUpsertRequest>? capturedRequests = null;
         Game? capturedGame = null;
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "store_credit", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>())).ReturnsAsync(completed);
+        _tradeInRepoMock
+            .Setup(r => r.CompleteWithInventoryUpsertAsync(1, 5, "store_credit", It.IsAny<DateTime>(), It.IsAny<IEnumerable<InventoryUpsertRequest>>()))
+            .Callback<int, int, string, DateTime, IEnumerable<InventoryUpsertRequest>>((_, _, _, _, reqs) => capturedRequests = reqs.ToList())
+            .ReturnsAsync((completed, (IReadOnlyList<InventoryUpsertResult>)new List<InventoryUpsertResult> { new(1, 99) }));
         _gameRepoMock
             .Setup(r => r.UpsertAsync(It.IsAny<Game>()))
             .Callback<Game>(g => capturedGame = g)
             .Returns(Task.CompletedTask);
-        _inventoryRepoMock
-            .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
-            .Callback<InventoryItem>(inv => capturedInventory = inv)
-            .ReturnsAsync((InventoryItem inv) => { inv.Id = 99; return inv; });
 
         _loyaltyMock
             .Setup(l => l.GetSettingsAsync(5))
@@ -137,9 +138,10 @@ public class TradeInServiceTests
         capturedGame!.Id.Should().NotBeNullOrWhiteSpace();
         capturedGame.Title.Should().Be("Mario Kart");
         capturedGame.Console.Should().Be("N64");
-        capturedInventory.Should().NotBeNull();
-        capturedInventory!.Game.Should().NotBeNull();
-        capturedInventory.Game!.Id.Should().Be(capturedGame.Id);
+        capturedRequests.Should().NotBeNull();
+        capturedRequests!.Should().ContainSingle();
+        capturedRequests[0].GameId.Should().Be(capturedGame.Id);
+        capturedRequests[0].Condition.Should().Be("good");
     }
 
     [Fact]
@@ -162,15 +164,16 @@ public class TradeInServiceTests
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(firstDraft);
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(2, 5)).ReturnsAsync(secondDraft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>())).ReturnsAsync(firstCompleted);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(2, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>())).ReturnsAsync(secondCompleted);
+        _tradeInRepoMock
+            .Setup(r => r.CompleteWithInventoryUpsertAsync(1, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<InventoryUpsertRequest>>()))
+            .ReturnsAsync((firstCompleted, (IReadOnlyList<InventoryUpsertResult>)new List<InventoryUpsertResult> { new(1, 99) }));
+        _tradeInRepoMock
+            .Setup(r => r.CompleteWithInventoryUpsertAsync(2, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<InventoryUpsertRequest>>()))
+            .ReturnsAsync((secondCompleted, (IReadOnlyList<InventoryUpsertResult>)new List<InventoryUpsertResult> { new(2, 99) }));
         _gameRepoMock
             .Setup(r => r.UpsertAsync(It.IsAny<Game>()))
             .Callback<Game>(g => capturedGameIds.Add(g.Id))
             .Returns(Task.CompletedTask);
-        _inventoryRepoMock
-            .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
-            .ReturnsAsync((InventoryItem inv) => { inv.Id = 99; return inv; });
 
         await _service.CompleteAsync(1, 5, "cash");
         await _service.CompleteAsync(2, 5, "cash");
@@ -190,10 +193,9 @@ public class TradeInServiceTests
         var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "store_credit", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>())).ReturnsAsync(completed);
-        _inventoryRepoMock
-            .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
-            .ReturnsAsync((InventoryItem inv) => { inv.Id = 99; return inv; });
+        _tradeInRepoMock
+            .Setup(r => r.CompleteWithInventoryUpsertAsync(1, 5, "store_credit", It.IsAny<DateTime>(), It.IsAny<IEnumerable<InventoryUpsertRequest>>()))
+            .ReturnsAsync((completed, (IReadOnlyList<InventoryUpsertResult>)new List<InventoryUpsertResult> { new(1, 99) }));
         _loyaltyMock
             .Setup(l => l.EarnFromTradeInAsync(10, 5, 15m, 1))
             .Returns(Task.CompletedTask);
@@ -215,10 +217,9 @@ public class TradeInServiceTests
         var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "store_credit", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>())).ReturnsAsync(completed);
-        _inventoryRepoMock
-            .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
-            .ReturnsAsync((InventoryItem inv) => { inv.Id = 99; return inv; });
+        _tradeInRepoMock
+            .Setup(r => r.CompleteWithInventoryUpsertAsync(1, 5, "store_credit", It.IsAny<DateTime>(), It.IsAny<IEnumerable<InventoryUpsertRequest>>()))
+            .ReturnsAsync((completed, (IReadOnlyList<InventoryUpsertResult>)new List<InventoryUpsertResult> { new(1, 99) }));
         _loyaltyMock
             .Setup(l => l.EarnFromTradeInAsync(10, 5, 15m, 1))
             .ThrowsAsync(new Exception("loyalty backend offline"));
@@ -228,7 +229,9 @@ public class TradeInServiceTests
         result.Success.Should().BeTrue();
         result.Message.Should().Contain("completed successfully");
         _loyaltyMock.Verify(l => l.EarnFromTradeInAsync(10, 5, 15m, 1), Times.Once);
-        _tradeInRepoMock.Verify(r => r.CompleteAsync(1, 5, "store_credit", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>()), Times.Once);
+        _tradeInRepoMock.Verify(
+            r => r.CompleteWithInventoryUpsertAsync(1, 5, "store_credit", It.IsAny<DateTime>(), It.IsAny<IEnumerable<InventoryUpsertRequest>>()),
+            Times.Once);
     }
 
     [Fact]
@@ -242,10 +245,9 @@ public class TradeInServiceTests
         var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "store_credit", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>())).ReturnsAsync(completed);
-        _inventoryRepoMock
-            .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
-            .ReturnsAsync((InventoryItem inv) => { inv.Id = 99; return inv; });
+        _tradeInRepoMock
+            .Setup(r => r.CompleteWithInventoryUpsertAsync(1, 5, "store_credit", It.IsAny<DateTime>(), It.IsAny<IEnumerable<InventoryUpsertRequest>>()))
+            .ReturnsAsync((completed, (IReadOnlyList<InventoryUpsertResult>)new List<InventoryUpsertResult> { new(1, 99) }));
 
         var result = await _serviceNoLoyalty.CompleteAsync(1, 5, "store_credit");
 
@@ -449,10 +451,9 @@ public class TradeInServiceTests
         var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>())).ReturnsAsync(completed);
-        _inventoryRepoMock
-            .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
-            .ReturnsAsync((InventoryItem inv) => { inv.Id = 99; return inv; });
+        _tradeInRepoMock
+            .Setup(r => r.CompleteWithInventoryUpsertAsync(1, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<InventoryUpsertRequest>>()))
+            .ReturnsAsync((completed, (IReadOnlyList<InventoryUpsertResult>)new List<InventoryUpsertResult> { new(1, 99) }));
 
         var result = await _service.CompleteAsync(1, 5, "cash");
 
@@ -472,10 +473,9 @@ public class TradeInServiceTests
         var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "store_credit", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>())).ReturnsAsync(completed);
-        _inventoryRepoMock
-            .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
-            .ReturnsAsync((InventoryItem inv) => { inv.Id = 99; return inv; });
+        _tradeInRepoMock
+            .Setup(r => r.CompleteWithInventoryUpsertAsync(1, 5, "store_credit", It.IsAny<DateTime>(), It.IsAny<IEnumerable<InventoryUpsertRequest>>()))
+            .ReturnsAsync((completed, (IReadOnlyList<InventoryUpsertResult>)new List<InventoryUpsertResult> { new(1, 99), new(2, 100) }));
         _loyaltyMock
             .Setup(l => l.EarnFromTradeInAsync(10, 5, 22m, 1))
             .Returns(Task.CompletedTask);
@@ -496,10 +496,9 @@ public class TradeInServiceTests
         var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "store_credit", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>())).ReturnsAsync(completed);
-        _inventoryRepoMock
-            .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
-            .ReturnsAsync((InventoryItem inv) => { inv.Id = 99; return inv; });
+        _tradeInRepoMock
+            .Setup(r => r.CompleteWithInventoryUpsertAsync(1, 5, "store_credit", It.IsAny<DateTime>(), It.IsAny<IEnumerable<InventoryUpsertRequest>>()))
+            .ReturnsAsync((completed, (IReadOnlyList<InventoryUpsertResult>)new List<InventoryUpsertResult> { new(1, 99) }));
 
         var result = await _service.CompleteAsync(1, 5, "store_credit");
 
@@ -519,11 +518,16 @@ public class TradeInServiceTests
         var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>())).ReturnsAsync(completed);
+        _tradeInRepoMock
+            .Setup(r => r.CompleteWithInventoryUpsertAsync(1, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<InventoryUpsertRequest>>()))
+            .ReturnsAsync((completed, (IReadOnlyList<InventoryUpsertResult>)new List<InventoryUpsertResult>()));
 
         var result = await _service.CompleteAsync(1, 5, "cash");
 
         result.Success.Should().BeTrue();
+        _tradeInRepoMock.Verify(
+            r => r.CompleteWithInventoryUpsertAsync(1, 5, "cash", It.IsAny<DateTime>(), It.Is<IEnumerable<InventoryUpsertRequest>>(reqs => !reqs.Any())),
+            Times.Once);
         _inventoryRepoMock.Verify(r => r.CreateAsync(It.IsAny<InventoryItem>()), Times.Never);
     }
 
@@ -582,10 +586,13 @@ public class TradeInServiceTests
         var draft = new TradeIn { Id = 1, CompanyId = 5, CustomerId = 53, Status = "draft", PaymentType = "store_credit", Items = items };
         var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
 
-        InventoryItem? capturedInventory = null;
+        List<InventoryUpsertRequest>? capturedRequests = null;
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "store_credit", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>())).ReturnsAsync(completed);
+        _tradeInRepoMock
+            .Setup(r => r.CompleteWithInventoryUpsertAsync(1, 5, "store_credit", It.IsAny<DateTime>(), It.IsAny<IEnumerable<InventoryUpsertRequest>>()))
+            .Callback<int, int, string, DateTime, IEnumerable<InventoryUpsertRequest>>((_, _, _, _, reqs) => capturedRequests = reqs.ToList())
+            .ReturnsAsync((completed, (IReadOnlyList<InventoryUpsertResult>)new List<InventoryUpsertResult> { new(1, 99) }));
         _locationRepoMock
             .Setup(r => r.GetByCompanyIdAsync(5))
             .ReturnsAsync(new List<Location>
@@ -593,10 +600,6 @@ public class TradeInServiceTests
                 new() { Id = 11, CompanyId = 5, Name = "Secondary", IsPrimary = false },
                 new() { Id = 22, CompanyId = 5, Name = "Main", IsPrimary = true },
             });
-        _inventoryRepoMock
-            .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
-            .Callback<InventoryItem>(inv => capturedInventory = inv)
-            .ReturnsAsync((InventoryItem inv) => { inv.Id = 99; return inv; });
         _loyaltyMock
             .Setup(l => l.GetSettingsAsync(5))
             .ReturnsAsync(ApiResponse<LoyaltySettings>.SuccessResponse(new LoyaltySettings { IsEnabled = false }));
@@ -604,9 +607,9 @@ public class TradeInServiceTests
         var result = await _service.CompleteAsync(1, 5, "store_credit");
 
         result.Success.Should().BeTrue();
-        capturedInventory.Should().NotBeNull();
-        capturedInventory!.LocationId.Should().BeGreaterThan(0);
-        capturedInventory.LocationId.Should().Be(22);
+        capturedRequests.Should().NotBeNull();
+        capturedRequests!.Should().ContainSingle();
+        capturedRequests[0].LocationId.Should().Be(22);
     }
 
     [Fact]
@@ -619,10 +622,13 @@ public class TradeInServiceTests
         var draft = new TradeIn { Id = 1, CompanyId = 5, Status = "draft", PaymentType = "cash", Items = items };
         var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
 
-        InventoryItem? capturedInventory = null;
+        List<InventoryUpsertRequest>? capturedRequests = null;
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>())).ReturnsAsync(completed);
+        _tradeInRepoMock
+            .Setup(r => r.CompleteWithInventoryUpsertAsync(1, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<InventoryUpsertRequest>>()))
+            .Callback<int, int, string, DateTime, IEnumerable<InventoryUpsertRequest>>((_, _, _, _, reqs) => capturedRequests = reqs.ToList())
+            .ReturnsAsync((completed, (IReadOnlyList<InventoryUpsertResult>)new List<InventoryUpsertResult> { new(1, 99) }));
         _locationRepoMock
             .Setup(r => r.GetByCompanyIdAsync(5))
             .ReturnsAsync(new List<Location>
@@ -630,20 +636,17 @@ public class TradeInServiceTests
                 new() { Id = 33, CompanyId = 5, Name = "Second", IsPrimary = false },
                 new() { Id = 12, CompanyId = 5, Name = "First", IsPrimary = false },
             });
-        _inventoryRepoMock
-            .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
-            .Callback<InventoryItem>(inv => capturedInventory = inv)
-            .ReturnsAsync((InventoryItem inv) => { inv.Id = 99; return inv; });
 
         var result = await _service.CompleteAsync(1, 5, "cash");
 
         result.Success.Should().BeTrue();
-        capturedInventory.Should().NotBeNull();
-        capturedInventory!.LocationId.Should().Be(12);
+        capturedRequests.Should().NotBeNull();
+        capturedRequests!.Should().ContainSingle();
+        capturedRequests[0].LocationId.Should().Be(12);
     }
 
     [Fact]
-    public async Task CompleteAsync_AcceptedItem_WritesCreatedInventoryIdBackToTradeInItem()
+    public async Task CompleteAsync_AcceptedItem_WritesUpsertedInventoryIdBackToTradeInItem()
     {
         var items = new List<TradeInItem>
         {
@@ -652,16 +655,10 @@ public class TradeInServiceTests
         var draft = new TradeIn { Id = 1, CompanyId = 5, CustomerId = 53, Status = "draft", PaymentType = "store_credit", Items = items };
         var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
 
-        List<(int, int)>? capturedLinks = null;
-
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
         _tradeInRepoMock
-            .Setup(r => r.CompleteAsync(1, 5, "store_credit", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>()))
-            .Callback<int, int, string, DateTime, IEnumerable<(int, int)>>((_, _, _, _, links) => capturedLinks = links.ToList())
-            .ReturnsAsync(completed);
-        _inventoryRepoMock
-            .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
-            .ReturnsAsync((InventoryItem inv) => { inv.Id = 4242; return inv; });
+            .Setup(r => r.CompleteWithInventoryUpsertAsync(1, 5, "store_credit", It.IsAny<DateTime>(), It.IsAny<IEnumerable<InventoryUpsertRequest>>()))
+            .ReturnsAsync((completed, (IReadOnlyList<InventoryUpsertResult>)new List<InventoryUpsertResult> { new(1, 4242) }));
         _loyaltyMock
             .Setup(l => l.GetSettingsAsync(5))
             .ReturnsAsync(ApiResponse<LoyaltySettings>.SuccessResponse(new LoyaltySettings { IsEnabled = false }));
@@ -669,12 +666,11 @@ public class TradeInServiceTests
         var result = await _service.CompleteAsync(1, 5, "store_credit");
 
         result.Success.Should().BeTrue();
-        capturedLinks.Should().NotBeNull();
-        capturedLinks!.Should().ContainSingle(l => l.Item1 == 1 && l.Item2 == 4242);
+        items[0].InventoryItemId.Should().Be(4242);
     }
 
     [Fact]
-    public async Task CompleteAsync_InventoryCreationFails_DoesNotMarkTradeInCompleted()
+    public async Task CompleteAsync_TransactionalRepoThrows_TradeInStatusUnchanged()
     {
         var items = new List<TradeInItem>
         {
@@ -683,23 +679,24 @@ public class TradeInServiceTests
         var draft = new TradeIn { Id = 1, CompanyId = 5, Status = "draft", PaymentType = "cash", Items = items };
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _inventoryRepoMock
-            .Setup(r => r.FindByCompanyGameConditionAsync(5, It.IsAny<string>(), "good"))
-            .ReturnsAsync((InventoryItem?)null);
-        _inventoryRepoMock
-            .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
+        _tradeInRepoMock
+            .Setup(r => r.CompleteWithInventoryUpsertAsync(1, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<InventoryUpsertRequest>>()))
             .ThrowsAsync(new Exception("23505: duplicate key value violates unique constraint \"ix_inventory_company_game_condition\""));
 
         var result = await _service.CompleteAsync(1, 5, "cash");
 
         result.Success.Should().BeFalse();
         result.Message.Should().Contain("Failed to complete trade-in");
-        _tradeInRepoMock.Verify(r => r.CompleteAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>()), Times.Never);
+        draft.Status.Should().Be("draft");
     }
 
     [Fact]
-    public async Task CompleteAsync_ItemMatchesExistingInventory_IncrementsQuantityInsteadOfCreating()
+    public async Task CompleteAsync_ItemMatchesExistingInventory_RepoReturnsExistingInventoryIdLink()
     {
+        // The transactional repository handles INSERT-or-INCREMENT atomically via ON CONFLICT;
+        // when the inventory row already exists, the repo returns the existing inventory_item.id
+        // back to the service via the upsert result, and the service writes it onto the trade-in
+        // item. No find/create round-trip happens at the service layer.
         var items = new List<TradeInItem>
         {
             new() { Id = 1, TradeInId = 1, GameTitle = "Mario Kart", Platform = "N64", Condition = "good", OfferedValue = 20m, AcceptedValue = 20m },
@@ -707,41 +704,21 @@ public class TradeInServiceTests
         var draft = new TradeIn { Id = 1, CompanyId = 5, Status = "draft", PaymentType = "cash", Items = items };
         var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
 
-        var existing = new InventoryItem
-        {
-            Id = 70,
-            CompanyId = 5,
-            LocationId = 7,
-            Quantity = 1,
-            Condition = "good",
-            Game = new Game { Id = "tradein:abc", Title = "Mario Kart", Console = "N64" }
-        };
-
-        List<(int, int)>? capturedLinks = null;
-
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
         _tradeInRepoMock
-            .Setup(r => r.CompleteAsync(1, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>()))
-            .Callback<int, int, string, DateTime, IEnumerable<(int, int)>>((_, _, _, _, links) => capturedLinks = links.ToList())
-            .ReturnsAsync(completed);
-        _inventoryRepoMock
-            .Setup(r => r.FindByCompanyGameConditionAsync(5, It.IsAny<string>(), "good"))
-            .ReturnsAsync(existing);
-        _inventoryRepoMock
-            .Setup(r => r.UpdateQuantityAsync(70, 1, 5))
-            .ReturnsAsync(true);
+            .Setup(r => r.CompleteWithInventoryUpsertAsync(1, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<InventoryUpsertRequest>>()))
+            .ReturnsAsync((completed, (IReadOnlyList<InventoryUpsertResult>)new List<InventoryUpsertResult> { new(1, 70) }));
 
         var result = await _service.CompleteAsync(1, 5, "cash");
 
         result.Success.Should().BeTrue();
         _inventoryRepoMock.Verify(r => r.CreateAsync(It.IsAny<InventoryItem>()), Times.Never);
-        _inventoryRepoMock.Verify(r => r.UpdateQuantityAsync(70, 1, 5), Times.Once);
-        capturedLinks.Should().NotBeNull();
-        capturedLinks!.Should().ContainSingle(l => l.Item1 == 1 && l.Item2 == 70);
+        _inventoryRepoMock.Verify(r => r.UpdateQuantityAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>()), Times.Never);
+        items[0].InventoryItemId.Should().Be(70);
     }
 
     [Fact]
-    public async Task CompleteAsync_ItemDoesNotMatchExistingInventory_CreatesNewRow()
+    public async Task CompleteAsync_ItemDoesNotMatchExistingInventory_RepoReturnsNewInventoryIdLink()
     {
         var items = new List<TradeInItem>
         {
@@ -751,44 +728,41 @@ public class TradeInServiceTests
         var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>())).ReturnsAsync(completed);
-        _inventoryRepoMock
-            .Setup(r => r.FindByCompanyGameConditionAsync(5, It.IsAny<string>(), "good"))
-            .ReturnsAsync((InventoryItem?)null);
-        _inventoryRepoMock
-            .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
-            .ReturnsAsync((InventoryItem inv) => { inv.Id = 555; return inv; });
+        _tradeInRepoMock
+            .Setup(r => r.CompleteWithInventoryUpsertAsync(1, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<InventoryUpsertRequest>>()))
+            .ReturnsAsync((completed, (IReadOnlyList<InventoryUpsertResult>)new List<InventoryUpsertResult> { new(1, 555) }));
 
         var result = await _service.CompleteAsync(1, 5, "cash");
 
         result.Success.Should().BeTrue();
-        _inventoryRepoMock.Verify(r => r.CreateAsync(It.IsAny<InventoryItem>()), Times.Once);
+        _inventoryRepoMock.Verify(r => r.CreateAsync(It.IsAny<InventoryItem>()), Times.Never);
         _inventoryRepoMock.Verify(r => r.UpdateQuantityAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>()), Times.Never);
+        items[0].InventoryItemId.Should().Be(555);
     }
 
     [Fact]
-    public async Task CompleteAsync_NoLocationsForCompany_ReturnsErrorAndDoesNotCreateInventory()
+    public async Task CompleteAsync_NoLocationsForCompany_ReturnsErrorAndDoesNotInvokeRepo()
     {
         var items = new List<TradeInItem>
         {
             new() { Id = 1, TradeInId = 1, GameTitle = "Mario", Platform = "NES", Condition = "good", OfferedValue = 15m, AcceptedValue = 15m },
         };
         var draft = new TradeIn { Id = 1, CompanyId = 5, Status = "draft", PaymentType = "cash", Items = items };
-        var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
 
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
-        _tradeInRepoMock.Setup(r => r.CompleteAsync(1, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>())).ReturnsAsync(completed);
         _locationRepoMock.Setup(r => r.GetByCompanyIdAsync(5)).ReturnsAsync(new List<Location>());
 
         var result = await _service.CompleteAsync(1, 5, "cash");
 
         result.Success.Should().BeFalse();
         result.Message.Should().Contain("location");
-        _inventoryRepoMock.Verify(r => r.CreateAsync(It.IsAny<InventoryItem>()), Times.Never);
+        _tradeInRepoMock.Verify(
+            r => r.CompleteWithInventoryUpsertAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<IEnumerable<InventoryUpsertRequest>>()),
+            Times.Never);
     }
 
     [Fact]
-    public async Task CompleteAsync_UsesTransactionalRepositoryOverloadAndPassesAllAcceptedLinks()
+    public async Task CompleteAsync_UsesTransactionalRepositoryOverloadAndPassesAllAcceptedRequests()
     {
         var items = new List<TradeInItem>
         {
@@ -799,24 +773,100 @@ public class TradeInServiceTests
         var draft = new TradeIn { Id = 1, CompanyId = 5, Status = "draft", PaymentType = "cash", Items = items };
         var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
 
-        var nextId = 1000;
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
         _tradeInRepoMock
-            .Setup(r => r.CompleteAsync(1, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<(int, int)>>()))
-            .ReturnsAsync(completed);
-        _inventoryRepoMock
-            .Setup(r => r.FindByCompanyGameConditionAsync(5, It.IsAny<string>(), It.IsAny<string>()))
-            .ReturnsAsync((InventoryItem?)null);
-        _inventoryRepoMock
-            .Setup(r => r.CreateAsync(It.IsAny<InventoryItem>()))
-            .ReturnsAsync((InventoryItem inv) => { inv.Id = nextId++; return inv; });
+            .Setup(r => r.CompleteWithInventoryUpsertAsync(1, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<InventoryUpsertRequest>>()))
+            .ReturnsAsync((completed, (IReadOnlyList<InventoryUpsertResult>)new List<InventoryUpsertResult>
+            {
+                new(11, 1000), new(12, 1001)
+            }));
 
         var result = await _service.CompleteAsync(1, 5, "cash");
 
         result.Success.Should().BeTrue();
         _tradeInRepoMock.Verify(
-            r => r.CompleteAsync(1, 5, "cash", It.IsAny<DateTime>(), It.Is<IEnumerable<(int, int)>>(links => links.Count() == 2)),
+            r => r.CompleteWithInventoryUpsertAsync(1, 5, "cash", It.IsAny<DateTime>(), It.Is<IEnumerable<InventoryUpsertRequest>>(reqs => reqs.Count() == 2)),
             Times.Once);
         _tradeInRepoMock.Verify(r => r.UpdateItemAsync(It.IsAny<TradeInItem>()), Times.Never);
+    }
+
+    // ---------------------------------------------------------------------
+    // Issue #376 acceptance tests: complete should not 500 when an inventory
+    // item with (company, game, condition) already exists; quantity must be
+    // incremented atomically and trade-in state must roll back on DB error.
+    // ---------------------------------------------------------------------
+
+    [Fact]
+    public async Task CompleteAsync_Issue376_ExistingInventoryItem_QuantityIncrementedNoDuplicateInsert()
+    {
+        // Mocking contract for the transactional repo: the ON CONFLICT branch returns the
+        // existing inventory_item.id (here 4242) rather than inserting a duplicate row that
+        // would violate the (company_id, game_id, condition) unique constraint.
+        var items = new List<TradeInItem>
+        {
+            new() { Id = 1, TradeInId = 1, GameTitle = "Mario", Platform = "NES", Condition = "good", OfferedValue = 20m, AcceptedValue = 15m },
+        };
+        var draft = new TradeIn { Id = 1, CompanyId = 5, Status = "draft", PaymentType = "cash", Items = items };
+        var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
+
+        _tradeInRepoMock.SetupSequence(r => r.GetByIdAsync(1, 5))
+            .ReturnsAsync(draft)
+            .ReturnsAsync(completed);
+        _tradeInRepoMock
+            .Setup(r => r.CompleteWithInventoryUpsertAsync(1, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<InventoryUpsertRequest>>()))
+            .ReturnsAsync((completed, (IReadOnlyList<InventoryUpsertResult>)new List<InventoryUpsertResult> { new(1, 4242) }));
+
+        var result = await _service.CompleteAsync(1, 5, "cash");
+
+        result.Success.Should().BeTrue();
+        result.Data!.Status.Should().Be("completed");
+        items[0].InventoryItemId.Should().Be(4242);
+        _inventoryRepoMock.Verify(r => r.CreateAsync(It.IsAny<InventoryItem>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_Issue376_NewInventoryItem_NewRowReturnedByRepo()
+    {
+        // No matching row exists; the transactional repo's INSERT branch returns a new id.
+        var items = new List<TradeInItem>
+        {
+            new() { Id = 1, TradeInId = 1, GameTitle = "Mario", Platform = "NES", Condition = "good", OfferedValue = 20m, AcceptedValue = 15m },
+        };
+        var draft = new TradeIn { Id = 1, CompanyId = 5, Status = "draft", PaymentType = "cash", Items = items };
+        var completed = new TradeIn { Id = 1, CompanyId = 5, Status = "completed", Items = items };
+
+        _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
+        _tradeInRepoMock
+            .Setup(r => r.CompleteWithInventoryUpsertAsync(1, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<InventoryUpsertRequest>>()))
+            .ReturnsAsync((completed, (IReadOnlyList<InventoryUpsertResult>)new List<InventoryUpsertResult> { new(1, 999) }));
+
+        var result = await _service.CompleteAsync(1, 5, "cash");
+
+        result.Success.Should().BeTrue();
+        items[0].InventoryItemId.Should().Be(999);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_Issue376_DbErrorMidComplete_TradeInStatusNotChanged()
+    {
+        // Simulate a DB failure inside the transactional repo (e.g. unique-index violation,
+        // network blip). The service must surface an error response, and because all writes
+        // happen inside one transaction the trade-in must remain in 'draft'.
+        var items = new List<TradeInItem>
+        {
+            new() { Id = 1, TradeInId = 1, GameTitle = "Mario", Platform = "NES", Condition = "good", OfferedValue = 20m, AcceptedValue = 15m },
+        };
+        var draft = new TradeIn { Id = 1, CompanyId = 5, Status = "draft", PaymentType = "cash", Items = items };
+
+        _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
+        _tradeInRepoMock
+            .Setup(r => r.CompleteWithInventoryUpsertAsync(1, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<InventoryUpsertRequest>>()))
+            .ThrowsAsync(new Exception("23505: duplicate key value violates unique constraint \"ix_inventory_company_game_condition\""));
+
+        var result = await _service.CompleteAsync(1, 5, "cash");
+
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("Failed to complete trade-in");
+        draft.Status.Should().Be("draft");
     }
 }

@@ -237,6 +237,104 @@ public class TradeInRepository : ITradeInRepository
         return await GetByIdAsync(id, companyId);
     }
 
+    public async Task<(TradeIn? TradeIn, IReadOnlyList<InventoryUpsertResult> Upserts)> CompleteWithInventoryUpsertAsync(
+        int id,
+        int companyId,
+        string paymentType,
+        DateTime completedAt,
+        IEnumerable<InventoryUpsertRequest> inventoryUpserts)
+    {
+        var upsertList = inventoryUpserts?.ToList() ?? new List<InventoryUpsertRequest>();
+        await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
+        await using var transaction = await connection.BeginTransactionAsync();
+        try
+        {
+            var tradeIn = await connection.QueryFirstOrDefaultAsync<TradeIn>(
+                $"SELECT {TradeInSelectColumns} FROM trade_in WHERE id = @p_id AND company_id = @p_company_id",
+                new { p_id = id, p_company_id = companyId },
+                transaction);
+            if (tradeIn is null || tradeIn.Status != "draft")
+            {
+                await transaction.RollbackAsync();
+                return (null, Array.Empty<InventoryUpsertResult>());
+            }
+
+            var results = new List<InventoryUpsertResult>(upsertList.Count);
+            foreach (var spec in upsertList)
+            {
+                // Race-safe UPSERT against the unique (company_id, game_id, condition) index.
+                // On conflict we increment the existing row's quantity by 1 instead of inserting
+                // a duplicate that would violate ix_inventory_company_game_condition.
+                var inventoryId = await connection.QuerySingleAsync<int>(
+                    @"INSERT INTO game_inventory (
+                        company_id, location_id, quantity, price, cost, condition, game_id,
+                        notes, created_date, last_modified_date)
+                      VALUES (
+                        @p_company_id, @p_location_id, 1, 0, @p_buy_price, @p_condition,
+                        @p_game_id, NULL, NOW(), NOW())
+                      ON CONFLICT (company_id, game_id, condition) DO UPDATE
+                        SET quantity = game_inventory.quantity + 1,
+                            last_modified_date = NOW()
+                      RETURNING id",
+                    new
+                    {
+                        p_company_id = companyId,
+                        p_location_id = spec.LocationId,
+                        p_buy_price = spec.BuyPrice,
+                        p_condition = spec.Condition,
+                        p_game_id = spec.GameId,
+                    },
+                    transaction);
+
+                var linkRows = await connection.ExecuteAsync(
+                    @"UPDATE trade_in_item SET inventory_item_id = @p_inventory_item_id
+                      WHERE id = @p_id AND trade_in_id = @p_trade_in_id",
+                    new
+                    {
+                        p_id = spec.TradeInItemId,
+                        p_trade_in_id = id,
+                        p_inventory_item_id = inventoryId,
+                    },
+                    transaction);
+                if (linkRows == 0)
+                {
+                    await transaction.RollbackAsync();
+                    return (null, Array.Empty<InventoryUpsertResult>());
+                }
+
+                results.Add(new InventoryUpsertResult(spec.TradeInItemId, inventoryId));
+            }
+
+            var rows = await connection.ExecuteAsync(
+                @"UPDATE trade_in SET
+                    status = 'completed',
+                    payment_type = @p_payment_type,
+                    completed_at = @p_completed_at,
+                    total_accepted_value = (
+                        SELECT COALESCE(SUM(accepted_value), 0)
+                        FROM trade_in_item
+                        WHERE trade_in_id = @p_id AND accepted_value > 0
+                    )
+                  WHERE id = @p_id AND company_id = @p_company_id AND status = 'draft'",
+                new { p_id = id, p_company_id = companyId, p_payment_type = paymentType, p_completed_at = completedAt },
+                transaction);
+            if (rows == 0)
+            {
+                await transaction.RollbackAsync();
+                return (null, Array.Empty<InventoryUpsertResult>());
+            }
+
+            await transaction.CommitAsync();
+            var refreshed = await GetByIdAsync(id, companyId);
+            return (refreshed, results);
+        }
+        catch
+        {
+            try { await transaction.RollbackAsync(); } catch { }
+            throw;
+        }
+    }
+
     public async Task<TradeIn?> CompleteAsync(
         int id,
         int companyId,
