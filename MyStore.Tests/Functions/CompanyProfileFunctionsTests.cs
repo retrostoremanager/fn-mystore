@@ -108,6 +108,37 @@ public class CompanyProfileFunctionsTests
     }
 
     [Fact]
+    public async Task GetProfile_IncludesCompanyCountryInResponse()
+    {
+        var profile = CreateTestProfile();
+        profile.CompanyCountry = "Canada";
+
+        _companyRepoMock
+            .Setup(r => r.GetProfileAsync(TestCompanyId))
+            .ReturnsAsync(profile);
+        _locationRepoMock
+            .Setup(r => r.GetByCompanyIdAsync(TestCompanyId))
+            .ReturnsAsync(new List<Location>());
+
+        var context = CreateAuthenticatedContext();
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyIdHeaders());
+
+        var result = await _functions.GetProfile(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<CompanyProfileResponse>>(
+            body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized.Should().NotBeNull();
+        deserialized!.Data!.Profile.CompanyCountry.Should().Be("Canada",
+            because: "GET /company/profile must include companyCountry so the frontend Company Profile page can display the saved value (issue #375)");
+        body.Should().Contain("\"companyCountry\":\"Canada\"",
+            because: "the JSON response key must be camelCase 'companyCountry' to match what CompanyProfilePage.jsx expects");
+    }
+
+    [Fact]
     public async Task GetProfile_MissingCompanyId_Returns401Unauthorized()
     {
         var context = new Mock<FunctionContext>();
