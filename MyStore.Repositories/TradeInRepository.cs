@@ -363,7 +363,18 @@ public class TradeInRepository : ITradeInRepository
         }
         catch
         {
-            try { await transaction.RollbackAsync(); } catch { }
+            try
+            {
+                await transaction.RollbackAsync();
+            }
+            catch (Exception rollbackEx)
+            {
+                // Surface rollback failures so DB issues during rollback are not invisible.
+                // No ILogger is wired into the repositories layer, so write to stderr; the
+                // original exception is rethrown below so callers still see the root cause.
+                Console.Error.WriteLine(
+                    $"[TradeInRepository.CompleteWithInventoryUpsertAsync] Rollback failed for trade-in {id} (company {companyId}): {rollbackEx}");
+            }
             throw;
         }
     }
