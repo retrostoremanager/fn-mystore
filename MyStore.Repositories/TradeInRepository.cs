@@ -262,29 +262,62 @@ public class TradeInRepository : ITradeInRepository
             var results = new List<InventoryUpsertResult>(upsertList.Count);
             foreach (var spec in upsertList)
             {
-                // Race-safe UPSERT against the unique (company_id, game_id, condition) index.
-                // On conflict we increment the existing row's quantity by 1 instead of inserting
-                // a duplicate that would violate ix_inventory_company_game_condition.
-                var inventoryId = await connection.QuerySingleAsync<int>(
-                    @"INSERT INTO game_inventory (
-                        company_id, location_id, quantity, price, cost, condition, game_id,
-                        notes, created_date, last_modified_date)
-                      VALUES (
-                        @p_company_id, @p_location_id, 1, 0, @p_buy_price, @p_condition,
-                        @p_game_id, NULL, NOW(), NOW())
-                      ON CONFLICT (company_id, game_id, condition) DO UPDATE
-                        SET quantity = game_inventory.quantity + 1,
-                            last_modified_date = NOW()
-                      RETURNING id",
+                // Race-safe INSERT-or-INCREMENT inside the open transaction. game_inventory
+                // does not currently have a UNIQUE (company_id, game_id, condition) constraint
+                // (audited against dbproj-mystore migrations 001-062), so we cannot use
+                // INSERT ... ON CONFLICT. Instead we SELECT ... FOR UPDATE on the matching row
+                // to serialize concurrent completers, then INSERT if absent or UPDATE quantity
+                // if present. The row lock + transactional context guarantees the find-then-write
+                // is atomic relative to other transactions targeting the same (company, game,
+                // condition) tuple.
+                var existingId = await connection.QueryFirstOrDefaultAsync<int?>(
+                    @"SELECT id FROM game_inventory
+                      WHERE company_id = @p_company_id
+                        AND game_id = @p_game_id
+                        AND condition = @p_condition
+                      ORDER BY id
+                      LIMIT 1
+                      FOR UPDATE",
                     new
                     {
                         p_company_id = companyId,
-                        p_location_id = spec.LocationId,
-                        p_buy_price = spec.BuyPrice,
-                        p_condition = spec.Condition,
                         p_game_id = spec.GameId,
+                        p_condition = spec.Condition,
                     },
                     transaction);
+
+                int inventoryId;
+                if (existingId.HasValue)
+                {
+                    await connection.ExecuteAsync(
+                        @"UPDATE game_inventory
+                          SET quantity = quantity + 1,
+                              last_modified_date = NOW()
+                          WHERE id = @p_id AND company_id = @p_company_id",
+                        new { p_id = existingId.Value, p_company_id = companyId },
+                        transaction);
+                    inventoryId = existingId.Value;
+                }
+                else
+                {
+                    inventoryId = await connection.QuerySingleAsync<int>(
+                        @"INSERT INTO game_inventory (
+                            company_id, location_id, quantity, price, cost, condition, game_id,
+                            notes, created_date, last_modified_date)
+                          VALUES (
+                            @p_company_id, @p_location_id, 1, 0, @p_buy_price, @p_condition,
+                            @p_game_id, NULL, NOW(), NOW())
+                          RETURNING id",
+                        new
+                        {
+                            p_company_id = companyId,
+                            p_location_id = spec.LocationId,
+                            p_buy_price = spec.BuyPrice,
+                            p_condition = spec.Condition,
+                            p_game_id = spec.GameId,
+                        },
+                        transaction);
+                }
 
                 var linkRows = await connection.ExecuteAsync(
                     @"UPDATE trade_in_item SET inventory_item_id = @p_inventory_item_id
@@ -313,7 +346,7 @@ public class TradeInRepository : ITradeInRepository
                     total_accepted_value = (
                         SELECT COALESCE(SUM(accepted_value), 0)
                         FROM trade_in_item
-                        WHERE trade_in_id = @p_id AND accepted_value > 0
+                        WHERE trade_in_id = @p_id
                     )
                   WHERE id = @p_id AND company_id = @p_company_id AND status = 'draft'",
                 new { p_id = id, p_company_id = companyId, p_payment_type = paymentType, p_completed_at = completedAt },

@@ -681,7 +681,7 @@ public class TradeInServiceTests
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
         _tradeInRepoMock
             .Setup(r => r.CompleteWithInventoryUpsertAsync(1, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<InventoryUpsertRequest>>()))
-            .ThrowsAsync(new Exception("23505: duplicate key value violates unique constraint \"ix_inventory_company_game_condition\""));
+            .ThrowsAsync(new Exception("simulated DB failure during transactional upsert"));
 
         var result = await _service.CompleteAsync(1, 5, "cash");
 
@@ -861,7 +861,7 @@ public class TradeInServiceTests
         _tradeInRepoMock.Setup(r => r.GetByIdAsync(1, 5)).ReturnsAsync(draft);
         _tradeInRepoMock
             .Setup(r => r.CompleteWithInventoryUpsertAsync(1, 5, "cash", It.IsAny<DateTime>(), It.IsAny<IEnumerable<InventoryUpsertRequest>>()))
-            .ThrowsAsync(new Exception("23505: duplicate key value violates unique constraint \"ix_inventory_company_game_condition\""));
+            .ThrowsAsync(new Exception("simulated DB failure during transactional upsert"));
 
         var result = await _service.CompleteAsync(1, 5, "cash");
 
