@@ -698,6 +698,71 @@ public class ConsignmentFunctionsTests
     }
 
     [Fact]
+    public async Task MarkConsignmentItemSold_AskingPrice100_SalePrice80_SplitPercent70_PayoutIs56()
+    {
+        var soldItem = CreateItem(1, "sold", splitPercent: 70m);
+        soldItem.AskingPrice = 100m;
+        soldItem.SalePrice = 80m;
+        var markSoldResponse = new MarkSoldResponse
+        {
+            Item = soldItem,
+            PayoutAmount = 56m,
+            StoreAmount = 24m
+        };
+
+        _serviceMock
+            .Setup(s => s.MarkSoldAsync(1, 80m, CompanyId, It.IsAny<string?>()))
+            .ReturnsAsync(ApiResponse<MarkSoldResponse>.SuccessResponse(markSoldResponse));
+
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var body = new { salePrice = 80m };
+        var req = TestHelpers.CreateHttpRequestData(context, body, _companyHeaders);
+
+        var result = await _functions.MarkConsignmentItemSold(req, 1);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        var responseBody = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<MarkSoldResponse>>(
+            responseBody, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Data!.PayoutAmount.Should().Be(56.00m);
+        deserialized.Data.StoreAmount.Should().Be(24.00m);
+        deserialized.Data.PayoutDue.Should().Be(56.00m);
+    }
+
+    [Fact]
+    public async Task ProcessConsignmentPayout_RecordsPayoutWithCalculatedAmount()
+    {
+        var payout = new ConsignmentPayout
+        {
+            Id = 10,
+            ConsignmentItemId = 1,
+            Amount = 56.00m,
+            PaidAt = DateTime.UtcNow,
+            Notes = "Cash to customer"
+        };
+        _serviceMock
+            .Setup(s => s.ProcessPayoutAsync(1, "Cash to customer", CompanyId))
+            .ReturnsAsync(ApiResponse<ConsignmentPayout>.SuccessResponse(payout, "Payout processed successfully"));
+
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var body = new { notes = "Cash to customer" };
+        var req = TestHelpers.CreateHttpRequestData(context, body, _companyHeaders);
+
+        var result = await _functions.ProcessConsignmentPayout(req, 1);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        var responseBody = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<ConsignmentPayout>>(
+            responseBody, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Success.Should().BeTrue();
+        deserialized.Data!.Amount.Should().Be(56.00m);
+        deserialized.Data.Notes.Should().Be("Cash to customer");
+        _serviceMock.Verify(s => s.ProcessPayoutAsync(1, "Cash to customer", CompanyId), Times.Once);
+    }
+
+    [Fact]
     public async Task MarkConsignmentItemSold_SalePrice100_SplitPercent100_StoreGetsZero()
     {
         var soldItem = CreateItem(1, "sold", splitPercent: 100m);
