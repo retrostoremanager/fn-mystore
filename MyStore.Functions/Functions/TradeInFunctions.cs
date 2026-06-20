@@ -276,15 +276,14 @@ public class TradeInFunctions
             return await CreateHttpResponse(req, ApiResponse<ParseTradeInImageResponse>.ErrorResponse("imageBase64 and mimeType are required"), HttpStatusCode.BadRequest);
         }
 
-        var apiKey = Environment.GetEnvironmentVariable("Anthropic__ApiKey")
-            ?? Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY")
-            ?? _configuration["Anthropic__ApiKey"]
-            ?? _configuration["Anthropic:ApiKey"];
+        var apiKey = ResolveAnthropicApiKey(out var resolvedFrom);
         if (string.IsNullOrWhiteSpace(apiKey))
         {
-            _logger.LogError("Anthropic API key is not configured (set Anthropic__ApiKey or ANTHROPIC_API_KEY on the Function App)");
+            _logger.LogError(
+                "Anthropic API key is not configured. Checked env vars [Anthropic__ApiKey, ANTHROPIC_API_KEY, APPSETTING_Anthropic__ApiKey, APPSETTING_ANTHROPIC_API_KEY, AnthropicApiKey] and configuration keys [Anthropic__ApiKey, Anthropic:ApiKey, ANTHROPIC_API_KEY, AnthropicApiKey]. Set one of these on the Function App.");
             return await CreateHttpResponse(req, ApiResponse<ParseTradeInImageResponse>.ErrorResponse("Image parsing service is not configured"), HttpStatusCode.BadGateway);
         }
+        _logger.LogDebug("Resolved Anthropic API key from {Source}", resolvedFrom);
 
         const string prompt = "Identify all video games visible in this image. " +
             "Return ONLY a JSON array (no prose, no markdown, no code fences) of objects, " +
@@ -354,6 +353,47 @@ public class TradeInFunctions
 
         var result = new ParseTradeInImageResponse { Items = items };
         return await CreateHttpResponse(req, ApiResponse<ParseTradeInImageResponse>.SuccessResponse(result));
+    }
+
+    private string? ResolveAnthropicApiKey(out string source)
+    {
+        var envCandidates = new[]
+        {
+            "Anthropic__ApiKey",
+            "ANTHROPIC_API_KEY",
+            "APPSETTING_Anthropic__ApiKey",
+            "APPSETTING_ANTHROPIC_API_KEY",
+            "AnthropicApiKey"
+        };
+        foreach (var name in envCandidates)
+        {
+            var value = Environment.GetEnvironmentVariable(name);
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                source = $"env:{name}";
+                return value;
+            }
+        }
+
+        var configCandidates = new[]
+        {
+            "Anthropic__ApiKey",
+            "Anthropic:ApiKey",
+            "ANTHROPIC_API_KEY",
+            "AnthropicApiKey"
+        };
+        foreach (var name in configCandidates)
+        {
+            var value = _configuration[name];
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                source = $"config:{name}";
+                return value;
+            }
+        }
+
+        source = "none";
+        return null;
     }
 
     private async Task<string> CallAnthropicAsync(string apiKey, object payload)
