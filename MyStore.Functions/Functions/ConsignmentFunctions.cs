@@ -121,6 +121,12 @@ public class ConsignmentFunctions
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
         }
 
+        if (item.SplitPercent < 0 || item.SplitPercent > 100)
+        {
+            var errorResponse = ApiResponse<ConsignmentItem>.ErrorResponse("SplitPercent must be between 0 and 100");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+        }
+
         _logger.LogInformation("Creating consignment item for company {CompanyId}", companyId);
         var response = await _consignmentService.CreateAsync(item, companyId);
         var statusCode = response.Success ? HttpStatusCode.Created : HttpStatusCode.BadRequest;
@@ -145,10 +151,10 @@ public class ConsignmentFunctions
         }
 
         var requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-        ConsignmentItem? item;
+        UpdateConsignmentItemRequest? request;
         try
         {
-            item = JsonSerializer.Deserialize<ConsignmentItem>(requestBody, new JsonSerializerOptions
+            request = JsonSerializer.Deserialize<UpdateConsignmentItemRequest>(requestBody, new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true
             });
@@ -159,29 +165,51 @@ public class ConsignmentFunctions
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
         }
 
-        if (item == null)
+        if (request == null)
         {
             var errorResponse = ApiResponse<ConsignmentItem>.ErrorResponse("Invalid request body");
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
         }
 
-        if (string.IsNullOrWhiteSpace(item.Status))
+        if (string.IsNullOrWhiteSpace(request.Description))
         {
-            var errorResponse = ApiResponse<ConsignmentItem>.ErrorResponse("Status is required");
+            var errorResponse = ApiResponse<ConsignmentItem>.ErrorResponse("Description is required");
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
         }
 
-        var allowedStatuses = new[] { "active", "sold", "returned" };
-        if (!allowedStatuses.Contains(item.Status, StringComparer.OrdinalIgnoreCase))
+        if (request.AskingPrice <= 0)
+        {
+            var errorResponse = ApiResponse<ConsignmentItem>.ErrorResponse("AskingPrice must be greater than zero");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+        }
+
+        if (request.SplitPercent < 0 || request.SplitPercent > 100)
+        {
+            var errorResponse = ApiResponse<ConsignmentItem>.ErrorResponse("SplitPercent must be between 0 and 100");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+        }
+
+        _logger.LogInformation("Updating consignment item {Id} for company {CompanyId}", id, companyId);
+
+        var existingResponse = await _consignmentService.GetByIdAsync(id, companyId);
+        if (!existingResponse.Success || existingResponse.Data == null)
+        {
+            return await CreateHttpResponse(req, ApiResponse<ConsignmentItem>.ErrorResponse(existingResponse.Message ?? "Not found"), HttpStatusCode.NotFound);
+        }
+
+        var existing = existingResponse.Data;
+        if (!string.Equals(existing.Status, "active", StringComparison.OrdinalIgnoreCase))
         {
             var errorResponse = ApiResponse<ConsignmentItem>.ErrorResponse(
-                "Invalid status value. Allowed values: active, sold, returned");
+                $"Cannot update consignment item: current status is '{existing.Status}'. Only active items can be updated.");
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
         }
 
-        item.Id = id;
-        _logger.LogInformation("Updating consignment item {Id} for company {CompanyId}", id, companyId);
-        var response = await _consignmentService.UpdateAsync(item, companyId);
+        existing.Description = request.Description;
+        existing.AskingPrice = request.AskingPrice;
+        existing.SplitPercent = request.SplitPercent;
+
+        var response = await _consignmentService.UpdateAsync(existing, companyId);
         if (!response.Success)
         {
             var statusCode = IsNotFound(response.Message) ? HttpStatusCode.NotFound : HttpStatusCode.BadRequest;
@@ -369,4 +397,11 @@ internal class MarkSoldRequest
 internal class ProcessPayoutRequest
 {
     public string? Notes { get; set; }
+}
+
+internal class UpdateConsignmentItemRequest
+{
+    public string Description { get; set; } = string.Empty;
+    public decimal AskingPrice { get; set; }
+    public decimal SplitPercent { get; set; }
 }
