@@ -160,47 +160,29 @@ public class TradeInService : ITradeInService
                 locationId = resolved.Id;
             }
 
-            var acceptedItemLinks = new List<(int ItemId, int InventoryItemId)>();
+            var upsertRequests = new List<InventoryUpsertRequest>(acceptedItems.Count);
             foreach (var item in acceptedItems)
             {
                 var game = await EnsureGameForTradeInItemAsync(item);
-
-                var existing = await _inventoryRepository.FindByCompanyGameConditionAsync(
-                    companyId, game.Id, item.Condition ?? string.Empty);
-
-                int inventoryId;
-                if (existing is not null)
-                {
-                    await _inventoryRepository.UpdateQuantityAsync(existing.Id, 1, companyId);
-                    inventoryId = existing.Id;
-                }
-                else
-                {
-                    var inventoryItem = new InventoryItem
-                    {
-                        CompanyId = companyId,
-                        Name = $"{item.GameTitle} ({item.Platform})",
-                        Category = "Game",
-                        Quantity = 1,
-                        Condition = item.Condition,
-                        BuyPrice = item.AcceptedValue,
-                        SellPrice = 0,
-                        AddedDate = DateTime.UtcNow,
-                        Game = game,
-                        LocationId = locationId,
-                    };
-
-                    var created = await _inventoryRepository.CreateAsync(inventoryItem);
-                    inventoryId = created.Id;
-                }
-
-                item.InventoryItemId = inventoryId;
-                acceptedItemLinks.Add((item.Id, inventoryId));
+                upsertRequests.Add(new InventoryUpsertRequest(
+                    TradeInItemId: item.Id,
+                    GameId: game.Id,
+                    Condition: item.Condition ?? string.Empty,
+                    LocationId: locationId,
+                    BuyPrice: item.AcceptedValue));
             }
 
-            var completed = await _tradeInRepository.CompleteAsync(id, companyId, paymentType, DateTime.UtcNow, acceptedItemLinks);
+            var (completed, upsertResults) = await _tradeInRepository.CompleteWithInventoryUpsertAsync(
+                id, companyId, paymentType, DateTime.UtcNow, upsertRequests);
             if (completed is null)
                 return ApiResponse<TradeIn>.ErrorResponse($"Failed to complete trade-in with ID {id}");
+
+            var inventoryByItemId = upsertResults.ToDictionary(r => r.TradeInItemId, r => r.InventoryItemId);
+            foreach (var item in acceptedItems)
+            {
+                if (inventoryByItemId.TryGetValue(item.Id, out var invId))
+                    item.InventoryItemId = invId;
+            }
 
             if (paymentType == "store_credit" && tradeIn.CustomerId.HasValue && _loyaltyService is not null)
             {
