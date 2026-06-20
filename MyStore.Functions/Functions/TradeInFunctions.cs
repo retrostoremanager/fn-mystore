@@ -276,11 +276,12 @@ public class TradeInFunctions
             return await CreateHttpResponse(req, ApiResponse<ParseTradeInImageResponse>.ErrorResponse("imageBase64 and mimeType are required"), HttpStatusCode.BadRequest);
         }
 
-        var apiKey = ResolveAnthropicApiKey(out var resolvedFrom);
+        var apiKey = ResolveAnthropicApiKey(out var resolvedFrom, out var diagnostics);
         if (string.IsNullOrWhiteSpace(apiKey))
         {
             _logger.LogError(
-                "Anthropic API key is not configured. Checked env vars [Anthropic__ApiKey, ANTHROPIC_API_KEY, APPSETTING_Anthropic__ApiKey, APPSETTING_ANTHROPIC_API_KEY, AnthropicApiKey] and configuration keys [Anthropic__ApiKey, Anthropic:ApiKey, ANTHROPIC_API_KEY, AnthropicApiKey]. Set one of these on the Function App.");
+                "Anthropic API key is not configured. Lookup status: {Diagnostics}. To fix on Azure Function App: set application setting 'Anthropic__ApiKey' (or one of ANTHROPIC_API_KEY/AnthropicApiKey) to a valid Anthropic key, then restart the Function App. If the Refresh App Settings workflow already runs, populate the ANTHROPIC_API_KEY repository secret first and re-run it.",
+                diagnostics);
             return await CreateHttpResponse(req, ApiResponse<ParseTradeInImageResponse>.ErrorResponse("Image parsing service is not configured"), HttpStatusCode.BadGateway);
         }
         _logger.LogDebug("Resolved Anthropic API key from {Source}", resolvedFrom);
@@ -355,7 +356,7 @@ public class TradeInFunctions
         return await CreateHttpResponse(req, ApiResponse<ParseTradeInImageResponse>.SuccessResponse(result));
     }
 
-    private string? ResolveAnthropicApiKey(out string source)
+    private string? ResolveAnthropicApiKey(out string source, out string diagnostics)
     {
         var envCandidates = new[]
         {
@@ -365,12 +366,22 @@ public class TradeInFunctions
             "APPSETTING_ANTHROPIC_API_KEY",
             "AnthropicApiKey"
         };
+        var report = new List<string>();
         foreach (var name in envCandidates)
         {
             var value = Environment.GetEnvironmentVariable(name);
-            if (!string.IsNullOrWhiteSpace(value))
+            if (value == null)
+            {
+                report.Add($"env:{name}=absent");
+            }
+            else if (string.IsNullOrWhiteSpace(value))
+            {
+                report.Add($"env:{name}=present-but-empty");
+            }
+            else
             {
                 source = $"env:{name}";
+                diagnostics = string.Join(", ", report) + $", env:{name}=present-non-empty";
                 return value;
             }
         }
@@ -385,14 +396,24 @@ public class TradeInFunctions
         foreach (var name in configCandidates)
         {
             var value = _configuration[name];
-            if (!string.IsNullOrWhiteSpace(value))
+            if (value == null)
+            {
+                report.Add($"config:{name}=absent");
+            }
+            else if (string.IsNullOrWhiteSpace(value))
+            {
+                report.Add($"config:{name}=present-but-empty");
+            }
+            else
             {
                 source = $"config:{name}";
+                diagnostics = string.Join(", ", report) + $", config:{name}=present-non-empty";
                 return value;
             }
         }
 
         source = "none";
+        diagnostics = string.Join(", ", report);
         return null;
     }
 
