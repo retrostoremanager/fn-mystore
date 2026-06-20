@@ -626,6 +626,8 @@ public class TradeInFunctionsTests
 
     private void SetupAnthropicKey(string? key)
     {
+        Environment.SetEnvironmentVariable("Anthropic__ApiKey", null);
+        Environment.SetEnvironmentVariable("ANTHROPIC_API_KEY", null);
         _configurationMock.Setup(c => c["Anthropic__ApiKey"]).Returns(key);
         _configurationMock.Setup(c => c["Anthropic:ApiKey"]).Returns((string?)null);
     }
