@@ -276,7 +276,8 @@ public class TradeInFunctions
             return await CreateHttpResponse(req, ApiResponse<ParseTradeInImageResponse>.ErrorResponse("imageBase64 and mimeType are required"), HttpStatusCode.BadRequest);
         }
 
-        var apiKey = _configuration["Anthropic__ApiKey"]
+        var apiKey = Environment.GetEnvironmentVariable("Anthropic__ApiKey")
+            ?? _configuration["Anthropic__ApiKey"]
             ?? _configuration["Anthropic:ApiKey"];
         if (string.IsNullOrWhiteSpace(apiKey))
         {
