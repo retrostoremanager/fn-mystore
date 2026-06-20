@@ -277,11 +277,12 @@ public class TradeInFunctions
         }
 
         var apiKey = Environment.GetEnvironmentVariable("Anthropic__ApiKey")
+            ?? Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY")
             ?? _configuration["Anthropic__ApiKey"]
             ?? _configuration["Anthropic:ApiKey"];
         if (string.IsNullOrWhiteSpace(apiKey))
         {
-            _logger.LogError("Anthropic API key is not configured");
+            _logger.LogError("Anthropic API key is not configured (set Anthropic__ApiKey or ANTHROPIC_API_KEY on the Function App)");
             return await CreateHttpResponse(req, ApiResponse<ParseTradeInImageResponse>.ErrorResponse("Image parsing service is not configured"), HttpStatusCode.BadGateway);
         }
 
