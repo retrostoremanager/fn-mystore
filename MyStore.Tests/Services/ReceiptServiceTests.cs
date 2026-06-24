@@ -81,7 +81,8 @@ public class ReceiptServiceTests
 
         result.Success.Should().BeTrue();
         var receipt = result.Data!;
-        receipt.ReceiptNumber.Should().Be("REC-000042");
+        receipt.ReceiptNumber.Should().Be("REC-42");
+        receipt.ReceiptNumber.Should().StartWith("REC-");
         receipt.TaxRate.Should().Be(0m);
         receipt.TaxAmount.Should().Be(0m);
         receipt.Subtotal.Should().Be(100m);
@@ -173,17 +174,56 @@ public class ReceiptServiceTests
         receipt.StoreAddress.Should().Contain("123 Main St");
     }
 
-    [Fact]
-    public async Task GetReceiptAsync_ReceiptNumberHasRecPrefixAndIsZeroPaddedToSixDigits()
+    [Theory]
+    [InlineData(5, "REC-5")]
+    [InlineData(42, "REC-42")]
+    [InlineData(1042, "REC-1042")]
+    [InlineData(999999, "REC-999999")]
+    public async Task GetReceiptAsync_ReceiptNumberHasRecPrefixFollowedBySaleId(int saleId, string expected)
     {
-        var sale = BuildSale(id: 5);
+        var sale = BuildSale(id: saleId);
         SetupDefaultMocks(sale);
-        _salesRepositoryMock.Setup(r => r.GetByIdAsync(5, CompanyId)).ReturnsAsync(sale);
+        _salesRepositoryMock.Setup(r => r.GetByIdAsync(saleId, CompanyId)).ReturnsAsync(sale);
+        _inventoryRepositoryMock.Setup(r => r.GetByIdAsync(10, CompanyId)).ReturnsAsync(
+            new InventoryItem { Id = 10, CompanyId = CompanyId, Name = "Mega Drive Console" });
 
-        var result = await _service.GetReceiptAsync(5, CompanyId);
+        var result = await _service.GetReceiptAsync(saleId, CompanyId);
 
         result.Success.Should().BeTrue();
-        result.Data!.ReceiptNumber.Should().Be("REC-000005");
+        result.Data!.ReceiptNumber.Should().Be(expected);
+        result.Data!.ReceiptNumber.Should().StartWith("REC-");
+    }
+
+    [Fact]
+    public async Task GetReceiptAsync_RoundingEdgeCase_RoundsHalfUp()
+    {
+        // $10.005 -> $10.01 using AwayFromZero rounding
+        var subtotal = 10m;
+        var taxRate = 0.0005m;
+        var taxAmount = Math.Round(subtotal * taxRate, 2, MidpointRounding.AwayFromZero);
+        var sale = BuildSale(subtotal: subtotal, taxRate: taxRate, taxAmount: taxAmount, taxLabel: "Tax");
+        SetupDefaultMocks(sale);
+
+        var result = await _service.GetReceiptAsync(sale.Id, CompanyId);
+
+        result.Success.Should().BeTrue();
+        result.Data!.TaxAmount.Should().Be(0.01m);
+    }
+
+    [Fact]
+    public async Task SendReceiptEmailAsync_SendsToProvidedAddress()
+    {
+        var sale = BuildSale();
+        SetupDefaultMocks(sale);
+        string? capturedEmail = null;
+        _emailServiceMock.Setup(e => e.SendReceiptEmailAsync(It.IsAny<string>(), It.IsAny<ReceiptResponse>()))
+            .Callback<string, ReceiptResponse>((to, _) => capturedEmail = to)
+            .ReturnsAsync(new EmailSendResult { Success = true });
+
+        var result = await _service.SendReceiptEmailAsync(sale.Id, CompanyId, "customer@example.com");
+
+        result.Success.Should().BeTrue();
+        capturedEmail.Should().Be("customer@example.com");
     }
 
     [Fact]

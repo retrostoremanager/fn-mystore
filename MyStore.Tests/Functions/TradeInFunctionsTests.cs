@@ -626,8 +626,20 @@ public class TradeInFunctionsTests
 
     private void SetupAnthropicKey(string? key)
     {
+        ClearAnthropicEnvVars();
         _configurationMock.Setup(c => c["Anthropic__ApiKey"]).Returns(key);
         _configurationMock.Setup(c => c["Anthropic:ApiKey"]).Returns((string?)null);
+        _configurationMock.Setup(c => c["ANTHROPIC_API_KEY"]).Returns((string?)null);
+        _configurationMock.Setup(c => c["AnthropicApiKey"]).Returns((string?)null);
+    }
+
+    private static void ClearAnthropicEnvVars()
+    {
+        Environment.SetEnvironmentVariable("Anthropic__ApiKey", null);
+        Environment.SetEnvironmentVariable("ANTHROPIC_API_KEY", null);
+        Environment.SetEnvironmentVariable("APPSETTING_Anthropic__ApiKey", null);
+        Environment.SetEnvironmentVariable("APPSETTING_ANTHROPIC_API_KEY", null);
+        Environment.SetEnvironmentVariable("AnthropicApiKey", null);
     }
 
     private static string BuildAnthropicResponse(string text)
@@ -787,6 +799,71 @@ public class TradeInFunctionsTests
 
         result.StatusCode.Should().Be(HttpStatusCode.BadGateway);
         _httpClientFactoryMock.Verify(f => f.CreateClient(It.IsAny<string>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData("ANTHROPIC_API_KEY")]
+    [InlineData("APPSETTING_Anthropic__ApiKey")]
+    [InlineData("APPSETTING_ANTHROPIC_API_KEY")]
+    [InlineData("AnthropicApiKey")]
+    public async Task ParseTradeInImage_UsesEnvVarFallback_Returns200(string envVarName)
+    {
+        ClearAnthropicEnvVars();
+        _configurationMock.Setup(c => c["Anthropic__ApiKey"]).Returns((string?)null);
+        _configurationMock.Setup(c => c["Anthropic:ApiKey"]).Returns((string?)null);
+        _configurationMock.Setup(c => c["ANTHROPIC_API_KEY"]).Returns((string?)null);
+        _configurationMock.Setup(c => c["AnthropicApiKey"]).Returns((string?)null);
+
+        try
+        {
+            Environment.SetEnvironmentVariable(envVarName, "fallback-api-key");
+            var anthropicBody = BuildAnthropicResponse("[]");
+            var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(anthropicBody, System.Text.Encoding.UTF8, "application/json")
+            });
+            SetupHttpClient(handler);
+
+            var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+            var body = new { imageBase64 = "ZmFrZQ==", mimeType = "image/jpeg" };
+            var req = TestHelpers.CreateHttpRequestData(context, body, _companyHeaders);
+
+            var result = await _functions.ParseTradeInImage(req);
+
+            result.StatusCode.Should().Be(HttpStatusCode.OK);
+            handler.Captured.Should().ContainSingle();
+            handler.Captured[0].Headers.GetValues("x-api-key").Should().Contain("fallback-api-key");
+        }
+        finally
+        {
+            ClearAnthropicEnvVars();
+        }
+    }
+
+    [Fact]
+    public async Task ParseTradeInImage_UsesConfigurationFallback_Returns200()
+    {
+        ClearAnthropicEnvVars();
+        _configurationMock.Setup(c => c["Anthropic__ApiKey"]).Returns((string?)null);
+        _configurationMock.Setup(c => c["Anthropic:ApiKey"]).Returns((string?)null);
+        _configurationMock.Setup(c => c["ANTHROPIC_API_KEY"]).Returns("config-fallback-key");
+        _configurationMock.Setup(c => c["AnthropicApiKey"]).Returns((string?)null);
+
+        var anthropicBody = BuildAnthropicResponse("[]");
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(anthropicBody, System.Text.Encoding.UTF8, "application/json")
+        });
+        SetupHttpClient(handler);
+
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var body = new { imageBase64 = "ZmFrZQ==", mimeType = "image/jpeg" };
+        var req = TestHelpers.CreateHttpRequestData(context, body, _companyHeaders);
+
+        var result = await _functions.ParseTradeInImage(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        handler.Captured[0].Headers.GetValues("x-api-key").Should().Contain("config-fallback-key");
     }
 
     [Fact]

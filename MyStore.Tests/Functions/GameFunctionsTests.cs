@@ -289,6 +289,50 @@ public class GameFunctionsTests
         responseBody.Should().NotContain("\"Console\"");
     }
 
+    [Fact]
+    public async Task SearchGames_ResultWithNullableFields_SerializesCorrectly()
+    {
+        var games = new List<Game>
+        {
+            new Game
+            {
+                Id = "igdb-99",
+                Title = "Obscure Homebrew",
+                Console = "Atari 2600",
+                ReleaseDate = null,
+                Publisher = null,
+                Genre = null,
+                ImageUrl = null
+            }
+        };
+        var apiResponse = ApiResponse<List<Game>>.SuccessResponse(games);
+
+        _gameServiceMock
+            .Setup(s => s.SearchGamesAsync(It.IsAny<string>()))
+            .ReturnsAsync(apiResponse);
+
+        var query = new NameValueCollection { ["q"] = "obscure" };
+        var httpRequestData = CreateAuthenticatedRequest(query);
+
+        var result = await _functions.SearchGames(httpRequestData);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var responseBody = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<List<Game>>>(
+            responseBody,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized.Should().NotBeNull();
+        deserialized!.Success.Should().BeTrue();
+        deserialized.Data.Should().NotBeNull();
+        deserialized.Data!.Should().HaveCount(1);
+        deserialized.Data![0].Publisher.Should().BeNull();
+        deserialized.Data![0].Genre.Should().BeNull();
+        deserialized.Data![0].ImageUrl.Should().BeNull();
+        deserialized.Data![0].ReleaseDate.Should().BeNull();
+    }
+
     #endregion
 
     #region SearchGames — logging

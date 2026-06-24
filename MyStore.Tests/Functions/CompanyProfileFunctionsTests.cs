@@ -108,6 +108,37 @@ public class CompanyProfileFunctionsTests
     }
 
     [Fact]
+    public async Task GetProfile_IncludesCompanyCountryInResponse()
+    {
+        var profile = CreateTestProfile();
+        profile.CompanyCountry = "Canada";
+
+        _companyRepoMock
+            .Setup(r => r.GetProfileAsync(TestCompanyId))
+            .ReturnsAsync(profile);
+        _locationRepoMock
+            .Setup(r => r.GetByCompanyIdAsync(TestCompanyId))
+            .ReturnsAsync(new List<Location>());
+
+        var context = CreateAuthenticatedContext();
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyIdHeaders());
+
+        var result = await _functions.GetProfile(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<CompanyProfileResponse>>(
+            body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized.Should().NotBeNull();
+        deserialized!.Data!.Profile.CompanyCountry.Should().Be("Canada",
+            because: "GET /company/profile must include companyCountry so the frontend Company Profile page can display the saved value (issue #375)");
+        body.Should().Contain("\"companyCountry\":\"Canada\"",
+            because: "the JSON response key must be camelCase 'companyCountry' to match what CompanyProfilePage.jsx expects");
+    }
+
+    [Fact]
     public async Task GetProfile_MissingCompanyId_Returns401Unauthorized()
     {
         var context = new Mock<FunctionContext>();
@@ -265,6 +296,18 @@ public class CompanyProfileFunctionsTests
         var result = await _functions.UpdateProfile(req);
 
         result.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task UpdateProfile_MalformedJson_Returns500()
+    {
+        var context = CreateAuthenticatedContext();
+        var req = TestHelpers.CreateHttpRequestDataWithRawBody("{ not valid json", CompanyIdHeaders(), context: context);
+
+        var result = await _functions.UpdateProfile(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.InternalServerError,
+            because: "malformed JSON throws a JsonException that should surface as a server error and not crash the function");
     }
 
     [Fact]
@@ -785,6 +828,143 @@ public class CompanyProfileFunctionsTests
         var result = await _functions.UploadLogo(req);
 
         result.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
+    }
+
+    [Fact]
+    public async Task UploadLogo_ValidUpload_PersistsLogoUrlToRepository()
+    {
+        var fileBytes = Encoding.UTF8.GetBytes("fake-png-content");
+        var uploadRequest = new LogoUploadRequest
+        {
+            File = Convert.ToBase64String(fileBytes),
+            FileName = "logo.png",
+            ContentType = "image/png"
+        };
+
+        const string expectedUrl = "https://blob.example.com/42/logo.png";
+        _fakeLogoStorage.UploadResult = expectedUrl;
+
+        CompanyProfileUpdateRequest? capturedUpdate = null;
+        _companyRepoMock
+            .Setup(r => r.UpdateProfileAsync(TestCompanyId, It.IsAny<CompanyProfileUpdateRequest>()))
+            .Callback<int, CompanyProfileUpdateRequest>((_, r) => capturedUpdate = r)
+            .Returns(Task.CompletedTask);
+        _companyRepoMock
+            .Setup(r => r.GetProfileAsync(TestCompanyId))
+            .ReturnsAsync(CreateTestProfile());
+
+        var context = CreateAuthenticatedContext();
+        var req = TestHelpers.CreateHttpRequestData(context, uploadRequest, CompanyIdHeaders());
+
+        var result = await _functions.UploadLogo(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        capturedUpdate.Should().NotBeNull();
+        capturedUpdate!.LogoUrl.Should().Be(expectedUrl,
+            because: "the blob URL returned by storage must be persisted to the company's profile so subsequent GETs return it");
+    }
+
+    [Fact]
+    public async Task UploadLogo_OversizedPayload_Returns400BadRequest()
+    {
+        var fileBytes = new byte[6 * 1024 * 1024];
+        var uploadRequest = new LogoUploadRequest
+        {
+            File = Convert.ToBase64String(fileBytes),
+            FileName = "logo.png",
+            ContentType = "image/png"
+        };
+
+        _fakeLogoStorage.UploadException = new ArgumentException("File exceeds 5MB limit. Size: 6291456 bytes.");
+
+        var context = CreateAuthenticatedContext();
+        var req = TestHelpers.CreateHttpRequestData(context, uploadRequest, CompanyIdHeaders());
+
+        var result = await _functions.UploadLogo(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<CompanyProfile>>(
+            body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized.Should().NotBeNull();
+        deserialized!.Success.Should().BeFalse();
+        deserialized.Message.Should().Contain("5MB", because: "oversized payloads must be rejected with a clear size-limit message");
+    }
+
+    #endregion
+
+    #region Company Scoping Tests
+
+    [Fact]
+    public async Task UpdateProfile_OnlyUpdatesOwnCompany()
+    {
+        var updateRequest = new CompanyProfileUpdateRequest { CompanyName = "Owned Store" };
+
+        int? capturedCompanyId = null;
+        _companyRepoMock
+            .Setup(r => r.UpdateProfileAsync(It.IsAny<int>(), It.IsAny<CompanyProfileUpdateRequest>()))
+            .Callback<int, CompanyProfileUpdateRequest>((id, _) => capturedCompanyId = id)
+            .Returns(Task.CompletedTask);
+        _companyRepoMock
+            .Setup(r => r.GetProfileAsync(It.IsAny<int>()))
+            .ReturnsAsync(CreateTestProfile());
+
+        var context = CreateAuthenticatedContext();
+        var spoofedHeaders = new Dictionary<string, string>
+        {
+            ["X-Company-Id"] = "999"
+        };
+        var req = TestHelpers.CreateHttpRequestData(context, updateRequest, spoofedHeaders);
+
+        var result = await _functions.UpdateProfile(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        capturedCompanyId.Should().Be(TestCompanyId,
+            because: "the repository must receive the JWT's company ID, never a client-supplied X-Company-Id header (cross-tenant IDOR protection)");
+
+        _companyRepoMock.Verify(
+            r => r.UpdateProfileAsync(999, It.IsAny<CompanyProfileUpdateRequest>()),
+            Times.Never,
+            "the spoofed X-Company-Id header must be ignored");
+    }
+
+    [Fact]
+    public async Task UpdateTaxSettings_OnlyUpdatesOwnCompany()
+    {
+        var updateRequest = new TaxSettingsRequest
+        {
+            TaxEnabled = true,
+            TaxRate = 0.05m,
+            TaxLabel = "Sales Tax"
+        };
+
+        int? capturedCompanyId = null;
+        _companyRepoMock
+            .Setup(r => r.UpdateTaxSettingsAsync(It.IsAny<int>(), It.IsAny<TaxSettingsRequest>()))
+            .Callback<int, TaxSettingsRequest>((id, _) => capturedCompanyId = id)
+            .Returns(Task.CompletedTask);
+        _companyRepoMock
+            .Setup(r => r.GetTaxSettingsAsync(It.IsAny<int>()))
+            .ReturnsAsync(new TaxSettingsResponse { TaxEnabled = true, TaxRate = 0.05m, TaxLabel = "Sales Tax" });
+
+        var context = CreateAuthenticatedContext();
+        var spoofedHeaders = new Dictionary<string, string>
+        {
+            ["X-Company-Id"] = "999"
+        };
+        var req = TestHelpers.CreateHttpRequestData(context, updateRequest, spoofedHeaders);
+
+        var result = await _functions.UpdateTaxSettings(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.OK);
+        capturedCompanyId.Should().Be(TestCompanyId,
+            because: "tax settings update must scope to the JWT's company ID, not any client-supplied header");
+
+        _companyRepoMock.Verify(
+            r => r.UpdateTaxSettingsAsync(999, It.IsAny<TaxSettingsRequest>()),
+            Times.Never);
     }
 
     #endregion
