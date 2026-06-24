@@ -71,6 +71,12 @@ public class ReceiptFunctions
                 return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
             }
 
+            if (!IsValidEmail(emailRequest.Email))
+            {
+                var errorResponse = ApiResponse<bool>.ErrorResponse("email is not a valid email address");
+                return await CreateHttpResponse(req, errorResponse, HttpStatusCode.BadRequest);
+            }
+
             var response = await _receiptService.SendReceiptEmailAsync(id, companyId, emailRequest.Email);
             if (!response.Success)
             {
@@ -97,6 +103,25 @@ public class ReceiptFunctions
             _logger.LogError(ex, "Unhandled exception in EmailSaleReceipt");
             var errorResponse = ApiResponse<bool>.ErrorResponse("An unexpected error occurred");
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
+        }
+    }
+
+    private static bool IsValidEmail(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email)) return false;
+        if (email != email.Trim()) return false;
+        try
+        {
+            var addr = new System.Net.Mail.MailAddress(email);
+            if (addr.Address != email) return false;
+            var atIndex = email.LastIndexOf('@');
+            if (atIndex <= 0 || atIndex >= email.Length - 1) return false;
+            var domain = email.Substring(atIndex + 1);
+            return domain.Contains('.') && !domain.StartsWith('.') && !domain.EndsWith('.');
+        }
+        catch
+        {
+            return false;
         }
     }
 

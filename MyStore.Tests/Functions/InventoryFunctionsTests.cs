@@ -822,6 +822,106 @@ public class InventoryFunctionsTests
     }
 
     [Fact]
+    public async Task CreateInventoryItem_MissingName_ReturnsBadRequestFromService()
+    {
+        var request = new CreateInventoryItemRequest
+        {
+            LocationId = 1,
+            Category = "Game",
+            Quantity = 1,
+            SellPrice = 9.99m,
+            Condition = "Good"
+        };
+        var apiResponse = ApiResponse<InventoryItem>.ErrorResponse("Name is required");
+
+        _serviceMock
+            .Setup(s => s.CreateInventoryItemAsync(It.IsAny<CreateInventoryItemRequest>(), CompanyId))
+            .ReturnsAsync(apiResponse);
+
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, request, CompanyHeaders);
+
+        var result = await _functions.CreateInventoryItem(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<InventoryItem>>(body,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Success.Should().BeFalse();
+        deserialized.Message.Should().Contain("Name is required");
+    }
+
+    [Fact]
+    public async Task CreateInventoryItem_MissingPrice_ReturnsBadRequestFromService()
+    {
+        var request = new CreateInventoryItemRequest
+        {
+            LocationId = 1,
+            Name = "Item",
+            Category = "Game",
+            Quantity = 1,
+            Condition = "Good"
+        };
+        var apiResponse = ApiResponse<InventoryItem>.ErrorResponse("Sell price must be greater than zero");
+
+        _serviceMock
+            .Setup(s => s.CreateInventoryItemAsync(It.IsAny<CreateInventoryItemRequest>(), CompanyId))
+            .ReturnsAsync(apiResponse);
+
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, request, CompanyHeaders);
+
+        var result = await _functions.CreateInventoryItem(req);
+
+        result.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task UpdateInventoryItem_InvalidPayloadFromService_Returns404()
+    {
+        var request = CreateValidUpdateRequest();
+        var apiResponse = ApiResponse<InventoryItem>.ErrorResponse("Quantity cannot be negative");
+
+        _serviceMock
+            .Setup(s => s.UpdateInventoryItemAsync(1, It.IsAny<UpdateInventoryItemRequest>(), CompanyId))
+            .ReturnsAsync(apiResponse);
+
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var req = TestHelpers.CreateHttpRequestData(context, request, CompanyHeaders);
+
+        var result = await _functions.UpdateInventoryItem(req, 1);
+
+        result.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        var body = await TestHelpers.ReadResponseBody(result);
+        var deserialized = JsonSerializer.Deserialize<ApiResponse<InventoryItem>>(body,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        deserialized!.Success.Should().BeFalse();
+        deserialized.Message.Should().Contain("Quantity");
+    }
+
+    [Fact]
+    public async Task GetAllInventory_SearchByConditionName_ForwardsTermToService()
+    {
+        var apiResponse = ApiResponse<List<InventoryItem>>.SuccessResponse(new List<InventoryItem>());
+
+        _serviceMock
+            .Setup(s => s.SearchInventoryAsync("Mint", CompanyId, null))
+            .ReturnsAsync(apiResponse);
+
+        var context = TestHelpers.CreateMockFunctionContextWithJwt(CompanyId);
+        var query = new NameValueCollection { ["q"] = "Mint" };
+        var req = TestHelpers.CreateHttpRequestData(context, null, CompanyHeaders, query);
+
+        await _functions.GetAllInventory(req);
+
+        _serviceMock.Verify(s => s.SearchInventoryAsync("Mint", CompanyId, null), Times.Once);
+    }
+
+    [Fact]
     public async Task CreateInventoryItem_ResponseHasCorrectContentType()
     {
         var createdItem = CreateSampleItem(10);

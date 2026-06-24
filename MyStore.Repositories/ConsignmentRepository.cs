@@ -9,7 +9,7 @@ public class ConsignmentRepository : IConsignmentRepository
     private readonly string _connectionString;
 
     private const string ItemSelectColumns =
-        "id, company_id, customer_id, description, asking_price, sale_price, split_percent, status, inventory_item_id, created_at, updated_at";
+        "id, company_id, customer_id, description, asking_price, sale_price, split_percent, status, created_at, updated_at";
 
     static ConsignmentRepository()
     {
@@ -61,9 +61,9 @@ public class ConsignmentRepository : IConsignmentRepository
         await using var connection = await TenantConnection.OpenAsync(_connectionString, item.CompanyId);
         return await connection.QuerySingleAsync<ConsignmentItem>(
             $@"INSERT INTO consignment_item (
-                company_id, customer_id, description, asking_price, split_percent, status, inventory_item_id, created_at)
+                company_id, customer_id, description, asking_price, split_percent, status, created_at, updated_at)
                VALUES (
-                @p_company_id, @p_customer_id, @p_description, @p_asking_price, @p_split_percent, @p_status, @p_inventory_item_id, NOW())
+                @p_company_id, @p_customer_id, @p_description, @p_asking_price, @p_split_percent, @p_status, NOW(), NOW())
                RETURNING {ItemSelectColumns}",
             new
             {
@@ -73,7 +73,6 @@ public class ConsignmentRepository : IConsignmentRepository
                 p_asking_price = item.AskingPrice,
                 p_split_percent = item.SplitPercent,
                 p_status = item.Status,
-                p_inventory_item_id = item.InventoryItemId,
             });
     }
 
@@ -87,7 +86,6 @@ public class ConsignmentRepository : IConsignmentRepository
                 asking_price = @p_asking_price,
                 split_percent = @p_split_percent,
                 status = @p_status,
-                inventory_item_id = @p_inventory_item_id,
                 updated_at = NOW()
               WHERE id = @p_id AND company_id = @p_company_id",
             new
@@ -99,7 +97,6 @@ public class ConsignmentRepository : IConsignmentRepository
                 p_asking_price = item.AskingPrice,
                 p_split_percent = item.SplitPercent,
                 p_status = item.Status,
-                p_inventory_item_id = item.InventoryItemId,
             });
         if (rows == 0) return null;
         return await GetByIdAsync(item.Id, item.CompanyId);

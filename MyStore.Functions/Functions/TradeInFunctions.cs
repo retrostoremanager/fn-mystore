@@ -276,13 +276,15 @@ public class TradeInFunctions
             return await CreateHttpResponse(req, ApiResponse<ParseTradeInImageResponse>.ErrorResponse("imageBase64 and mimeType are required"), HttpStatusCode.BadRequest);
         }
 
-        var apiKey = _configuration["Anthropic__ApiKey"]
-            ?? _configuration["Anthropic:ApiKey"];
+        var apiKey = ResolveAnthropicApiKey(out var resolvedFrom, out var diagnostics);
         if (string.IsNullOrWhiteSpace(apiKey))
         {
-            _logger.LogError("Anthropic API key is not configured");
+            _logger.LogError(
+                "Anthropic API key is not configured. Lookup status: {Diagnostics}. To fix on Azure Function App: set application setting 'Anthropic__ApiKey' (or one of ANTHROPIC_API_KEY/AnthropicApiKey) to a valid Anthropic key, then restart the Function App. If the Refresh App Settings workflow already runs, populate the ANTHROPIC_API_KEY repository secret first and re-run it.",
+                diagnostics);
             return await CreateHttpResponse(req, ApiResponse<ParseTradeInImageResponse>.ErrorResponse("Image parsing service is not configured"), HttpStatusCode.BadGateway);
         }
+        _logger.LogDebug("Resolved Anthropic API key from {Source}", resolvedFrom);
 
         const string prompt = "Identify all video games visible in this image. " +
             "Return ONLY a JSON array (no prose, no markdown, no code fences) of objects, " +
@@ -352,6 +354,67 @@ public class TradeInFunctions
 
         var result = new ParseTradeInImageResponse { Items = items };
         return await CreateHttpResponse(req, ApiResponse<ParseTradeInImageResponse>.SuccessResponse(result));
+    }
+
+    private string? ResolveAnthropicApiKey(out string source, out string diagnostics)
+    {
+        var envCandidates = new[]
+        {
+            "Anthropic__ApiKey",
+            "ANTHROPIC_API_KEY",
+            "APPSETTING_Anthropic__ApiKey",
+            "APPSETTING_ANTHROPIC_API_KEY",
+            "AnthropicApiKey"
+        };
+        var report = new List<string>();
+        foreach (var name in envCandidates)
+        {
+            var value = Environment.GetEnvironmentVariable(name);
+            if (value == null)
+            {
+                report.Add($"env:{name}=absent");
+            }
+            else if (string.IsNullOrWhiteSpace(value))
+            {
+                report.Add($"env:{name}=present-but-empty");
+            }
+            else
+            {
+                source = $"env:{name}";
+                diagnostics = string.Join(", ", report) + $", env:{name}=present-non-empty";
+                return value;
+            }
+        }
+
+        var configCandidates = new[]
+        {
+            "Anthropic__ApiKey",
+            "Anthropic:ApiKey",
+            "ANTHROPIC_API_KEY",
+            "AnthropicApiKey"
+        };
+        foreach (var name in configCandidates)
+        {
+            var value = _configuration[name];
+            if (value == null)
+            {
+                report.Add($"config:{name}=absent");
+            }
+            else if (string.IsNullOrWhiteSpace(value))
+            {
+                report.Add($"config:{name}=present-but-empty");
+            }
+            else
+            {
+                source = $"config:{name}";
+                diagnostics = string.Join(", ", report) + $", config:{name}=present-non-empty";
+                return value;
+            }
+        }
+
+        source = "none";
+        diagnostics = string.Join(", ", report);
+        return null;
     }
 
     private async Task<string> CallAnthropicAsync(string apiKey, object payload)
