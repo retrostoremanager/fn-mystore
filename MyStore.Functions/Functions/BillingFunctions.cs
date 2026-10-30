@@ -20,9 +20,11 @@ public class BillingFunctions
     private readonly IPaymentService _paymentService;
     private readonly ISubscriptionService _subscriptionService;
     private readonly ISubscriptionChangeService _subscriptionChangeService;
+    private readonly ILotScannerAddOnService _lotScannerAddOnService;
     private readonly ICompanyRepository _companyRepository;
     private readonly IPaymentRepository _paymentRepository;
     private readonly ISubscriptionRepository _subscriptionRepository;
+    private readonly ISubscriptionAddOnRepository _addOnRepository;
     private readonly StripeOptions _stripeOptions;
     private readonly InvoiceService _invoiceService;
     private readonly Stripe.SubscriptionService _stripeSubscriptionService;
@@ -34,9 +36,11 @@ public class BillingFunctions
         IPaymentService paymentService,
         ISubscriptionService subscriptionService,
         ISubscriptionChangeService subscriptionChangeService,
+        ILotScannerAddOnService lotScannerAddOnService,
         ICompanyRepository companyRepository,
         IPaymentRepository paymentRepository,
         ISubscriptionRepository subscriptionRepository,
+        ISubscriptionAddOnRepository addOnRepository,
         IOptions<StripeOptions> stripeOptions,
         InvoiceService invoiceService,
         Stripe.SubscriptionService stripeSubscriptionService,
@@ -47,9 +51,11 @@ public class BillingFunctions
         _paymentService = paymentService;
         _subscriptionService = subscriptionService;
         _subscriptionChangeService = subscriptionChangeService;
+        _lotScannerAddOnService = lotScannerAddOnService;
         _companyRepository = companyRepository;
         _paymentRepository = paymentRepository;
         _subscriptionRepository = subscriptionRepository;
+        _addOnRepository = addOnRepository;
         _stripeOptions = stripeOptions.Value;
         _invoiceService = invoiceService;
         _stripeSubscriptionService = stripeSubscriptionService;
@@ -230,6 +236,68 @@ public class BillingFunctions
             _logger.LogError(ex, "Error changing subscription tier");
             var errorResponse = ApiResponse<SubscriptionChangeResult>.ErrorResponse(
                 "An error occurred while changing the subscription tier.");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
+        }
+    }
+
+    [Function("SubscribeLotScannerAddOn")]
+    [RequirePermission("billing.manage")]
+    public async Task<HttpResponseData> SubscribeLotScannerAddOn(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "billing/addons/lot-scanner")] HttpRequestData req)
+    {
+        try
+        {
+            var companyId = CompanyHelper.GetCompanyIdRequired(req);
+            var result = await _lotScannerAddOnService.SubscribeAsync(companyId);
+
+            var statusCode = result.Success ? HttpStatusCode.OK : HttpStatusCode.BadRequest;
+            var apiResponse = result.Success
+                ? ApiResponse<AddOnChangeResult>.SuccessResponse(result, result.Message)
+                : ApiResponse<AddOnChangeResult>.ErrorResponse(result.Message ?? "Failed to enable the Lot Scanner add-on");
+            return await CreateHttpResponse(req, apiResponse, statusCode);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized Lot Scanner add-on subscribe attempt");
+            var errorResponse = ApiResponse<AddOnChangeResult>.ErrorResponse(ex.Message);
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error subscribing to Lot Scanner add-on");
+            var errorResponse = ApiResponse<AddOnChangeResult>.ErrorResponse(
+                "An error occurred while enabling the Lot Scanner add-on.");
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
+        }
+    }
+
+    [Function("CancelLotScannerAddOn")]
+    [RequirePermission("billing.manage")]
+    public async Task<HttpResponseData> CancelLotScannerAddOn(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "delete", Route = "billing/addons/lot-scanner")] HttpRequestData req)
+    {
+        try
+        {
+            var companyId = CompanyHelper.GetCompanyIdRequired(req);
+            var result = await _lotScannerAddOnService.CancelAsync(companyId);
+
+            var statusCode = result.Success ? HttpStatusCode.OK : HttpStatusCode.BadRequest;
+            var apiResponse = result.Success
+                ? ApiResponse<AddOnChangeResult>.SuccessResponse(result, result.Message)
+                : ApiResponse<AddOnChangeResult>.ErrorResponse(result.Message ?? "Failed to cancel the Lot Scanner add-on");
+            return await CreateHttpResponse(req, apiResponse, statusCode);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized Lot Scanner add-on cancel attempt");
+            var errorResponse = ApiResponse<AddOnChangeResult>.ErrorResponse(ex.Message);
+            return await CreateHttpResponse(req, errorResponse, HttpStatusCode.Unauthorized);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error canceling Lot Scanner add-on");
+            var errorResponse = ApiResponse<AddOnChangeResult>.ErrorResponse(
+                "An error occurred while canceling the Lot Scanner add-on.");
             return await CreateHttpResponse(req, errorResponse, HttpStatusCode.InternalServerError);
         }
     }
@@ -736,6 +804,14 @@ public class BillingFunctions
                 }
             }
 
+            var addOns = await _addOnRepository.GetBySubscriptionIdAsync(localSub.Id);
+            var addOnStatuses = addOns.Select(a => new AddOnStatusResponse
+            {
+                AddonType = a.AddonType,
+                Active = a.Status != "canceled",
+                Status = a.Status
+            }).ToList();
+
             var responseData = new SubscriptionDetailResponse
             {
                 PlanName = string.IsNullOrWhiteSpace(planName) ? "Free" : planName,
@@ -746,6 +822,7 @@ public class BillingFunctions
                 TrialEnd = trialEnd,
                 NextInvoiceAmount = nextInvoiceAmount,
                 Currency = currency,
+                AddOns = addOnStatuses,
             };
 
             var response = ApiResponse<SubscriptionDetailResponse>.SuccessResponse(responseData);

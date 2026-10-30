@@ -228,6 +228,7 @@ public class SubscriptionDetailResponse
     public DateTime? TrialEnd { get; set; }
     public decimal? NextInvoiceAmount { get; set; }
     public string? Currency { get; set; }
+    public List<AddOnStatusResponse> AddOns { get; set; } = new();
 }
 
 /// <summary>

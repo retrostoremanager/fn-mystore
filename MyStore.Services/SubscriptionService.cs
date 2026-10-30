@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MyStore.Models;
 using MyStore.Repositories;
 using Stripe;
@@ -16,18 +17,25 @@ public class SubscriptionService : ISubscriptionService
     private const string CustomerSubscriptionUpdated = "customer.subscription.updated";
     private const string InvoicePaymentSucceeded = "invoice.payment_succeeded";
     private const string InvoicePaymentFailed = "invoice.payment_failed";
+    private const string LotScannerAddonType = "lot_scanner";
 
     private readonly ISubscriptionRepository _subscriptionRepository;
+    private readonly ISubscriptionAddOnRepository _addOnRepository;
     private readonly IPaymentRepository _paymentRepository;
+    private readonly StripeOptions _stripeOptions;
     private readonly ILogger<SubscriptionService> _logger;
 
     public SubscriptionService(
         ISubscriptionRepository subscriptionRepository,
+        ISubscriptionAddOnRepository addOnRepository,
         IPaymentRepository paymentRepository,
+        IOptions<StripeOptions> stripeOptions,
         ILogger<SubscriptionService> logger)
     {
         _subscriptionRepository = subscriptionRepository;
+        _addOnRepository = addOnRepository;
         _paymentRepository = paymentRepository;
+        _stripeOptions = stripeOptions.Value;
         _logger = logger;
     }
 
@@ -81,12 +89,20 @@ public class SubscriptionService : ISubscriptionService
                 periodEnd = DateTimeOffset.FromUnixTimeSeconds(endEl.GetInt64()).UtcDateTime;
         }
 
+        // A subscription can have 2+ items once an add-on is stacked on it (e.g. base tier +
+        // Lot Scanner) -- FirstOrDefault() here used to silently drop every item after the
+        // first. Split items into "the base tier item" (stored on subscription itself) vs.
+        // known add-on items (stored as subscription_addon child rows) instead.
+        var items = subscription.Items?.Data ?? new List<Stripe.SubscriptionItem>();
+        var addOnPriceId = _stripeOptions.AddOnPriceIdLotScanner;
+        var baseItem = items.FirstOrDefault(i => string.IsNullOrEmpty(addOnPriceId) || i.Price?.Id != addOnPriceId);
+
         var sub = new Models.Subscription
         {
             CompanyId = companyId.Value,
             StripeSubscriptionId = subscription.Id,
             StripeCustomerId = subscription.CustomerId ?? string.Empty,
-            StripePriceId = subscription.Items?.Data?.FirstOrDefault()?.Price?.Id,
+            StripePriceId = baseItem?.Price?.Id,
             Status = subscription.Status ?? string.Empty,
             CurrentPeriodStart = periodStart,
             CurrentPeriodEnd = periodEnd,
@@ -106,6 +122,55 @@ public class SubscriptionService : ISubscriptionService
         {
             await _subscriptionRepository.CreateAsync(sub);
             _logger.LogInformation("Created subscription record for {SubscriptionId} status {Status}", subscription.Id, sub.Status);
+        }
+
+        await SyncLotScannerAddOnAsync(sub.Id, items, subscription.Status ?? string.Empty);
+    }
+
+    /// <summary>
+    /// Keeps subscription_addon in sync with whether the Lot Scanner price is currently
+    /// present among the Stripe subscription's items. Covers both directions: the add-on was
+    /// just added (item present, no row or row canceled -> upsert active) and it was removed
+    /// directly in the Stripe dashboard rather than through CancelAsync (row active, item gone
+    /// -> mark canceled).
+    /// </summary>
+    private async Task SyncLotScannerAddOnAsync(int subscriptionDbId, List<Stripe.SubscriptionItem> items, string subscriptionStatus)
+    {
+        var addOnPriceId = _stripeOptions.AddOnPriceIdLotScanner;
+        if (string.IsNullOrEmpty(addOnPriceId))
+            return;
+
+        var addOnItem = items.FirstOrDefault(i => i.Price?.Id == addOnPriceId);
+        var existingAddOn = await _addOnRepository.GetBySubscriptionIdAndTypeAsync(subscriptionDbId, LotScannerAddonType);
+
+        if (addOnItem != null)
+        {
+            if (existingAddOn != null)
+            {
+                existingAddOn.StripeSubscriptionItemId = addOnItem.Id;
+                existingAddOn.StripePriceId = addOnPriceId;
+                existingAddOn.Status = subscriptionStatus;
+                await _addOnRepository.UpdateAsync(existingAddOn);
+            }
+            else
+            {
+                await _addOnRepository.CreateAsync(new Models.SubscriptionAddOn
+                {
+                    SubscriptionId = subscriptionDbId,
+                    AddonType = LotScannerAddonType,
+                    StripeSubscriptionItemId = addOnItem.Id,
+                    StripePriceId = addOnPriceId,
+                    Status = subscriptionStatus,
+                    CreatedDate = DateTime.UtcNow
+                });
+            }
+            _logger.LogInformation("Synced Lot Scanner add-on for subscription {SubscriptionDbId} to status {Status}", subscriptionDbId, subscriptionStatus);
+        }
+        else if (existingAddOn != null && existingAddOn.Status != "canceled")
+        {
+            existingAddOn.Status = "canceled";
+            await _addOnRepository.UpdateAsync(existingAddOn);
+            _logger.LogInformation("Lot Scanner add-on item no longer present on subscription {SubscriptionDbId}; marked canceled", subscriptionDbId);
         }
     }
 
