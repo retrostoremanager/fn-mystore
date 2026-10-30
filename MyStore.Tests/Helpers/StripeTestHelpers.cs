@@ -41,10 +41,22 @@ public static class StripeTestHelpers
         string customerId = "cus_test123",
         string status = "active",
         long? currentPeriodStart = null,
-        long? currentPeriodEnd = null)
+        long? currentPeriodEnd = null,
+        string? secondItemId = null,
+        string? secondItemPriceId = null)
     {
         var start = currentPeriodStart ?? DateTimeOffset.UtcNow.AddMonths(-1).ToUnixTimeSeconds();
         var end = currentPeriodEnd ?? DateTimeOffset.UtcNow.AddMonths(1).ToUnixTimeSeconds();
+        var secondItem = secondItemId is null ? "" : $$"""
+            ,{
+                "id": "{{secondItemId}}",
+                "object": "subscription_item",
+                "price": {
+                    "id": "{{secondItemPriceId}}",
+                    "object": "price"
+                }
+            }
+            """;
         return $$"""
             {
                 "id": "{{subscriptionId}}",
@@ -63,7 +75,7 @@ public static class StripeTestHelpers
                             "id": "price_test123",
                             "object": "price"
                         }
-                    }]
+                    }{{secondItem}}]
                 }
             }
             """;
