@@ -16,6 +16,7 @@ public class CompanyService : ICompanyService
 {
     private readonly ICompanyRepository _repository;
     private readonly IUserRepository _userRepository;
+    private readonly IRoleRepository _roleRepository;
     private readonly IEmailService _emailService;
     private readonly IPaymentService _paymentService;
     private readonly IConfiguration _configuration;
@@ -30,10 +31,11 @@ public class CompanyService : ICompanyService
     private const int MaxForgotPasswordAttemptsPerHour = 3;
     private static readonly TimeSpan RateLimitWindow = TimeSpan.FromHours(1);
 
-    public CompanyService(ICompanyRepository repository, IUserRepository userRepository, IEmailService emailService, IPaymentService paymentService, IConfiguration configuration, ILogger<CompanyService> logger)
+    public CompanyService(ICompanyRepository repository, IUserRepository userRepository, IRoleRepository roleRepository, IEmailService emailService, IPaymentService paymentService, IConfiguration configuration, ILogger<CompanyService> logger)
     {
         _repository = repository;
         _userRepository = userRepository;
+        _roleRepository = roleRepository;
         _emailService = emailService;
         _paymentService = paymentService;
         _configuration = configuration;
@@ -308,6 +310,40 @@ public class CompanyService : ICompanyService
 
             // Use transaction for data consistency (repository handles this)
             var created = await _repository.CreateAsync(company);
+
+            // Bootstrap the owner's RBAC row. RbacMiddleware grants permissions only via a
+            // "user" row joined to user_role/role/role_permission -- there's no "you're the
+            // company owner" bypass anywhere in that chain. The one place that ever created
+            // this row was a one-time backfill in migration 031_add_user_role_permission_schema.sql
+            // for companies that existed when it ran; nothing replicated it here, so every
+            // company registered since then could log in but was locked out of every
+            // [RequirePermission]-gated endpoint (billing, inventory, users, everything).
+            try
+            {
+                var ownerRole = (await _roleRepository.GetForCompanyAsync(created.Id))
+                    .FirstOrDefault(r => string.Equals(r.Name, "Owner", StringComparison.OrdinalIgnoreCase));
+                if (ownerRole != null)
+                {
+                    var ownerUser = await _userRepository.CreateAsync(new User
+                    {
+                        CompanyId = created.Id,
+                        Email = created.Email,
+                        FirstName = "Owner",
+                        LastName = string.Empty,
+                        UserType = "owner",
+                        Status = "active"
+                    });
+                    await _userRepository.AssignRolesAsync(ownerUser.Id, [ownerRole.Id]);
+                }
+                else
+                {
+                    _logger.LogError("No global 'Owner' role found; company {AccountId} owner has no permissions.", created.Id);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to bootstrap Owner user/role for company {AccountId}", created.Id);
+            }
 
             // Store payment method with Stripe (card required at sign-up, not charged until trial ends)
             var paymentResult = await _paymentService.StorePaymentMethodAsync(created.Id, new StorePaymentMethodRequest
