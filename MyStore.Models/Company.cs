@@ -146,6 +146,12 @@ public class RegisterAccountRequest
     /// Card is stored but not charged until trial ends.
     /// </summary>
     public string PaymentMethodId { get; set; } = string.Empty;
+    /// <summary>
+    /// Where to send the user after they verify their email (e.g. back to the app they signed
+    /// up from, like Lot Scanner's hosted web build). Echoed into the verification email link
+    /// as-is; only ever read client-side, never validated server-side.
+    /// </summary>
+    public string? ReturnUrl { get; set; }
 }
 
 public class RegisterAccountResponse

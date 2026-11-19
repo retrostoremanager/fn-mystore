@@ -378,7 +378,8 @@ public class CompanyService : ICompanyService
                     var emailResult = await _emailService.SendVerificationEmailAsync(
                         created.Email,
                         verificationToken,
-                        request.CompanyName ?? "Store Owner"
+                        request.CompanyName ?? "Store Owner",
+                        request.ReturnUrl
                     );
 
                     if (emailResult.Success)
