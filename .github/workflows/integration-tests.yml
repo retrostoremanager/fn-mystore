@@ -46,9 +46,10 @@ jobs:
           path: dbproj-mystore
 
       - name: Apply migrations
+        working-directory: dbproj-mystore/PostgreSQL
         env:
           PGPASSWORD: postgres
-        run: psql -h localhost -U postgres -d mystore_db -v ON_ERROR_STOP=1 -f dbproj-mystore/PostgreSQL/000_deploy_all.sql
+        run: psql -h localhost -U postgres -d mystore_db -v ON_ERROR_STOP=1 -f 000_deploy_all.sql
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
