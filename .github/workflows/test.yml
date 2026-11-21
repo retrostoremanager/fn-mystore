@@ -1,0 +1,32 @@
+name: Test
+
+on:
+  pull_request:
+    branches:
+      - development
+  push:
+    branches:
+      - development
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore MyStore.sln
+
+      - name: Build
+        run: dotnet build MyStore.sln --configuration Release --no-restore
+
+      - name: Run tests
+        run: dotnet test MyStore.Tests/MyStore.Tests.csproj --configuration Release --no-build --logger "console;verbosity=normal"
