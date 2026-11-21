@@ -290,7 +290,7 @@ public class EmailService : IEmailService
     /// <param name="verificationToken">The secure verification token to include in the email link.</param>
     /// <param name="companyName">The name of the company/store for personalization.</param>
     /// <returns>An EmailSendResult indicating success or failure of the email send operation.</returns>
-    public async Task<EmailSendResult> SendVerificationEmailAsync(string toEmail, string verificationToken, string companyName)
+    public async Task<EmailSendResult> SendVerificationEmailAsync(string toEmail, string verificationToken, string companyName, string? returnUrl = null)
     {
         // If email service is not configured, return success (account creation still proceeds)
         if (_emailClient == null)
@@ -305,8 +305,13 @@ public class EmailService : IEmailService
 
         try
         {
-            // Build verification URL
+            // Build verification URL. returnTo is opaque to this service -- just echoed into
+            // the link so VerifyEmailPage can redirect there client-side after success.
             var verificationUrl = $"{_verificationBaseUrl}?token={Uri.EscapeDataString(verificationToken)}";
+            if (!string.IsNullOrWhiteSpace(returnUrl))
+            {
+                verificationUrl += $"&returnTo={Uri.EscapeDataString(returnUrl)}";
+            }
             
             // Create email content
             var emailContent = new EmailContent("Verify Your MyStore Account")

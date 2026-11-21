@@ -538,7 +538,7 @@ public class CompanyServiceTests
             .ReturnsAsync((Company c) => { c.Id = 1; return c; });
 
         _emailServiceMock
-            .Setup(e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .Setup(e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()))
             .ReturnsAsync(new EmailSendResult { Success = true });
 
         // Act
@@ -555,7 +555,8 @@ public class CompanyServiceTests
             e => e.SendVerificationEmailAsync(
                 "test@example.com",
                 It.Is<string>(token => !string.IsNullOrEmpty(token) && token.Length >= 20),
-                "Test Company"
+                "Test Company",
+                It.IsAny<string?>()
             ),
             Times.Once
         );
@@ -576,7 +577,7 @@ public class CompanyServiceTests
             .ReturnsAsync((Company c) => { c.Id = 1; return c; });
 
         _emailServiceMock
-            .Setup(e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .Setup(e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()))
             .ReturnsAsync(new EmailSendResult 
             { 
                 Success = false, 
@@ -595,7 +596,7 @@ public class CompanyServiceTests
         // Verify email service was still called (attempted)
         await Task.Delay(200); // Wait for async email task
         _emailServiceMock.Verify(
-            e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
+            e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()),
             Times.Once
         );
     }
@@ -615,7 +616,7 @@ public class CompanyServiceTests
             .ReturnsAsync((Company c) => { c.Id = 1; return c; });
 
         _emailServiceMock
-            .Setup(e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .Setup(e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()))
             .ThrowsAsync(new Exception("Email service error"));
 
         // Act
@@ -630,7 +631,7 @@ public class CompanyServiceTests
         // Verify email service was still called (attempted)
         await Task.Delay(200); // Wait for async email task
         _emailServiceMock.Verify(
-            e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
+            e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()),
             Times.Once
         );
     }
@@ -653,8 +654,8 @@ public class CompanyServiceTests
 
         string? capturedToken = null;
         _emailServiceMock
-            .Setup(e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
-            .Callback<string, string, string>((email, token, companyName) => capturedToken = token)
+            .Setup(e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()))
+            .Callback<string, string, string, string?>((email, token, companyName, returnUrl) => capturedToken = token)
             .ReturnsAsync(new EmailSendResult { Success = true });
 
         // Act
@@ -700,7 +701,7 @@ public class CompanyServiceTests
             .ReturnsAsync((int id, Company c) => c);
 
         _emailServiceMock
-            .Setup(e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .Setup(e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()))
             .ReturnsAsync(new EmailSendResult { Success = true });
 
         // Act
@@ -720,7 +721,7 @@ public class CompanyServiceTests
 
         await Task.Delay(200); // Wait for async email task
         _emailServiceMock.Verify(
-            e => e.SendVerificationEmailAsync(email, It.Is<string>(t => t != "old-token"), It.IsAny<string>()),
+            e => e.SendVerificationEmailAsync(email, It.Is<string>(t => t != "old-token"), It.IsAny<string>(), It.IsAny<string?>()),
             Times.Once
         );
     }
@@ -753,7 +754,7 @@ public class CompanyServiceTests
 
         _repositoryMock.Verify(r => r.UpdateAsync(It.IsAny<int>(), It.IsAny<Company>()), Times.Never);
         _emailServiceMock.Verify(
-            e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
+            e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()),
             Times.Never
         );
     }
@@ -781,7 +782,7 @@ public class CompanyServiceTests
 
         _repositoryMock.Verify(r => r.UpdateAsync(It.IsAny<int>(), It.IsAny<Company>()), Times.Never);
         _emailServiceMock.Verify(
-            e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
+            e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()),
             Times.Never
         );
     }
@@ -844,7 +845,7 @@ public class CompanyServiceTests
             .ReturnsAsync((int id, Company c) => c);
 
         _emailServiceMock
-            .Setup(e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .Setup(e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()))
             .ReturnsAsync(new EmailSendResult { Success = true });
 
         // Act - Make 3 requests (should succeed)
@@ -889,7 +890,7 @@ public class CompanyServiceTests
             .ReturnsAsync((int id, Company c) => c);
 
         _emailServiceMock
-            .Setup(e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .Setup(e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()))
             .ReturnsAsync(new EmailSendResult { Success = true });
 
         // Act - Make 3 requests
@@ -936,7 +937,7 @@ public class CompanyServiceTests
             .ReturnsAsync((int id, Company c) => c);
 
         _emailServiceMock
-            .Setup(e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .Setup(e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()))
             .ReturnsAsync(new EmailSendResult { Success = true });
 
         // Act
@@ -976,7 +977,7 @@ public class CompanyServiceTests
             .ReturnsAsync((int id, Company c) => c);
 
         _emailServiceMock
-            .Setup(e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .Setup(e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()))
             .ReturnsAsync(new EmailSendResult { Success = true });
 
         // Act
@@ -1025,7 +1026,7 @@ public class CompanyServiceTests
         result.Errors.Should().Contain(e => e.IndexOf("Update failed", StringComparison.OrdinalIgnoreCase) >= 0);
 
         _emailServiceMock.Verify(
-            e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
+            e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()),
             Times.Never
         );
     }
@@ -1053,7 +1054,7 @@ public class CompanyServiceTests
             .ReturnsAsync((int id, Company c) => c);
 
         _emailServiceMock
-            .Setup(e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .Setup(e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()))
             .ReturnsAsync(new EmailSendResult 
             { 
                 Success = false, 
@@ -1070,7 +1071,7 @@ public class CompanyServiceTests
 
         await Task.Delay(200); // Wait for async email task
         _emailServiceMock.Verify(
-            e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
+            e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()),
             Times.Once
         );
     }
@@ -1118,7 +1119,7 @@ public class CompanyServiceTests
             .ReturnsAsync((int id, Company c) => c);
 
         _emailServiceMock
-            .Setup(e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .Setup(e => e.SendVerificationEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()))
             .ReturnsAsync(new EmailSendResult { Success = true });
 
         // Act
