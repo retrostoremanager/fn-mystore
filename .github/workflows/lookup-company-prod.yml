@@ -27,6 +27,9 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+    - name: Install rdbms-connect extension
+      run: az extension add --name rdbms-connect --yes
+
     - name: Query company table
       env:
         POSTGRES_ADMIN_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
