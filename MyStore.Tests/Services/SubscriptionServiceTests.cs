@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 using MyStore.Models;
 using MyStore.Repositories;
@@ -13,6 +14,7 @@ namespace MyStore.Tests.Services;
 public class SubscriptionServiceTests
 {
     private readonly Mock<ISubscriptionRepository> _subscriptionRepoMock;
+    private readonly Mock<ISubscriptionAddOnRepository> _addOnRepoMock;
     private readonly Mock<IPaymentRepository> _paymentRepoMock;
     private readonly Mock<ILogger<MyStore.Services.SubscriptionService>> _loggerMock;
     private readonly MyStore.Services.SubscriptionService _service;
@@ -20,9 +22,12 @@ public class SubscriptionServiceTests
     public SubscriptionServiceTests()
     {
         _subscriptionRepoMock = new Mock<ISubscriptionRepository>();
+        _addOnRepoMock = new Mock<ISubscriptionAddOnRepository>();
         _paymentRepoMock = new Mock<IPaymentRepository>();
         _loggerMock = new Mock<ILogger<MyStore.Services.SubscriptionService>>();
-        _service = new MyStore.Services.SubscriptionService(_subscriptionRepoMock.Object, _paymentRepoMock.Object, _loggerMock.Object);
+        var stripeOptions = Options.Create(new StripeOptions());
+        _service = new MyStore.Services.SubscriptionService(
+            _subscriptionRepoMock.Object, _addOnRepoMock.Object, _paymentRepoMock.Object, stripeOptions, _loggerMock.Object);
     }
 
     [Fact]
@@ -59,6 +64,60 @@ public class SubscriptionServiceTests
         captured.Status.Should().Be("active");
         captured.CurrentPeriodStart.Should().NotBeNull();
         captured.CurrentPeriodEnd.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task ProcessStripeEventAsync_SubscriptionUpdated_WithAddOnItem_StoresBasePriceAndCreatesAddOnRow()
+    {
+        // Arrange -- 2-item subscription (base + Lot Scanner add-on). Before the fix, the
+        // service's `.FirstOrDefault()` read would silently store whichever item happened to
+        // be first and never touch the add-on repository at all.
+        var stripeOptionsWithAddOn = Options.Create(new StripeOptions { AddOnPriceIdLotScanner = "price_addon_lotscanner" });
+        var service = new MyStore.Services.SubscriptionService(
+            _subscriptionRepoMock.Object, _addOnRepoMock.Object, _paymentRepoMock.Object, stripeOptionsWithAddOn, _loggerMock.Object);
+
+        var subPayload = StripeTestHelpers.CreateSubscriptionObjectPayload(
+            subscriptionId: "sub_withaddon",
+            customerId: "cus_company2",
+            status: "active",
+            secondItemId: "si_addon",
+            secondItemPriceId: "price_addon_lotscanner");
+        var fullPayload = StripeTestHelpers.WrapInEventPayload(subPayload, "evt_3", "customer.subscription.updated");
+        var stripeEvent = StripeTestHelpers.CreateSignedEvent(fullPayload);
+
+        _paymentRepoMock
+            .Setup(p => p.GetCompanyIdByStripeCustomerIdAsync("cus_company2"))
+            .ReturnsAsync(99);
+        _subscriptionRepoMock
+            .Setup(s => s.GetByStripeSubscriptionIdAsync("sub_withaddon"))
+            .ReturnsAsync((Models.Subscription?)null);
+        Models.Subscription? capturedSub = null;
+        _subscriptionRepoMock
+            .Setup(s => s.CreateAsync(It.IsAny<Models.Subscription>()))
+            .Callback<Models.Subscription>(c => capturedSub = c)
+            .ReturnsAsync((Models.Subscription c) => { c.Id = 7; return c; });
+        _addOnRepoMock
+            .Setup(a => a.GetBySubscriptionIdAndTypeAsync(7, "lot_scanner"))
+            .ReturnsAsync((Models.SubscriptionAddOn?)null);
+        Models.SubscriptionAddOn? capturedAddOn = null;
+        _addOnRepoMock
+            .Setup(a => a.CreateAsync(It.IsAny<Models.SubscriptionAddOn>()))
+            .Callback<Models.SubscriptionAddOn>(c => capturedAddOn = c)
+            .ReturnsAsync((Models.SubscriptionAddOn c) => c);
+
+        // Act
+        await service.ProcessStripeEventAsync(stripeEvent);
+
+        // Assert
+        capturedSub.Should().NotBeNull();
+        capturedSub!.StripePriceId.Should().Be("price_test123", "the base item's price, not the add-on's");
+
+        capturedAddOn.Should().NotBeNull();
+        capturedAddOn!.SubscriptionId.Should().Be(7);
+        capturedAddOn.AddonType.Should().Be("lot_scanner");
+        capturedAddOn.StripeSubscriptionItemId.Should().Be("si_addon");
+        capturedAddOn.StripePriceId.Should().Be("price_addon_lotscanner");
+        capturedAddOn.Status.Should().Be("active");
     }
 
     [Fact]

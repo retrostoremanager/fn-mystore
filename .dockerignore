@@ -1,0 +1,5 @@
+**/bin
+**/obj
+.git
+.github
+local.settings.json

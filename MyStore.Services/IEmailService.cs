@@ -11,8 +11,9 @@ public interface IEmailService
     /// <param name="toEmail">The email address of the recipient.</param>
     /// <param name="verificationToken">The secure verification token to include in the email link.</param>
     /// <param name="companyName">The name of the company/store for personalization.</param>
+    /// <param name="returnUrl">Optional URL to redirect to after verification succeeds (e.g. back to the app the user signed up from), appended to the verification link as-is.</param>
     /// <returns>An EmailSendResult indicating success or failure of the email send operation.</returns>
-    Task<EmailSendResult> SendVerificationEmailAsync(string toEmail, string verificationToken, string companyName);
+    Task<EmailSendResult> SendVerificationEmailAsync(string toEmail, string verificationToken, string companyName, string? returnUrl = null);
 
     /// <summary>
     /// Sends a password reset email to the specified recipient with a reset token.

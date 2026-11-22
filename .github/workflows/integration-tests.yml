@@ -1,42 +1,41 @@
-name: Integration Tests (DB)
+name: DB Integration Tests
 
-# Runs the repository-layer DB integration tests against an ephemeral Postgres seeded from the
-# dbproj-mystore migrations. Scoped to a nightly schedule (+ manual dispatch) so the per-commit
-# agent validation stays fast and DB-free. Exercises the `development` branch.
+# The [IntegrationFact] repository tests (MyStore.Tests/Repositories/*) have always documented
+# that they "run only in the integration-tests workflow, which exports RUN_DB_INTEGRATION_TESTS
+# and MYSTORE_TEST_DB" -- but that workflow never existed until now, so they were silently
+# skipped in every run, forever. This is that workflow.
 
 on:
-  schedule:
-    - cron: '30 8 * * *'   # 08:30 UTC nightly (~4:30am America/New_York)
+  pull_request:
+    branches:
+      - development
+  push:
+    branches:
+      - development
   workflow_dispatch:
 
 jobs:
-  integration:
+  integration-test:
     runs-on: ubuntu-latest
+
     services:
       postgres:
-        image: postgres:16
+        image: postgres:16-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: mystore_test
+          POSTGRES_DB: mystore_db
         ports:
           - 5432:5432
         options: >-
           --health-cmd pg_isready
-          --health-interval 10s
+          --health-interval 5s
           --health-timeout 5s
           --health-retries 10
-    env:
-      PGHOST: localhost
-      PGPORT: '5432'
-      PGUSER: postgres
-      PGPASSWORD: postgres
-      PGDATABASE: mystore_test
+
     steps:
-      - name: Checkout fn-mystore (development)
+      - name: Checkout fn-mystore
         uses: actions/checkout@v4
-        with:
-          ref: development
 
       - name: Checkout dbproj-mystore migrations
         uses: actions/checkout@v4
@@ -44,33 +43,27 @@ jobs:
           repository: retrostoremanager/dbproj-mystore
           ref: development
           token: ${{ secrets.GH_DISPATCH_TOKEN }}
-          path: dbproj
+          path: dbproj-mystore
 
-      - name: Apply migrations to ephemeral Postgres
-        working-directory: dbproj/PostgreSQL
-        run: |
-          # Apply the numbered migrations in order (skip the stale 000 aggregator) with
-          # ON_ERROR_STOP, so a fresh from-scratch replay must succeed cleanly. This builds the
-          # test schema AND guards dbproj-mystore's fresh-replayability (a DR property) — if a
-          # future migration breaks a clean build, this job fails.
-          for sql in $(ls [0-9][0-9][0-9]_*.sql 2>/dev/null | grep -v '^000_' | sort); do
-            echo "::group::apply $sql"
-            psql -v ON_ERROR_STOP=1 -f "$sql"
-            echo "::endgroup::"
-          done
+      - name: Apply migrations
+        working-directory: dbproj-mystore/PostgreSQL
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d mystore_db -v ON_ERROR_STOP=1 -f 000_deploy_all.sql
 
-      - uses: actions/setup-dotnet@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '10.0.x'
 
       - name: Restore
         run: dotnet restore MyStore.sln
 
+      - name: Build
+        run: dotnet build MyStore.sln --configuration Release --no-restore
+
       - name: Run DB integration tests
         env:
           RUN_DB_INTEGRATION_TESTS: '1'
-          MYSTORE_TEST_DB: 'Host=localhost;Port=5432;Database=mystore_test;Username=postgres;Password=postgres'
-        run: |
-          dotnet test MyStore.Tests/MyStore.Tests.csproj \
-            --filter "FullyQualifiedName~TradeInRepositoryTests" \
-            --logger "console;verbosity=normal"
+          MYSTORE_TEST_DB: "Host=localhost;Port=5432;Database=mystore_db;Username=postgres;Password=postgres"
+        run: dotnet test MyStore.Tests/MyStore.Tests.csproj --configuration Release --no-build --logger "console;verbosity=normal"
