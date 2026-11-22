@@ -1,4 +1,5 @@
 using FluentAssertions;
+using MyStore.Models;
 using MyStore.Repositories;
 using Xunit;
 
@@ -7,28 +8,15 @@ namespace MyStore.Tests.Repositories;
 /// <summary>
 /// Tests for <see cref="ConsignmentRepository"/>.
 ///
-/// The repository instantiates <see cref="Npgsql.NpgsqlConnection"/> directly from a
-/// connection string read out of the environment (via
-/// <c>TenantConnection.OpenAsync</c> for tenant-scoped methods, and a direct
-/// <see cref="Npgsql.NpgsqlConnection"/> for <c>CreatePayoutAsync</c>). It does not
-/// take an injected <c>IDbConnection</c> / connection-factory dependency, so true
-/// Dapper-level unit tests against a mocked connection are not possible without
-/// refactoring production code (which is outside the scope of this test-only ticket).
+/// The repository instantiates <see cref="Npgsql.NpgsqlConnection"/> directly from a connection
+/// string read out of the environment, so the data-access methods are covered by real integration
+/// tests (the <c>[IntegrationFact]</c> ones below) that run against an ephemeral Postgres seeded
+/// from the <c>retrostoremanager/dbproj-mystore</c> migrations -- same pattern as
+/// <see cref="TradeInRepositoryTests"/>. Those run only in the integration-tests workflow, which
+/// exports <c>RUN_DB_INTEGRATION_TESTS</c> and <c>MYSTORE_TEST_DB</c>; in ordinary unit runs they
+/// are skipped.
 ///
-/// To stay consistent with the existing repository-test convention in
-/// <see cref="CompanyRepositoryTests"/> and <see cref="TradeInRepositoryTests"/>, the
-/// data-access methods are exercised end-to-end through the service layer in
-/// <c>MyStore.Tests.Services.ConsignmentServiceTests</c> (which mocks
-/// <see cref="IConsignmentRepository"/>), and each scenario from the acceptance criteria
-/// is documented below as a skipped integration test. Integration runs should:
-///   1. Stand up a Postgres instance (Docker, etc.) seeded from the
-///      <c>retrostoremanager/dbproj-mystore</c> migrations.
-///   2. Export <c>ConnectionStrings__DefaultConnection</c> pointing at it.
-///   3. Remove the <c>Skip</c> argument to run the integration test.
-///
-/// The non-skipped tests below cover what can be verified without a live database:
-/// the constructor contract and the public surface described by
-/// <see cref="IConsignmentRepository"/>.
+/// The plain <c>[Fact]</c> tests cover the connection-string contract without a database.
 /// </summary>
 [Collection("ConnectionStringEnv")]
 public class ConsignmentRepositoryTests
@@ -108,133 +96,233 @@ public class ConsignmentRepositoryTests
 
     // ---------------------------------------------------------------------
     // Integration tests covering the acceptance criteria for issue #343.
-    // Skipped because they require a live Postgres instance — see class doc.
+    // Run against an ephemeral Postgres in the integration-tests workflow.
     // ---------------------------------------------------------------------
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task GetAllAsync_FiltersByCompanyId()
+    private static async Task<(int companyId, int customerId)> SeedTenantAsync()
     {
-        // Arrange: insert two consignment_item rows for company A and one for company B.
-        // Act: repository.GetAllAsync(companyIdA)
-        // Assert: only company A's rows are returned, ordered by created_at DESC,
-        //         and none of company B's rows leak through.
-        return Task.CompletedTask;
+        await using var conn = await IntegrationDb.OpenAsync();
+        var companyId = await IntegrationDb.SeedCompanyAsync(conn);
+        var customerId = await IntegrationDb.SeedCustomerAsync(conn, companyId);
+        return (companyId, customerId);
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task GetAllAsync_AppliesOptionalStatusFilter()
+    private static ConsignmentItem NewItem(
+        int companyId, int customerId, string description = "Test Item",
+        decimal askingPrice = 20m, decimal splitPercent = 50m, string status = "active") => new()
     {
-        // Arrange: insert consignment_item rows with mixed statuses for the same company.
-        // Act: repository.GetAllAsync(companyId, status: "active")
-        // Assert: only rows with status='active' are returned.
-        return Task.CompletedTask;
+        CompanyId = companyId,
+        CustomerId = customerId,
+        Description = description,
+        AskingPrice = askingPrice,
+        SplitPercent = splitPercent,
+        Status = status,
+    };
+
+    [IntegrationFact]
+    public async Task GetAllAsync_FiltersByCompanyId()
+    {
+        IntegrationDb.UseForRepositories();
+        var repo = new ConsignmentRepository();
+        var (companyA, customerA) = await SeedTenantAsync();
+        var (companyB, customerB) = await SeedTenantAsync();
+
+        await repo.CreateAsync(NewItem(companyA, customerA));
+        await repo.CreateAsync(NewItem(companyA, customerA));
+        await repo.CreateAsync(NewItem(companyB, customerB));
+
+        var result = await repo.GetAllAsync(companyA);
+
+        result.Should().HaveCount(2);
+        result.Should().OnlyContain(i => i.CompanyId == companyA);
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task GetByIdAsync_ExistingIdSameCompany_ReturnsConsignmentItem()
+    [IntegrationFact]
+    public async Task GetAllAsync_AppliesOptionalStatusFilter()
     {
-        // Arrange: insert a consignment_item for the company.
-        // Act: repository.GetByIdAsync(id, companyId)
-        // Assert: returned item matches the inserted row across all columns.
-        return Task.CompletedTask;
+        IntegrationDb.UseForRepositories();
+        var repo = new ConsignmentRepository();
+        var (companyId, customerId) = await SeedTenantAsync();
+
+        await repo.CreateAsync(NewItem(companyId, customerId, status: "active"));
+        await repo.CreateAsync(NewItem(companyId, customerId, status: "sold"));
+
+        var active = await repo.GetAllAsync(companyId, status: "active");
+
+        active.Should().ContainSingle().Which.Status.Should().Be("active");
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task GetByIdAsync_NotFound_ReturnsNull()
+    [IntegrationFact]
+    public async Task GetByIdAsync_ExistingIdSameCompany_ReturnsConsignmentItem()
     {
-        // Arrange: empty consignment_item table for company.
-        // Act: repository.GetByIdAsync(9999, companyId)
-        // Assert: null.
-        return Task.CompletedTask;
+        IntegrationDb.UseForRepositories();
+        var repo = new ConsignmentRepository();
+        var (companyId, customerId) = await SeedTenantAsync();
+        var created = await repo.CreateAsync(NewItem(companyId, customerId, description: "Lookup Me"));
+
+        var fetched = await repo.GetByIdAsync(created.Id, companyId);
+
+        fetched.Should().NotBeNull();
+        fetched!.Id.Should().Be(created.Id);
+        fetched.Description.Should().Be("Lookup Me");
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task GetByIdAsync_DifferentCompany_ReturnsNull()
+    [IntegrationFact]
+    public async Task GetByIdAsync_NotFound_ReturnsNull()
     {
-        // Arrange: consignment_item exists for company A.
-        // Act: repository.GetByIdAsync(idA, companyIdB)
-        // Assert: null (tenant isolation enforced by company_id predicate / RLS).
-        return Task.CompletedTask;
+        IntegrationDb.UseForRepositories();
+        var repo = new ConsignmentRepository();
+        var (companyId, _) = await SeedTenantAsync();
+
+        (await repo.GetByIdAsync(999999, companyId)).Should().BeNull();
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task CreateAsync_InsertsRowAndReturnsAllFieldsMapped()
+    [IntegrationFact]
+    public async Task GetByIdAsync_DifferentCompany_ReturnsNull()
     {
-        // Arrange: a new ConsignmentItem with CompanyId, CustomerId, Description,
-        //          AskingPrice, SplitPercent, Status, InventoryItemId populated.
-        // Act: repository.CreateAsync(item)
-        // Assert: returned object has Id > 0, CreatedAt populated by NOW(), and every
-        //         input field (customer_id, description, asking_price, split_percent,
-        //         status, inventory_item_id) round-tripped via the RETURNING clause.
-        return Task.CompletedTask;
+        IntegrationDb.UseForRepositories();
+        var repo = new ConsignmentRepository();
+        var (companyA, customerA) = await SeedTenantAsync();
+        var (companyB, _) = await SeedTenantAsync();
+        var created = await repo.CreateAsync(NewItem(companyA, customerA));
+
+        (await repo.GetByIdAsync(created.Id, companyB)).Should().BeNull();
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task UpdateAsync_ExistingItem_UpdatesStatusAndPriceFields()
+    [IntegrationFact]
+    public async Task CreateAsync_InsertsRowAndReturnsMappedFields()
     {
-        // Arrange: existing consignment_item for the company.
-        // Act: repository.UpdateAsync(item) with mutated Status, AskingPrice,
-        //      SplitPercent, Description, InventoryItemId.
-        // Assert: returned object reflects the updated status and asking_price (and
-        //         all other writable columns), and updated_at is bumped to NOW().
-        return Task.CompletedTask;
+        IntegrationDb.UseForRepositories();
+        var repo = new ConsignmentRepository();
+        var (companyId, customerId) = await SeedTenantAsync();
+
+        var created = await repo.CreateAsync(NewItem(
+            companyId, customerId, description: "Rare Cart", askingPrice: 99.99m, splitPercent: 60m));
+
+        created.Id.Should().BeGreaterThan(0);
+        created.CreatedAt.Should().NotBe(default);
+        created.CompanyId.Should().Be(companyId);
+        created.CustomerId.Should().Be(customerId);
+        created.Description.Should().Be("Rare Cart");
+        created.AskingPrice.Should().Be(99.99m);
+        created.SplitPercent.Should().Be(60m);
+        created.Status.Should().Be("active");
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task UpdateAsync_NotFound_ReturnsNull()
+    [IntegrationFact]
+    public async Task UpdateAsync_ExistingItem_UpdatesStatusAndPriceFields()
     {
-        // Arrange: no row matching id+company_id.
-        // Act: repository.UpdateAsync(item)
-        // Assert: null (ExecuteAsync returns 0 rows so the re-fetch is skipped).
-        return Task.CompletedTask;
+        IntegrationDb.UseForRepositories();
+        var repo = new ConsignmentRepository();
+        var (companyId, customerId) = await SeedTenantAsync();
+        var created = await repo.CreateAsync(NewItem(companyId, customerId));
+
+        created.Description = "Updated Description";
+        created.AskingPrice = 55m;
+        created.SplitPercent = 40m;
+        created.Status = "returned";
+
+        var updated = await repo.UpdateAsync(created);
+
+        updated.Should().NotBeNull();
+        updated!.Description.Should().Be("Updated Description");
+        updated.AskingPrice.Should().Be(55m);
+        updated.SplitPercent.Should().Be(40m);
+        updated.Status.Should().Be("returned");
+        updated.UpdatedAt.Should().NotBeNull();
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task MarkSoldAsync_ExistingItem_SetsSalePriceAndStatusSold()
+    [IntegrationFact]
+    public async Task UpdateAsync_NotFound_ReturnsNull()
     {
-        // Arrange: existing consignment_item in status 'active' with sale_price NULL.
-        // Act: repository.MarkSoldAsync(id, salePrice: 42.50m, companyId)
-        // Assert: returned item has SalePrice == 42.50, Status == "sold", and
-        //         updated_at is bumped to NOW().
-        return Task.CompletedTask;
+        IntegrationDb.UseForRepositories();
+        var repo = new ConsignmentRepository();
+        var (companyId, customerId) = await SeedTenantAsync();
+        var ghost = NewItem(companyId, customerId);
+        ghost.Id = 999999;
+
+        (await repo.UpdateAsync(ghost)).Should().BeNull();
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task MarkSoldAsync_NotFound_ReturnsNull()
+    [IntegrationFact]
+    public async Task MarkSoldAsync_ExistingItem_SetsSalePriceAndStatusSold()
     {
-        // Arrange: no row matching id+company_id.
-        // Act: repository.MarkSoldAsync(id, salePrice, companyId)
-        // Assert: null.
-        return Task.CompletedTask;
+        IntegrationDb.UseForRepositories();
+        var repo = new ConsignmentRepository();
+        var (companyId, customerId) = await SeedTenantAsync();
+        var created = await repo.CreateAsync(NewItem(companyId, customerId));
+
+        var sold = await repo.MarkSoldAsync(created.Id, 42.50m, companyId);
+
+        sold.Should().NotBeNull();
+        sold!.SalePrice.Should().Be(42.50m);
+        sold.Status.Should().Be("sold");
+        sold.UpdatedAt.Should().NotBeNull();
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task GetPayoutsAsync_FiltersByConsignmentItemId()
+    [IntegrationFact]
+    public async Task MarkSoldAsync_NotFound_ReturnsNull()
     {
-        // Arrange: insert two consignment_payout rows for item A and one for item B,
-        //          all belonging to the same company via consignment_item.
-        // Act: repository.GetPayoutsAsync(itemIdA, companyId)
-        // Assert: only item A's payouts are returned, ordered by paid_at DESC.
-        return Task.CompletedTask;
+        IntegrationDb.UseForRepositories();
+        var repo = new ConsignmentRepository();
+        var (companyId, _) = await SeedTenantAsync();
+
+        (await repo.MarkSoldAsync(999999, 10m, companyId)).Should().BeNull();
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task GetPayoutsAsync_DifferentCompany_ReturnsEmpty()
+    [IntegrationFact]
+    public async Task GetPayoutsAsync_FiltersByConsignmentItemId()
     {
-        // Arrange: consignment_item belongs to company A; query as company B.
-        // Act: repository.GetPayoutsAsync(itemIdA, companyIdB)
-        // Assert: empty list (INNER JOIN enforces tenant scope via i.company_id).
-        return Task.CompletedTask;
+        IntegrationDb.UseForRepositories();
+        var repo = new ConsignmentRepository();
+        var (companyId, customerId) = await SeedTenantAsync();
+        var itemA = await repo.CreateAsync(NewItem(companyId, customerId));
+        var itemB = await repo.CreateAsync(NewItem(companyId, customerId));
+
+        await repo.CreatePayoutAsync(new ConsignmentPayout { ConsignmentItemId = itemA.Id, Amount = 10m });
+        await repo.CreatePayoutAsync(new ConsignmentPayout { ConsignmentItemId = itemA.Id, Amount = 20m });
+        await repo.CreatePayoutAsync(new ConsignmentPayout { ConsignmentItemId = itemB.Id, Amount = 99m });
+
+        var payouts = await repo.GetPayoutsAsync(itemA.Id, companyId);
+
+        payouts.Should().HaveCount(2);
+        payouts.Should().OnlyContain(p => p.ConsignmentItemId == itemA.Id);
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task CreatePayoutAsync_InsertsRowAndReturnsGeneratedId()
+    [IntegrationFact]
+    public async Task GetPayoutsAsync_DifferentCompany_ReturnsEmpty()
     {
-        // Arrange: existing consignment_item; build a ConsignmentPayout with
-        //          ConsignmentItemId, Amount, Notes.
-        // Act: repository.CreatePayoutAsync(payout)
-        // Assert: returned object has Id > 0, PaidAt populated by NOW(), and the
-        //         persisted ConsignmentItemId / Amount / Notes match the input.
-        return Task.CompletedTask;
+        IntegrationDb.UseForRepositories();
+        var repo = new ConsignmentRepository();
+        var (companyA, customerA) = await SeedTenantAsync();
+        var (companyB, _) = await SeedTenantAsync();
+        var item = await repo.CreateAsync(NewItem(companyA, customerA));
+        await repo.CreatePayoutAsync(new ConsignmentPayout { ConsignmentItemId = item.Id, Amount = 10m });
+
+        var payouts = await repo.GetPayoutsAsync(item.Id, companyB);
+
+        payouts.Should().BeEmpty();
+    }
+
+    [IntegrationFact]
+    public async Task CreatePayoutAsync_InsertsRowAndReturnsGeneratedId()
+    {
+        IntegrationDb.UseForRepositories();
+        var repo = new ConsignmentRepository();
+        var (companyId, customerId) = await SeedTenantAsync();
+        var item = await repo.CreateAsync(NewItem(companyId, customerId));
+
+        var payout = await repo.CreatePayoutAsync(new ConsignmentPayout
+        {
+            ConsignmentItemId = item.Id,
+            Amount = 15.25m,
+            Notes = "Half of sale",
+        });
+
+        payout.Id.Should().BeGreaterThan(0);
+        payout.PaidAt.Should().NotBe(default);
+        payout.ConsignmentItemId.Should().Be(item.Id);
+        payout.Amount.Should().Be(15.25m);
+        payout.Notes.Should().Be("Half of sale");
     }
 }

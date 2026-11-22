@@ -19,9 +19,11 @@ public class BillingFunctionsTests
     private readonly Mock<IPaymentService> _paymentServiceMock;
     private readonly Mock<ISubscriptionService> _subscriptionServiceMock;
     private readonly Mock<ISubscriptionChangeService> _subscriptionChangeServiceMock;
+    private readonly Mock<ILotScannerAddOnService> _lotScannerAddOnServiceMock;
     private readonly Mock<ICompanyRepository> _companyRepositoryMock;
     private readonly Mock<IPaymentRepository> _paymentRepositoryMock;
     private readonly Mock<ISubscriptionRepository> _subscriptionRepositoryMock;
+    private readonly Mock<ISubscriptionAddOnRepository> _addOnRepositoryMock;
     private readonly Mock<InvoiceService> _invoiceServiceMock;
     private readonly Mock<Stripe.SubscriptionService> _stripeSubscriptionServiceMock;
     private readonly Mock<Stripe.ProductService> _stripeProductServiceMock;
@@ -35,9 +37,11 @@ public class BillingFunctionsTests
         _paymentServiceMock = new Mock<IPaymentService>();
         _subscriptionServiceMock = new Mock<ISubscriptionService>();
         _subscriptionChangeServiceMock = new Mock<ISubscriptionChangeService>();
+        _lotScannerAddOnServiceMock = new Mock<ILotScannerAddOnService>();
         _companyRepositoryMock = new Mock<ICompanyRepository>();
         _paymentRepositoryMock = new Mock<IPaymentRepository>();
         _subscriptionRepositoryMock = new Mock<ISubscriptionRepository>();
+        _addOnRepositoryMock = new Mock<ISubscriptionAddOnRepository>();
         _invoiceServiceMock = new Mock<InvoiceService>();
         _stripeSubscriptionServiceMock = new Mock<Stripe.SubscriptionService>();
         _stripeProductServiceMock = new Mock<Stripe.ProductService>();
@@ -56,9 +60,11 @@ public class BillingFunctionsTests
             _paymentServiceMock.Object,
             _subscriptionServiceMock.Object,
             _subscriptionChangeServiceMock.Object,
+            _lotScannerAddOnServiceMock.Object,
             _companyRepositoryMock.Object,
             _paymentRepositoryMock.Object,
             _subscriptionRepositoryMock.Object,
+            _addOnRepositoryMock.Object,
             stripeOptions,
             _invoiceServiceMock.Object,
             _stripeSubscriptionServiceMock.Object,
@@ -127,9 +133,11 @@ public class BillingFunctionsTests
             _paymentServiceMock.Object,
             _subscriptionServiceMock.Object,
             _subscriptionChangeServiceMock.Object,
+            _lotScannerAddOnServiceMock.Object,
             _companyRepositoryMock.Object,
             _paymentRepositoryMock.Object,
             _subscriptionRepositoryMock.Object,
+            _addOnRepositoryMock.Object,
             stripeOptions,
             _invoiceServiceMock.Object,
             _stripeSubscriptionServiceMock.Object,

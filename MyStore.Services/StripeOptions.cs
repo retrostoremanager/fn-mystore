@@ -39,6 +39,12 @@ public class StripeOptions
     public string? PriceIdEnterprise { get; set; }
 
     /// <summary>
+    /// Stripe Price ID for the Lot Scanner add-on ($49/mo, stacked as a second subscription
+    /// item -- not a tier, so it's not part of GetPriceIdForTier/GetTierNameForPriceId).
+    /// </summary>
+    public string? AddOnPriceIdLotScanner { get; set; }
+
+    /// <summary>
     /// Gets the Stripe Price ID for the given tier. Falls back to Basic if tier not configured.
     /// </summary>
     public string GetPriceIdForTier(string tier)

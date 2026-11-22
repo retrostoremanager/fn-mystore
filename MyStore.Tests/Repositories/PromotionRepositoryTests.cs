@@ -1,4 +1,5 @@
 using FluentAssertions;
+using MyStore.Models;
 using MyStore.Repositories;
 using Xunit;
 
@@ -8,27 +9,15 @@ namespace MyStore.Tests.Repositories;
 /// Tests for <see cref="PromotionRepository"/>.
 ///
 /// The repository instantiates <see cref="Npgsql.NpgsqlConnection"/> directly via
-/// <c>TenantConnection.OpenAsync</c> using a connection string read out of the
-/// environment. It does not take an injected <c>IDbConnection</c> /
-/// connection-factory dependency, so true Dapper-level unit tests against a mocked
-/// connection are not possible without refactoring production code (which is
-/// outside the scope of this test-only ticket).
+/// <c>TenantConnection.OpenAsync</c> using a connection string read out of the environment, so the
+/// data-access methods are covered by real integration tests (the <c>[IntegrationFact]</c> ones
+/// below) that run against an ephemeral Postgres seeded from the
+/// <c>retrostoremanager/dbproj-mystore</c> migrations -- same pattern as
+/// <see cref="TradeInRepositoryTests"/>. Those run only in the integration-tests workflow, which
+/// exports <c>RUN_DB_INTEGRATION_TESTS</c> and <c>MYSTORE_TEST_DB</c>; in ordinary unit runs they
+/// are skipped.
 ///
-/// To stay consistent with the existing repository-test convention in
-/// <see cref="CompanyRepositoryTests"/> and <see cref="LoyaltyRepositoryTests"/>,
-/// the data-access methods are exercised end-to-end through the service layer in
-/// <c>MyStore.Tests.Services.PromotionServiceTests</c> (which mocks
-/// <see cref="IPromotionRepository"/>), and each scenario from the acceptance
-/// criteria is documented below as a skipped integration test. Integration runs
-/// should:
-///   1. Stand up a Postgres instance (Docker, etc.) seeded from the
-///      <c>retrostoremanager/dbproj-mystore</c> migrations.
-///   2. Export <c>ConnectionStrings__DefaultConnection</c> pointing at it.
-///   3. Remove the <c>Skip</c> argument to run the integration test.
-///
-/// The non-skipped tests below cover what can be verified without a live database:
-/// the constructor contract and the public surface described by
-/// <see cref="IPromotionRepository"/>.
+/// The plain <c>[Fact]</c> tests cover the connection-string contract without a database.
 /// </summary>
 [Collection("ConnectionStringEnv")]
 public class PromotionRepositoryTests
@@ -108,239 +97,393 @@ public class PromotionRepositoryTests
 
     // ---------------------------------------------------------------------
     // Integration tests covering the acceptance criteria for issue #345.
-    // Skipped because they require a live Postgres instance — see class doc.
+    // Run against an ephemeral Postgres in the integration-tests workflow.
     // ---------------------------------------------------------------------
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task GetAllAsync_ReturnsOnlyRowsForGivenCompanyId()
+    private static async Task<(int companyId, int userId)> SeedTenantAsync()
     {
-        // Arrange: insert promotion rows for company A and company B.
-        // Act: repository.GetAllAsync(companyIdA)
-        // Assert: returned list contains only company A's promotions; company B's
-        //         rows are excluded by the WHERE company_id = @p_company_id filter.
-        return Task.CompletedTask;
+        await using var conn = await IntegrationDb.OpenAsync();
+        var companyId = await IntegrationDb.SeedCompanyAsync(conn);
+        var userId = await IntegrationDb.SeedUserAsync(conn, companyId);
+        return (companyId, userId);
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task GetAllAsync_OrdersByCreatedAtDescending()
+    // Defaults to type=percentage with discount_percent set, since promotion's
+    // chk_promotion_type_columns CHECK constraint (067_promotion_schema_retry.sql) requires
+    // discount_percent for 'percentage' and buy_quantity+get_quantity for 'bxgy'.
+    private static Promotion NewPromotion(
+        int companyId, int userId, string name = "Test Promotion", string type = "percentage",
+        decimal? discountPercent = 10m, int? buyQuantity = null, int? getQuantity = null,
+        string scope = "store_wide", string? scopeValue = null,
+        DateTime? startDate = null, DateTime? endDate = null, bool isActive = true) => new()
     {
-        // Arrange: insert promotion rows for the company with created_at values
-        //          t1 < t2 < t3.
-        // Act: repository.GetAllAsync(companyId)
-        // Assert: returned list is ordered [t3, t2, t1] (ORDER BY created_at DESC).
-        return Task.CompletedTask;
+        CompanyId = companyId,
+        Name = name,
+        Type = type,
+        DiscountPercent = discountPercent,
+        BuyQuantity = buyQuantity,
+        GetQuantity = getQuantity,
+        Scope = scope,
+        ScopeValue = scopeValue,
+        StartDate = startDate ?? DateTime.UtcNow.AddDays(-1),
+        EndDate = endDate,
+        IsActive = isActive,
+        CreatedBy = userId,
+    };
+
+    [IntegrationFact]
+    public async Task GetAllAsync_ReturnsOnlyRowsForGivenCompanyId()
+    {
+        IntegrationDb.UseForRepositories();
+        var repo = new PromotionRepository();
+        var (companyA, userA) = await SeedTenantAsync();
+        var (companyB, userB) = await SeedTenantAsync();
+
+        await repo.CreateAsync(NewPromotion(companyA, userA));
+        await repo.CreateAsync(NewPromotion(companyA, userA));
+        await repo.CreateAsync(NewPromotion(companyB, userB));
+
+        var result = await repo.GetAllAsync(companyA);
+
+        result.Should().HaveCount(2);
+        result.Should().OnlyContain(p => p.CompanyId == companyA);
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task GetAllAsync_NoRows_ReturnsEmptyList()
+    [IntegrationFact]
+    public async Task GetAllAsync_OrdersByCreatedAtDescending()
     {
-        // Arrange: empty promotion table for the company.
-        // Act: repository.GetAllAsync(companyId)
-        // Assert: empty list (not null).
-        return Task.CompletedTask;
+        IntegrationDb.UseForRepositories();
+        var repo = new PromotionRepository();
+        var (companyId, userId) = await SeedTenantAsync();
+
+        var first = await repo.CreateAsync(NewPromotion(companyId, userId, name: "First"));
+        var second = await repo.CreateAsync(NewPromotion(companyId, userId, name: "Second"));
+        var third = await repo.CreateAsync(NewPromotion(companyId, userId, name: "Third"));
+
+        var result = await repo.GetAllAsync(companyId);
+
+        result.Select(p => p.Id).Should().Equal(third.Id, second.Id, first.Id);
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task GetActiveAsync_IncludesPromotionsActiveOnDate()
+    [IntegrationFact]
+    public async Task GetAllAsync_NoRows_ReturnsEmptyList()
     {
-        // Arrange: insert promotion with is_active = TRUE, start_date < date,
-        //          and end_date > date.
-        // Act: repository.GetActiveAsync(companyId, date)
-        // Assert: promotion is included in the returned list.
-        return Task.CompletedTask;
+        IntegrationDb.UseForRepositories();
+        var repo = new PromotionRepository();
+        var (companyId, _) = await SeedTenantAsync();
+
+        var result = await repo.GetAllAsync(companyId);
+
+        result.Should().NotBeNull();
+        result.Should().BeEmpty();
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task GetActiveAsync_ExcludesInactivePromotions()
+    [IntegrationFact]
+    public async Task GetActiveAsync_IncludesPromotionsActiveOnDate()
     {
-        // Arrange: insert promotion with is_active = FALSE but a date range that
-        //          would otherwise match.
-        // Act: repository.GetActiveAsync(companyId, date)
-        // Assert: promotion is NOT included (is_active = TRUE filter).
-        return Task.CompletedTask;
+        IntegrationDb.UseForRepositories();
+        var repo = new PromotionRepository();
+        var (companyId, userId) = await SeedTenantAsync();
+        var queryDate = DateTime.UtcNow;
+        await repo.CreateAsync(NewPromotion(companyId, userId,
+            startDate: queryDate.AddDays(-5), endDate: queryDate.AddDays(5), isActive: true));
+
+        var result = await repo.GetActiveAsync(companyId, queryDate);
+
+        result.Should().ContainSingle();
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task GetActiveAsync_ExcludesPromotionsNotYetStarted()
+    [IntegrationFact]
+    public async Task GetActiveAsync_ExcludesInactivePromotions()
     {
-        // Arrange: insert promotion with start_date > date.
-        // Act: repository.GetActiveAsync(companyId, date)
-        // Assert: promotion is NOT included (start_date <= @p_date filter).
-        return Task.CompletedTask;
+        IntegrationDb.UseForRepositories();
+        var repo = new PromotionRepository();
+        var (companyId, userId) = await SeedTenantAsync();
+        var queryDate = DateTime.UtcNow;
+        await repo.CreateAsync(NewPromotion(companyId, userId,
+            startDate: queryDate.AddDays(-5), endDate: queryDate.AddDays(5), isActive: false));
+
+        var result = await repo.GetActiveAsync(companyId, queryDate);
+
+        result.Should().BeEmpty();
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task GetActiveAsync_ExcludesPromotionsAlreadyEnded()
+    [IntegrationFact]
+    public async Task GetActiveAsync_ExcludesPromotionsNotYetStarted()
     {
-        // Arrange: insert promotion with end_date < date (and not null).
-        // Act: repository.GetActiveAsync(companyId, date)
-        // Assert: promotion is NOT included
-        //         (end_date IS NULL OR end_date >= @p_date filter).
-        return Task.CompletedTask;
+        IntegrationDb.UseForRepositories();
+        var repo = new PromotionRepository();
+        var (companyId, userId) = await SeedTenantAsync();
+        var queryDate = DateTime.UtcNow;
+        await repo.CreateAsync(NewPromotion(companyId, userId,
+            startDate: queryDate.AddDays(5), endDate: queryDate.AddDays(10), isActive: true));
+
+        var result = await repo.GetActiveAsync(companyId, queryDate);
+
+        result.Should().BeEmpty();
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task GetActiveAsync_IncludesPromotionsWithNullEndDate()
+    [IntegrationFact]
+    public async Task GetActiveAsync_ExcludesPromotionsAlreadyEnded()
     {
-        // Edge case from AC: open-ended promotions.
-        // Arrange: insert promotion with is_active = TRUE, start_date <= date,
-        //          end_date = NULL.
-        // Act: repository.GetActiveAsync(companyId, date)
-        // Assert: promotion IS included — the (end_date IS NULL OR ...) branch
-        //         of the predicate keeps open-ended promotions in the result set.
-        return Task.CompletedTask;
+        IntegrationDb.UseForRepositories();
+        var repo = new PromotionRepository();
+        var (companyId, userId) = await SeedTenantAsync();
+        var queryDate = DateTime.UtcNow;
+        await repo.CreateAsync(NewPromotion(companyId, userId,
+            startDate: queryDate.AddDays(-10), endDate: queryDate.AddDays(-5), isActive: true));
+
+        var result = await repo.GetActiveAsync(companyId, queryDate);
+
+        result.Should().BeEmpty();
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task GetActiveAsync_IncludesPromotionsStartingToday()
+    [IntegrationFact]
+    public async Task GetActiveAsync_IncludesPromotionsWithNullEndDate()
     {
-        // Edge case from AC: start_date equal to query date (inclusive boundary).
-        // Arrange: insert promotion with start_date = date, end_date >= date,
-        //          is_active = TRUE.
-        // Act: repository.GetActiveAsync(companyId, date)
-        // Assert: promotion IS included (start_date <= @p_date is inclusive).
-        return Task.CompletedTask;
+        IntegrationDb.UseForRepositories();
+        var repo = new PromotionRepository();
+        var (companyId, userId) = await SeedTenantAsync();
+        var queryDate = DateTime.UtcNow;
+        await repo.CreateAsync(NewPromotion(companyId, userId,
+            startDate: queryDate.AddDays(-5), endDate: null, isActive: true));
+
+        var result = await repo.GetActiveAsync(companyId, queryDate);
+
+        result.Should().ContainSingle();
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task GetActiveAsync_IncludesPromotionsEndingToday()
+    [IntegrationFact]
+    public async Task GetActiveAsync_IncludesPromotionsStartingToday()
     {
-        // Edge case: end_date equal to query date (inclusive boundary).
-        // Arrange: insert promotion with start_date <= date, end_date = date,
-        //          is_active = TRUE.
-        // Act: repository.GetActiveAsync(companyId, date)
-        // Assert: promotion IS included (end_date >= @p_date is inclusive).
-        return Task.CompletedTask;
+        IntegrationDb.UseForRepositories();
+        var repo = new PromotionRepository();
+        var (companyId, userId) = await SeedTenantAsync();
+        var queryDate = DateTime.UtcNow;
+        await repo.CreateAsync(NewPromotion(companyId, userId,
+            startDate: queryDate, endDate: queryDate.AddDays(5), isActive: true));
+
+        var result = await repo.GetActiveAsync(companyId, queryDate);
+
+        result.Should().ContainSingle();
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task GetActiveAsync_ScopedByCompanyId_DoesNotLeakAcrossTenants()
+    [IntegrationFact]
+    public async Task GetActiveAsync_IncludesPromotionsEndingToday()
     {
-        // Arrange: insert an active promotion under company A and another under
-        //          company B, both valid for the query date.
-        // Act: repository.GetActiveAsync(companyIdA, date)
-        // Assert: only company A's promotion is returned; company B's is excluded.
-        return Task.CompletedTask;
+        IntegrationDb.UseForRepositories();
+        var repo = new PromotionRepository();
+        var (companyId, userId) = await SeedTenantAsync();
+        var queryDate = DateTime.UtcNow;
+        await repo.CreateAsync(NewPromotion(companyId, userId,
+            startDate: queryDate.AddDays(-5), endDate: queryDate, isActive: true));
+
+        var result = await repo.GetActiveAsync(companyId, queryDate);
+
+        result.Should().ContainSingle();
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task CreateAsync_PersistsAllFields_AndReturnsRowWithId()
+    [IntegrationFact]
+    public async Task GetActiveAsync_ScopedByCompanyId_DoesNotLeakAcrossTenants()
     {
-        // AC: verifies all fields including Type, Scope, ScopeValue,
-        //     DiscountPercent, BuyQuantity, GetQuantity.
-        // Arrange: build a Promotion with non-default values for every column:
-        //          CompanyId, Name, Type, DiscountPercent, BuyQuantity,
-        //          GetQuantity, Scope, ScopeValue, StartDate, EndDate, IsActive,
-        //          CreatedBy.
-        // Act: repository.CreateAsync(promotion)
-        // Assert: returned Promotion has Id > 0, CreatedAt populated by NOW(),
-        //         and every input field round-tripped via the RETURNING clause
-        //         (Type, Scope, ScopeValue, DiscountPercent, BuyQuantity,
-        //         GetQuantity match the input).
-        return Task.CompletedTask;
+        IntegrationDb.UseForRepositories();
+        var repo = new PromotionRepository();
+        var (companyA, userA) = await SeedTenantAsync();
+        var (companyB, userB) = await SeedTenantAsync();
+        var queryDate = DateTime.UtcNow;
+        await repo.CreateAsync(NewPromotion(companyA, userA,
+            startDate: queryDate.AddDays(-1), endDate: queryDate.AddDays(1), isActive: true));
+        await repo.CreateAsync(NewPromotion(companyB, userB,
+            startDate: queryDate.AddDays(-1), endDate: queryDate.AddDays(1), isActive: true));
+
+        var result = await repo.GetActiveAsync(companyA, queryDate);
+
+        result.Should().ContainSingle().Which.CompanyId.Should().Be(companyA);
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task CreateAsync_NullableFields_PersistedAsNull()
+    [IntegrationFact]
+    public async Task CreateAsync_PersistsAllFields_AndReturnsRowWithId()
     {
-        // Arrange: build a Promotion with DiscountPercent, BuyQuantity,
-        //          GetQuantity, ScopeValue, and EndDate set to null.
-        // Act: repository.CreateAsync(promotion)
-        // Assert: returned Promotion has those fields == null (parameter binding
-        //         does not coerce nulls into defaults).
-        return Task.CompletedTask;
+        IntegrationDb.UseForRepositories();
+        var repo = new PromotionRepository();
+        var (companyId, userId) = await SeedTenantAsync();
+        var startDate = DateTime.UtcNow.AddDays(-1);
+        var endDate = DateTime.UtcNow.AddDays(30);
+
+        var created = await repo.CreateAsync(NewPromotion(
+            companyId, userId, name: "BOGO Deal", type: "bxgy", discountPercent: null,
+            buyQuantity: 2, getQuantity: 1, scope: "category", scopeValue: "Trading Cards",
+            startDate: startDate, endDate: endDate, isActive: true));
+
+        created.Id.Should().BeGreaterThan(0);
+        created.CreatedAt.Should().NotBe(default);
+        created.CompanyId.Should().Be(companyId);
+        created.Name.Should().Be("BOGO Deal");
+        created.Type.Should().Be("bxgy");
+        created.BuyQuantity.Should().Be(2);
+        created.GetQuantity.Should().Be(1);
+        created.Scope.Should().Be("category");
+        created.ScopeValue.Should().Be("Trading Cards");
+        created.IsActive.Should().BeTrue();
+        created.CreatedBy.Should().Be(userId);
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task GetByIdAsync_ExistingRow_ReturnsPromotion()
+    [IntegrationFact]
+    public async Task CreateAsync_NullableFields_PersistedAsNull()
     {
-        // Arrange: insert a promotion row for the company.
-        // Act: repository.GetByIdAsync(id, companyId)
-        // Assert: returned Promotion matches the inserted row across all columns.
-        return Task.CompletedTask;
+        IntegrationDb.UseForRepositories();
+        var repo = new PromotionRepository();
+        var (companyId, userId) = await SeedTenantAsync();
+
+        var created = await repo.CreateAsync(NewPromotion(
+            companyId, userId, type: "percentage", discountPercent: 15m,
+            buyQuantity: null, getQuantity: null, scopeValue: null, endDate: null));
+
+        created.BuyQuantity.Should().BeNull();
+        created.GetQuantity.Should().BeNull();
+        created.ScopeValue.Should().BeNull();
+        created.EndDate.Should().BeNull();
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task GetByIdAsync_WrongCompanyId_ReturnsNull()
+    [IntegrationFact]
+    public async Task GetByIdAsync_ExistingRow_ReturnsPromotion()
     {
-        // Arrange: insert a promotion under company A.
-        // Act: repository.GetByIdAsync(id, companyIdB)
-        // Assert: null — the AND company_id = @p_company_id clause prevents
-        //         cross-tenant reads even when the id matches.
-        return Task.CompletedTask;
+        IntegrationDb.UseForRepositories();
+        var repo = new PromotionRepository();
+        var (companyId, userId) = await SeedTenantAsync();
+        var created = await repo.CreateAsync(NewPromotion(companyId, userId, name: "Lookup Me"));
+
+        var fetched = await repo.GetByIdAsync(created.Id, companyId);
+
+        fetched.Should().NotBeNull();
+        fetched!.Id.Should().Be(created.Id);
+        fetched.Name.Should().Be("Lookup Me");
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task UpdateAsync_PersistsIsActiveToggle()
+    [IntegrationFact]
+    public async Task GetByIdAsync_WrongCompanyId_ReturnsNull()
     {
-        // AC: verifies IsActive toggle is persisted.
-        // Arrange: insert an active promotion (is_active = TRUE), then build an
-        //          updated Promotion with the same Id and CompanyId but
-        //          IsActive = false.
-        // Act: repository.UpdateAsync(promotion)
-        // Assert: returned Promotion is non-null and IsActive == false; a
-        //         subsequent GetByIdAsync confirms the column is persisted as
-        //         FALSE in the row.
-        return Task.CompletedTask;
+        IntegrationDb.UseForRepositories();
+        var repo = new PromotionRepository();
+        var (companyA, userA) = await SeedTenantAsync();
+        var (companyB, _) = await SeedTenantAsync();
+        var created = await repo.CreateAsync(NewPromotion(companyA, userA));
+
+        (await repo.GetByIdAsync(created.Id, companyB)).Should().BeNull();
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task UpdateAsync_PersistsAllMutableFields()
+    [IntegrationFact]
+    public async Task UpdateAsync_PersistsIsActiveToggle()
     {
-        // Arrange: insert a promotion, then mutate every mutable column (Name,
-        //          Type, DiscountPercent, BuyQuantity, GetQuantity, Scope,
-        //          ScopeValue, StartDate, EndDate, IsActive).
-        // Act: repository.UpdateAsync(promotion)
-        // Assert: returned Promotion reflects every new value (re-read via
-        //         GetByIdAsync inside UpdateAsync).
-        return Task.CompletedTask;
+        IntegrationDb.UseForRepositories();
+        var repo = new PromotionRepository();
+        var (companyId, userId) = await SeedTenantAsync();
+        var created = await repo.CreateAsync(NewPromotion(companyId, userId, isActive: true));
+
+        created.IsActive = false;
+        var updated = await repo.UpdateAsync(created);
+
+        updated.Should().NotBeNull();
+        updated!.IsActive.Should().BeFalse();
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task UpdateAsync_NonExistentId_ReturnsNull()
+    [IntegrationFact]
+    public async Task UpdateAsync_PersistsAllMutableFields()
     {
-        // Arrange: no promotion row with the given id exists for the company.
-        // Act: repository.UpdateAsync(promotion)
-        // Assert: null (rows affected == 0 short-circuits before GetByIdAsync).
-        return Task.CompletedTask;
+        IntegrationDb.UseForRepositories();
+        var repo = new PromotionRepository();
+        var (companyId, userId) = await SeedTenantAsync();
+        var created = await repo.CreateAsync(NewPromotion(companyId, userId, name: "Original"));
+
+        created.Name = "Changed";
+        created.Type = "bxgy";
+        created.DiscountPercent = null;
+        created.BuyQuantity = 3;
+        created.GetQuantity = 1;
+        created.Scope = "item";
+        created.ScopeValue = "42";
+        created.StartDate = DateTime.UtcNow.AddDays(-2);
+        created.EndDate = DateTime.UtcNow.AddDays(60);
+        created.IsActive = false;
+
+        var updated = await repo.UpdateAsync(created);
+
+        updated.Should().NotBeNull();
+        updated!.Name.Should().Be("Changed");
+        updated.Type.Should().Be("bxgy");
+        updated.BuyQuantity.Should().Be(3);
+        updated.GetQuantity.Should().Be(1);
+        updated.Scope.Should().Be("item");
+        updated.ScopeValue.Should().Be("42");
+        updated.IsActive.Should().BeFalse();
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task UpdateAsync_WrongCompanyId_DoesNotMutateRow_ReturnsNull()
+    [IntegrationFact]
+    public async Task UpdateAsync_NonExistentId_ReturnsNull()
     {
-        // Arrange: insert a promotion under company A.
-        // Act: repository.UpdateAsync(promotion with CompanyId = B but Id = A's id)
-        // Assert: null — the WHERE company_id = @p_company_id clause prevents
-        //         cross-tenant writes. The original row remains unchanged.
-        return Task.CompletedTask;
+        IntegrationDb.UseForRepositories();
+        var repo = new PromotionRepository();
+        var (companyId, userId) = await SeedTenantAsync();
+        var ghost = NewPromotion(companyId, userId);
+        ghost.Id = 999999;
+
+        (await repo.UpdateAsync(ghost)).Should().BeNull();
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task DeleteAsync_ExistingRow_RemovesRowAndReturnsTrue()
+    [IntegrationFact]
+    public async Task UpdateAsync_WrongCompanyId_DoesNotMutateRow_ReturnsNull()
     {
-        // AC: verifies row removed.
-        // Arrange: insert a promotion for the company.
-        // Act: repository.DeleteAsync(id, companyId)
-        // Assert: returns true; a subsequent GetByIdAsync returns null.
-        return Task.CompletedTask;
+        IntegrationDb.UseForRepositories();
+        var repo = new PromotionRepository();
+        var (companyA, userA) = await SeedTenantAsync();
+        var (companyB, _) = await SeedTenantAsync();
+        var created = await repo.CreateAsync(NewPromotion(companyA, userA, name: "Untouched"));
+
+        var spoofed = NewPromotion(companyB, userA, name: "Hacked");
+        spoofed.Id = created.Id;
+
+        (await repo.UpdateAsync(spoofed)).Should().BeNull();
+
+        var stillOriginal = await repo.GetByIdAsync(created.Id, companyA);
+        stillOriginal!.Name.Should().Be("Untouched");
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task DeleteAsync_NonExistentRow_ReturnsFalse()
+    [IntegrationFact]
+    public async Task DeleteAsync_ExistingRow_RemovesRowAndReturnsTrue()
     {
-        // Arrange: no promotion row with the given id exists for the company.
-        // Act: repository.DeleteAsync(id, companyId)
-        // Assert: returns false (rows affected == 0).
-        return Task.CompletedTask;
+        IntegrationDb.UseForRepositories();
+        var repo = new PromotionRepository();
+        var (companyId, userId) = await SeedTenantAsync();
+        var created = await repo.CreateAsync(NewPromotion(companyId, userId));
+
+        var deleted = await repo.DeleteAsync(created.Id, companyId);
+
+        deleted.Should().BeTrue();
+        (await repo.GetByIdAsync(created.Id, companyId)).Should().BeNull();
     }
 
-    [Fact(Skip = "Requires integration test setup with actual database")]
-    public Task DeleteAsync_WrongCompanyId_DoesNotRemoveRow_ReturnsFalse()
+    [IntegrationFact]
+    public async Task DeleteAsync_NonExistentRow_ReturnsFalse()
     {
-        // Arrange: insert a promotion under company A.
-        // Act: repository.DeleteAsync(id, companyIdB)
-        // Assert: returns false; the row under company A is still present
-        //         (AND company_id = @p_company_id prevents cross-tenant delete).
-        return Task.CompletedTask;
+        IntegrationDb.UseForRepositories();
+        var repo = new PromotionRepository();
+        var (companyId, _) = await SeedTenantAsync();
+
+        (await repo.DeleteAsync(999999, companyId)).Should().BeFalse();
+    }
+
+    [IntegrationFact]
+    public async Task DeleteAsync_WrongCompanyId_DoesNotRemoveRow_ReturnsFalse()
+    {
+        IntegrationDb.UseForRepositories();
+        var repo = new PromotionRepository();
+        var (companyA, userA) = await SeedTenantAsync();
+        var (companyB, _) = await SeedTenantAsync();
+        var created = await repo.CreateAsync(NewPromotion(companyA, userA));
+
+        var deleted = await repo.DeleteAsync(created.Id, companyB);
+
+        deleted.Should().BeFalse();
+        (await repo.GetByIdAsync(created.Id, companyA)).Should().NotBeNull();
     }
 }

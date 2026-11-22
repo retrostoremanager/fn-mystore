@@ -1,0 +1,23 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;TableEndpoint=http://azurite:10002/devstoreaccount1;",
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+    "ASPNETCORE_ENVIRONMENT": "Development",
+    "ConnectionStrings__DefaultConnection": "Host=postgres;Port=5432;Database=mystore_db;Username=postgres;Password=postgres",
+    "JwtAuthentication__SecretKey": "local-dev-shared-secret-key-only-min-32chars",
+    "Stripe__SecretKey": "NOT-A-REAL-KEY-add-your-own-sk_test-via-docker-compose-override",
+    "Stripe__PublishableKey": "NOT-A-REAL-KEY-add-your-own-pk_test-via-docker-compose-override",
+    "Stripe__WebhookSecret": "NOT-A-REAL-SECRET-add-your-own-whsec-via-docker-compose-override",
+    "Stripe__PriceIdBasic": "NOT-A-REAL-PRICE-ID",
+    "Stripe__PriceIdPro": "NOT-A-REAL-PRICE-ID",
+    "Stripe__PriceIdEnterprise": "NOT-A-REAL-PRICE-ID",
+    "Stripe__AddOnPriceIdLotScanner": "NOT-A-REAL-PRICE-ID",
+    "Cors__AllowedOrigins": "http://localhost:5173,http://localhost:8081",
+    "CORS": "*",
+    "CORSCredentials": false
+  },
+  "Host": {
+    "CORS": "*"
+  }
+}
