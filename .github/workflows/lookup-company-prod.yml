@@ -1,13 +1,17 @@
 name: Lookup Company (prod, temp)
 
 # One-off, read-only: find a company in the prod DB by a fuzzy name match.
+# Uses az CLI's postgres execute (via azure/login) instead of a direct psql
+# connection -- prod's Postgres firewall only allows Azure services, not a
+# GitHub-hosted runner's public IP, so a direct connection (reset-company-billing.yml's
+# dev-only approach) times out here.
 # No writes. Delete this workflow once the lookup it was needed for is done.
 
 on:
   workflow_dispatch:
     inputs:
       name_pattern:
-        description: 'ILIKE pattern to match against company name/slug (e.g. %my store%)'
+        description: 'ILIKE pattern to match against company name/slug/email (e.g. %my store%)'
         required: true
 
 concurrency:
@@ -18,21 +22,19 @@ jobs:
   lookup:
     runs-on: ubuntu-latest
     steps:
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
     - name: Query company table
       env:
         POSTGRES_ADMIN_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
-        PGSSLMODE: require
         NAME_PATTERN: ${{ github.event.inputs.name_pattern }}
       run: |
-        sudo apt-get install -y postgresql-client --quiet
-        PGPASSWORD="$POSTGRES_ADMIN_PASSWORD" psql \
-          "postgresql://sqladmin@mystore-postgres-prod.postgres.database.azure.com/mystore-db-prod" \
-          -v ON_ERROR_STOP=1 \
-          -v pattern="$NAME_PATTERN" \
-          <<'SQL'
-        \set pattern :pattern
-        SELECT c.id AS company_id, c.company_name, c.slug, c.email, s.id AS subscription_id, s.stripe_subscription_id, s.status AS subscription_status
-        FROM company c
-        LEFT JOIN subscription s ON s.company_id = c.id
-        WHERE c.company_name ILIKE :'pattern' OR c.slug ILIKE :'pattern' OR c.email ILIKE :'pattern';
-        SQL
+        az postgres flexible-server execute \
+          --name mystore-postgres-prod \
+          --admin-user sqladmin \
+          --admin-password "$POSTGRES_ADMIN_PASSWORD" \
+          --database-name mystore-db-prod \
+          --querytext "SELECT c.id AS company_id, c.company_name, c.slug, c.email, s.id AS subscription_id, s.stripe_subscription_id, s.status AS subscription_status FROM company c LEFT JOIN subscription s ON s.company_id = c.id WHERE c.company_name ILIKE '${NAME_PATTERN}' OR c.slug ILIKE '${NAME_PATTERN}' OR c.email ILIKE '${NAME_PATTERN}';"
