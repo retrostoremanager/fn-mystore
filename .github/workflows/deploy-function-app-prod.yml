@@ -4,6 +4,15 @@ name: Deploy Function App (prod)
 # Code-only deploy -- doesn't touch DB migrations or app settings, both of which are
 # handled separately for prod (app settings are provisioned/updated by hand or via a
 # dedicated one-off workflow, not bundled into every code deploy here).
+#
+# mystore-func-prod runs on Flex Consumption (Linux) as of 2026-11-24, after Windows
+# Consumption's host runtime proved unable to reliably specialize .NET 9/10
+# isolated-worker apps on this subscription's scale unit. Flex Consumption uses a
+# different deployment model than classic zip-deploy: az functionapp deployment
+# source config-zip and even az functionapp deploy / Azure/functions-action were all
+# confirmed to silently no-op against it (the function list stayed stuck on the
+# system WarmUp placeholder). Azure Functions Core Tools (func azure functionapp
+# publish) is the only method confirmed to actually work here.
 on:
   workflow_dispatch:
     inputs:
@@ -32,34 +41,23 @@ jobs:
       with:
         dotnet-version: '10.0.x'
 
-    - name: Restore dependencies
-      run: dotnet restore MyStore.sln
+    - name: Install Azure Functions Core Tools
+      run: npm install -g azure-functions-core-tools@4 --unsafe-perm true
+
+    - name: Restore dependencies (linux-x64)
+      run: dotnet restore MyStore.sln --runtime linux-x64
 
     - name: Build
       run: dotnet build MyStore.sln --configuration Release --no-restore
-
-    - name: Publish
-      run: dotnet publish MyStore.Functions/MyStore.Functions.csproj --configuration Release --output ./publish --no-build
 
     - name: Azure Login
       uses: azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: Deploy to Azure Function App
-      run: |
-        cd publish
-        zip -r ../deploy.zip . -x "*.git*"
-        cd ..
-        az functionapp deployment source config-zip \
-          --resource-group mystore-rg-prod \
-          --name mystore-func-prod \
-          --src deploy.zip
-
-    - name: Restart Function App
-      run: |
-        az functionapp restart --name mystore-func-prod --resource-group mystore-rg-prod --output none
-        echo "Function App restarted."
+    - name: Publish with Azure Functions Core Tools
+      working-directory: MyStore.Functions
+      run: func azure functionapp publish mystore-func-prod --dotnet-isolated
 
     - name: Deployment Complete
       run: |
