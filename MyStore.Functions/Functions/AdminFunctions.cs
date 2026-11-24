@@ -65,7 +65,7 @@ public class AdminFunctions
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error creating test company");
-            return await CreateHttpResponse(req, ApiResponse<CreateTestCompanyResponse>.ErrorResponse($"DEBUG: {ex.GetType().Name}: {ex.Message} | Inner: {ex.InnerException?.Message}"), HttpStatusCode.InternalServerError);
+            return await CreateHttpResponse(req, ApiResponse<CreateTestCompanyResponse>.ErrorResponse("An error occurred while creating the test company."), HttpStatusCode.InternalServerError);
         }
     }
 
