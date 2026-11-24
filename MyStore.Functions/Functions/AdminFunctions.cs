@@ -34,7 +34,7 @@ public class AdminFunctions
     // Active, with a synthetic subscription row so add-on entitlement checks work.
     [Function("CreateTestCompany")]
     public async Task<HttpResponseData> CreateTestCompany(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "admin/test-companies")] HttpRequestData req)
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "internal-admin/test-companies")] HttpRequestData req)
     {
         if (!IsAuthorized(req))
         {
