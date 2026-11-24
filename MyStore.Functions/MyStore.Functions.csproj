@@ -8,6 +8,13 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Azure.Functions.Worker" Version="2.0.0" />
+    <!-- Pinned explicitly: some other transitive dependency floors Microsoft.Extensions.Hosting.Abstractions
+         to a mismatched 10.x while Hosting itself stays at 9.0.0, which crashes the isolated worker process
+         live in prod with a FileNotFoundException on Microsoft.Extensions.Hosting even though the physical
+         file is present; the CLR's failure to resolve Hosting's own Abstractions reference gets reported
+         against the outer Hosting assembly. -->
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.0" />
     <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="8.23.0" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.23.0" />
     <PackageReference Include="Microsoft.Azure.Functions.Worker.Sdk" Version="2.1.0" />
