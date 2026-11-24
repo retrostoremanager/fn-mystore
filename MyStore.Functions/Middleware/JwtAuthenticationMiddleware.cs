@@ -37,7 +37,8 @@ public class JwtAuthenticationMiddleware : IFunctionsWorkerMiddleware
         "ResetPassword",
         "SetPasswordForInvite",
         "StripeWebhook",
-        "Health"
+        "Health",
+        "CreateTestCompany"
     };
 
     private readonly IConfiguration _configuration;
