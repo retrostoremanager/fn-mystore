@@ -1,0 +1,67 @@
+name: Deploy Function App (prod)
+
+# Manual-only on purpose: prod should never deploy as a side effect of a dev push.
+# Code-only deploy -- doesn't touch DB migrations or app settings, both of which are
+# handled separately for prod (app settings are provisioned/updated by hand or via a
+# dedicated one-off workflow, not bundled into every code deploy here).
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch/ref to deploy'
+        required: false
+        default: 'main'
+
+concurrency:
+  group: deploy-function-app-prod
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.ref || 'main' }}
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore MyStore.sln
+
+    - name: Build
+      run: dotnet build MyStore.sln --configuration Release --no-restore
+
+    - name: Publish
+      run: dotnet publish MyStore.Functions/MyStore.Functions.csproj --configuration Release --output ./publish --no-build
+
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Deploy to Azure Function App
+      run: |
+        cd publish
+        zip -r ../deploy.zip . -x "*.git*"
+        cd ..
+        az functionapp deployment source config-zip \
+          --resource-group mystore-rg-prod \
+          --name mystore-func-prod \
+          --src deploy.zip
+
+    - name: Restart Function App
+      run: |
+        az functionapp restart --name mystore-func-prod --resource-group mystore-rg-prod --output none
+        echo "Function App restarted."
+
+    - name: Deployment Complete
+      run: |
+        echo "fn-mystore deployed to prod successfully!"
+        echo "URL: https://mystore-func-prod.azurewebsites.net"
