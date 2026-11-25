@@ -6,6 +6,7 @@
     "ASPNETCORE_ENVIRONMENT": "Development",
     "ConnectionStrings__DefaultConnection": "Host=postgres;Port=5432;Database=mystore_db;Username=postgres;Password=postgres",
     "JwtAuthentication__SecretKey": "local-dev-shared-secret-key-only-min-32chars",
+    "AdminApiKey": "local-dev-admin-key-not-a-secret",
     "Stripe__SecretKey": "NOT-A-REAL-KEY-add-your-own-sk_test-via-docker-compose-override",
     "Stripe__PublishableKey": "NOT-A-REAL-KEY-add-your-own-pk_test-via-docker-compose-override",
     "Stripe__WebhookSecret": "NOT-A-REAL-SECRET-add-your-own-whsec-via-docker-compose-override",
