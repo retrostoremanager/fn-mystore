@@ -133,9 +133,9 @@ public class SalesRepository : ISalesRepository
         {
             const string insertSale = @"INSERT INTO sale (company_id, customer_id, user_id,
                     subtotal, tax, total_amount, subtotal_amount, tax_amount, discount_total,
-                    payment_method, sale_date, notes, created_date)
+                    payment_method, sale_date, notes)
                 VALUES (@CompanyId, @CustomerId, @UserId, @Subtotal, @Tax, @Total, @SubtotalAmount, @TaxAmount, @DiscountTotal,
-                    @PaymentMethod, @SaleDate, @Notes, NOW())
+                    @PaymentMethod, @SaleDate, @Notes)
                 RETURNING id";
 
             var saleId = await connection.ExecuteScalarAsync<int>(insertSale, new
@@ -157,10 +157,10 @@ public class SalesRepository : ISalesRepository
             sale.Id = saleId;
             sale.SaleDate = saleDate;
 
-            const string insertItem = @"INSERT INTO sale_item (sale_id, inventory_item_id, quantity, unit_price, subtotal, total_price,
-                    discount_amount, promotion_id, promotion_name, created_date)
-                VALUES (@SaleId, @InventoryItemId, @Quantity, @UnitPrice, @Subtotal, @TotalPrice,
-                    @DiscountAmount, @PromotionId, @PromotionName, NOW())
+            const string insertItem = @"INSERT INTO sale_item (sale_id, inventory_item_id, quantity, unit_price, total_price,
+                    discount_amount, promotion_id, promotion_name)
+                VALUES (@SaleId, @InventoryItemId, @Quantity, @UnitPrice, @TotalPrice,
+                    @DiscountAmount, @PromotionId, @PromotionName)
                 RETURNING id";
 
             foreach (var item in sale.Items)
@@ -171,7 +171,6 @@ public class SalesRepository : ISalesRepository
                     item.InventoryItemId,
                     item.Quantity,
                     item.UnitPrice,
-                    Subtotal = item.Quantity * item.UnitPrice,
                     item.TotalPrice,
                     item.DiscountAmount,
                     item.PromotionId,
@@ -181,8 +180,8 @@ public class SalesRepository : ISalesRepository
                 item.SaleId = saleId;
             }
 
-            const string insertPromotion = @"INSERT INTO sale_promotion (sale_id, promotion_id, promotion_name, discount_amount, created_date)
-                VALUES (@SaleId, @PromotionId, @PromotionName, @DiscountAmount, NOW())";
+            const string insertPromotion = @"INSERT INTO sale_promotion (sale_id, promotion_id, promotion_name, discount_amount)
+                VALUES (@SaleId, @PromotionId, @PromotionName, @DiscountAmount)";
 
             foreach (var promo in sale.AppliedPromotions)
             {
