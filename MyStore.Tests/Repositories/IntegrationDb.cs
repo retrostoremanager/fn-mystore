@@ -80,4 +80,20 @@ internal static class IntegrationDb
             new { id, title = $"Test Game {id}" });
         return id;
     }
+
+    /// <summary>Insert a game_inventory row at the given location and return its id.</summary>
+    public static Task<int> SeedInventoryItemAsync(NpgsqlConnection conn, int companyId, int locationId, decimal sellPrice = 19.99m) =>
+        conn.ExecuteScalarAsync<int>(
+            @"INSERT INTO game_inventory (company_id, location_id, quantity, sell_price, buy_price, condition, added_date)
+              VALUES (@companyId, @locationId, 5, @sellPrice, 10.00, 'Good', NOW())
+              RETURNING id",
+            new { companyId, locationId, sellPrice });
+
+    /// <summary>Insert an active percentage promotion for the company and return its id.</summary>
+    public static Task<int> SeedPromotionAsync(NpgsqlConnection conn, int companyId, int createdByUserId) =>
+        conn.ExecuteScalarAsync<int>(
+            @"INSERT INTO promotion (company_id, name, type, discount_percent, scope, start_date, is_active, created_by)
+              VALUES (@companyId, '10% Off', 'percentage', 10, 'store_wide', NOW() - INTERVAL '1 day', true, @createdByUserId)
+              RETURNING id",
+            new { companyId, createdByUserId });
 }
