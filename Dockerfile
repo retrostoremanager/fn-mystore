@@ -6,7 +6,7 @@
 # regardless of whether Microsoft has published a matching runtime tag for whatever
 # .NET version this repo targets, and so local.settings.json's Host.CORS setting
 # (Core Tools-specific, not a normal app setting) actually takes effect.
-FROM mcr.microsoft.com/dotnet/sdk:8.0
+FROM mcr.microsoft.com/dotnet/sdk:10.0
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl gnupg \
