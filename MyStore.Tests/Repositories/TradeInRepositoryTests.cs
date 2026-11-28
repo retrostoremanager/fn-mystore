@@ -1,3 +1,4 @@
+using Dapper;
 using FluentAssertions;
 using MyStore.Models;
 using MyStore.Repositories;
@@ -349,5 +350,38 @@ public class TradeInRepositoryTests
         ghost.Id = 999999;
 
         (await repo.UpdateAsync(ghost)).Should().BeNull();
+    }
+
+    // Guards against a regression where the game_inventory INSERT referenced columns (price,
+    // cost, created_date) that don't exist on the table -- the real columns are sell_price,
+    // buy_price, added_date. Only a real round trip against the actual schema catches that.
+    [IntegrationFact]
+    public async Task CompleteWithInventoryUpsertAsync_NoExistingRow_InsertsNewGameInventoryRow()
+    {
+        IntegrationDb.UseForRepositories();
+        await using var conn = await IntegrationDb.OpenAsync();
+        var (companyId, userId) = await SeedTenantAsync();
+        var locationId = await IntegrationDb.SeedLocationAsync(conn, companyId);
+        var gameId = await IntegrationDb.SeedGameAsync(conn);
+
+        var repo = new TradeInRepository();
+        var tradeIn = await repo.CreateAsync(NewTradeIn(companyId, userId));
+        var item = await repo.AddItemAsync(NewItem(tradeIn.Id, condition: "good", accepted: 15m));
+
+        var request = new InventoryUpsertRequest(item.Id, gameId, "good", locationId, BuyPrice: 15m);
+        var (updated, upserts) = await repo.CompleteWithInventoryUpsertAsync(
+            tradeIn.Id, companyId, "cash", DateTime.UtcNow, new[] { request });
+
+        updated.Should().NotBeNull();
+        updated!.Status.Should().Be("completed");
+        upserts.Should().ContainSingle();
+        var inventoryId = upserts[0].InventoryItemId;
+
+        var row = await conn.QuerySingleAsync(
+            "SELECT quantity, sell_price, buy_price FROM game_inventory WHERE id = @id",
+            new { id = inventoryId });
+        ((int)row.quantity).Should().Be(1);
+        ((decimal)row.sell_price).Should().Be(0m);
+        ((decimal)row.buy_price).Should().Be(15m);
     }
 }
