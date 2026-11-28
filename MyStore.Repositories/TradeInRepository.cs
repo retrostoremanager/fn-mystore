@@ -302,8 +302,8 @@ public class TradeInRepository : ITradeInRepository
                 {
                     inventoryId = await connection.QuerySingleAsync<int>(
                         @"INSERT INTO game_inventory (
-                            company_id, location_id, quantity, price, cost, condition, game_id,
-                            notes, created_date, last_modified_date)
+                            company_id, location_id, quantity, sell_price, buy_price, condition, game_id,
+                            notes, added_date, last_modified_date)
                           VALUES (
                             @p_company_id, @p_location_id, 1, 0, @p_buy_price, @p_condition,
                             @p_game_id, NULL, NOW(), NOW())

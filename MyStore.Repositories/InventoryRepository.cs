@@ -23,8 +23,8 @@ public class InventoryRepository : IInventoryRepository
     public async Task<List<InventoryItem>> GetAllAsync(int companyId, int? locationId = null)
     {
         await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
-        var sql = @"SELECT ii.id, ii.company_id, ii.location_id, ii.quantity, ii.price as sell_price, ii.cost as buy_price,
-                     ii.condition, ii.game_id, ii.notes, ii.created_date as added_date, ii.last_modified_date,
+        var sql = @"SELECT ii.id, ii.company_id, ii.location_id, ii.quantity, ii.sell_price, ii.buy_price,
+                     ii.condition, ii.game_id, ii.notes, ii.added_date, ii.last_modified_date,
                      COALESCE(g.title, '') as name, COALESCE(g.genre, '') as category,
                      l.name as location_name,
                      g.id as game_id_val, g.title as game_title, g.console as game_console, g.release_date as game_release_date,
@@ -44,8 +44,8 @@ public class InventoryRepository : IInventoryRepository
     {
         await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         var row = await connection.QueryFirstOrDefaultAsync<InventoryItemRow>(
-            @"SELECT ii.id, ii.company_id, ii.location_id, ii.quantity, ii.price as sell_price, ii.cost as buy_price,
-                     ii.condition, ii.game_id, ii.notes, ii.created_date as added_date, ii.last_modified_date,
+            @"SELECT ii.id, ii.company_id, ii.location_id, ii.quantity, ii.sell_price, ii.buy_price,
+                     ii.condition, ii.game_id, ii.notes, ii.added_date, ii.last_modified_date,
                      COALESCE(g.title, '') as name, COALESCE(g.genre, '') as category,
                      l.name as location_name,
                      g.id as game_id_val, g.title as game_title, g.console as game_console, g.release_date as game_release_date,
@@ -62,8 +62,8 @@ public class InventoryRepository : IInventoryRepository
     {
         await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         var row = await connection.QueryFirstOrDefaultAsync<InventoryItemRow>(
-            @"SELECT ii.id, ii.company_id, ii.location_id, ii.quantity, ii.price as sell_price, ii.cost as buy_price,
-                     ii.condition, ii.game_id, ii.notes, ii.created_date as added_date, ii.last_modified_date,
+            @"SELECT ii.id, ii.company_id, ii.location_id, ii.quantity, ii.sell_price, ii.buy_price,
+                     ii.condition, ii.game_id, ii.notes, ii.added_date, ii.last_modified_date,
                      COALESCE(g.title, '') as name, COALESCE(g.genre, '') as category,
                      l.name as location_name,
                      g.id as game_id_val, g.title as game_title, g.console as game_console, g.release_date as game_release_date,
@@ -83,7 +83,7 @@ public class InventoryRepository : IInventoryRepository
     {
         await using var connection = await TenantConnection.OpenAsync(_connectionString, item.CompanyId);
         var id = await connection.QuerySingleAsync<int>(
-            @"INSERT INTO game_inventory (company_id, location_id, quantity, price, cost, condition, game_id, notes, created_date, last_modified_date)
+            @"INSERT INTO game_inventory (company_id, location_id, quantity, sell_price, buy_price, condition, game_id, notes, added_date, last_modified_date)
               VALUES (@p_company_id, @p_location_id, @p_quantity, @p_sell_price, @p_buy_price, @p_condition,
                   @p_game_id, @p_notes, NOW(), NOW())
               RETURNING id",
@@ -111,8 +111,8 @@ public class InventoryRepository : IInventoryRepository
             @"UPDATE game_inventory SET
                 location_id = @p_location_id,
                 quantity = @p_quantity,
-                price = @p_sell_price,
-                cost = @p_buy_price,
+                sell_price = @p_sell_price,
+                buy_price = @p_buy_price,
                 condition = @p_condition,
                 game_id = @p_game_id,
                 notes = @p_notes,
@@ -148,8 +148,8 @@ public class InventoryRepository : IInventoryRepository
         await using var connection = await TenantConnection.OpenAsync(_connectionString, companyId);
         var term = $"%{searchTerm.ToLowerInvariant()}%";
         var rows = await connection.QueryAsync<InventoryItemRow>(
-            @"SELECT ii.id, ii.company_id, ii.location_id, ii.quantity, ii.price as sell_price, ii.cost as buy_price,
-                     ii.condition, ii.game_id, ii.notes, ii.created_date as added_date, ii.last_modified_date,
+            @"SELECT ii.id, ii.company_id, ii.location_id, ii.quantity, ii.sell_price, ii.buy_price,
+                     ii.condition, ii.game_id, ii.notes, ii.added_date, ii.last_modified_date,
                      COALESCE(g.title, '') as name, COALESCE(g.genre, '') as category,
                      l.name as location_name,
                      g.id as game_id_val, g.title as game_title, g.console as game_console, g.release_date as game_release_date,
