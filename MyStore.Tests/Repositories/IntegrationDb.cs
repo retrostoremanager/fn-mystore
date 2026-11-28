@@ -61,4 +61,23 @@ internal static class IntegrationDb
               VALUES (@companyId, 'Cust', 'Omer', @email, NOW())
               RETURNING id",
             new { companyId, email = $"cust-{System.Guid.NewGuid():N}@example.test" });
+
+    /// <summary>Insert a location for the company and return its id. Required FK for game_inventory.</summary>
+    public static Task<int> SeedLocationAsync(NpgsqlConnection conn, int companyId) =>
+        conn.ExecuteScalarAsync<int>(
+            @"INSERT INTO location (company_id, name, is_primary, created_date)
+              VALUES (@companyId, @name, true, NOW())
+              RETURNING id",
+            new { companyId, name = $"loc-{System.Guid.NewGuid():N}" });
+
+    /// <summary>Insert a game_encyclopedia row and return its id (string PK).</summary>
+    public static async Task<string> SeedGameAsync(NpgsqlConnection conn)
+    {
+        var id = $"game-{System.Guid.NewGuid():N}";
+        await conn.ExecuteAsync(
+            @"INSERT INTO game_encyclopedia (id, title, console, genre)
+              VALUES (@id, @title, 'Test Console', 'Test Genre')",
+            new { id, title = $"Test Game {id}" });
+        return id;
+    }
 }
